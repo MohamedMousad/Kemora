@@ -73,12 +73,24 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
       );
       
       if (response.statusCode == 200) {
-        // Backend returns the new place as JSON string or object
-        // Assuming it's a JSON string representing the activity
+        // Backend returns the newActivity object directly as JSON
+        Map<String, dynamic> data;
         if (response.data is String) {
-          return ItineraryItemModel.fromJson(json.decode(response.data));
+          data = json.decode(response.data);
+        } else {
+          data = response.data;
         }
-        return ItineraryItemModel.fromJson(response.data);
+        
+        // Map the AI response fields to ItineraryItemModel fields
+        final mapped = {
+          'place': data['place'] ?? data['name'] ?? 'Alternative Place',
+          'description': data['description'] ?? '',
+          'time_of_day': data['time'] ?? data['time_of_day'] ?? data['time_slot'] ?? 'Morning',
+          'image_url': data['image_url'],
+          'rating': data['rating'],
+        };
+        
+        return ItineraryItemModel.fromJson(mapped);
       } else {
         throw const ServerFailure('Failed to swap place');
       }

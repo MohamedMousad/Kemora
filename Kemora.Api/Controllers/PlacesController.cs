@@ -109,8 +109,30 @@ namespace Kemora.Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> SwapPlace([FromQuery] string currentPlaceName, [FromQuery] string preferences)
         {
-            var result = await _tripPlannerService.SwapPlaceAsync(currentPlaceName, preferences);
-            return Ok(result);
+            if (string.IsNullOrWhiteSpace(currentPlaceName))
+                return BadRequest(new { message = "currentPlaceName is required." });
+
+            var result = await _tripPlannerService.SwapPlaceAsync(currentPlaceName, preferences ?? "");
+            
+            // The AI returns a JSON string — parse it to return as a proper JSON object
+            try
+            {
+                var parsed = System.Text.Json.JsonDocument.Parse(result);
+                
+                // If the AI returned { "newActivity": { ... } }, extract the inner object
+                if (parsed.RootElement.TryGetProperty("newActivity", out var newActivity))
+                {
+                    return Content(newActivity.GetRawText(), "application/json");
+                }
+                
+                // Otherwise return the full parsed result
+                return Content(result, "application/json");
+            }
+            catch
+            {
+                // If parsing fails, return a fallback
+                return Ok(new { place = "Alternative Place", description = result, time = "09:00" });
+            }
         }
     }
 }

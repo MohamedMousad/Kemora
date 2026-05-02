@@ -6,7 +6,8 @@ import '../home/home_screen.dart';
 import '../../../domain/entities/user_preferences.dart';
 
 class UserPreferencesScreen extends StatefulWidget {
-  const UserPreferencesScreen({super.key});
+  final bool fromSettings;
+  const UserPreferencesScreen({super.key, this.fromSettings = false});
 
   @override
   State<UserPreferencesScreen> createState() => _UserPreferencesScreenState();
@@ -31,6 +32,20 @@ class _UserPreferencesScreenState extends State<UserPreferencesScreen> {
     'Luxurious Stays'
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    final prefs = context.read<AuthViewModel>().user?.preferences;
+    if (prefs != null) {
+      if (_budgetOptions.contains(prefs.budget)) _selectedBudget = prefs.budget;
+      if (_paceOptions.contains(prefs.pace)) _selectedPace = prefs.pace;
+      if (prefs.interests.isNotEmpty) {
+        _selectedVibes.clear();
+        _selectedVibes.addAll(prefs.interests.where((v) => _vibeOptions.contains(v)));
+      }
+    }
+  }
+
   void _onSave() async {
     final authVM = context.read<AuthViewModel>();
     
@@ -42,11 +57,19 @@ class _UserPreferencesScreenState extends State<UserPreferencesScreen> {
 
     await authVM.updatePreferences(prefs);
 
-    if (authVM.state == AuthState.authenticated) {
+    if (authVM.state == AuthState.authenticated || authVM.errorMessage == null) {
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      
+      if (widget.fromSettings) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Preferences updated successfully!'), backgroundColor: Colors.green)
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     }
   }
 

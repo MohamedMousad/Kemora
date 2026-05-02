@@ -130,10 +130,13 @@ namespace Kemora.Api.Controllers
         /// Save a complete AI-generated trip plan.
         /// </summary>
         [HttpPost("save-plan")]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(TripDetailDto), StatusCodes.Status201Created)]
         public async Task<ActionResult<TripDetailDto>> SavePlan([FromBody] SaveAIPlanDto dto)
         {
-            var t = await _tripService.SaveAIPlanAsync(UserId(), dto);
+            // Support both authenticated and guest users
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "guest";
+            var t = await _tripService.SaveAIPlanAsync(userId, dto);
             return CreatedAtAction(nameof(Get), new { id = t.TripID }, t);
         }
     }

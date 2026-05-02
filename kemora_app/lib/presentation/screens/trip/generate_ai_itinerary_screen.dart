@@ -5,6 +5,22 @@ import '../../viewmodels/trip_view_model.dart';
 import '../../viewmodels/auth_view_model.dart';
 import 'ai_itinerary_result_screen.dart';
 
+// Egyptian governorates with their coordinates
+const List<Map<String, dynamic>> _kEgyptGovernorates = [
+  {'name': 'Cairo', 'lat': 30.0444, 'lng': 31.2357},
+  {'name': 'Alexandria', 'lat': 31.2001, 'lng': 29.9187},
+  {'name': 'Luxor', 'lat': 25.6872, 'lng': 32.6396},
+  {'name': 'Aswan', 'lat': 24.0889, 'lng': 32.8998},
+  {'name': 'Sharm El-Sheikh', 'lat': 27.9158, 'lng': 34.3300},
+  {'name': 'Hurghada', 'lat': 27.2574, 'lng': 33.8129},
+  {'name': 'Giza', 'lat': 30.0131, 'lng': 31.2089},
+  {'name': 'Dahab', 'lat': 28.5094, 'lng': 34.5198},
+  {'name': 'Siwa Oasis', 'lat': 29.2031, 'lng': 25.5192},
+  {'name': 'El-Gouna', 'lat': 27.3995, 'lng': 33.6780},
+  {'name': 'Port Said', 'lat': 31.2565, 'lng': 32.2841},
+  {'name': 'Marsa Matrouh', 'lat': 31.3543, 'lng': 27.2373},
+];
+
 class GenerateAIItineraryScreen extends StatefulWidget {
   final String? preSelectedPlaceId;
   final String? preSelectedPlaceName;
@@ -28,6 +44,7 @@ class _GenerateAIItineraryScreenState extends State<GenerateAIItineraryScreen> {
   String? _selectedBudget;
   String? _preferences;
   final List<String> _selectedTourismTypes = [];
+  Map<String, dynamic>? _selectedGov; // Selected governorate
 
   final List<Map<String, dynamic>> _tourismOptions = [
     {'name': 'CulturalHeritage', 'label': 'Historical', 'icon': Icons.account_balance},
@@ -46,16 +63,34 @@ class _GenerateAIItineraryScreenState extends State<GenerateAIItineraryScreen> {
     super.initState();
     final authVM = context.read<AuthViewModel>();
     _selectedBudget = authVM.user?.preferences?.budget ?? 'Mid-Range';
+    // Default to Cairo if no place pre-selected
+    _selectedGov = _kEgyptGovernorates.first;
   }
 
   void _onGenerate() async {
     final tripVM = context.read<TripViewModel>();
 
+    // Use pre-selected place coords if provided, otherwise use picked governorate
+    final double lat = widget.preSelectedLat ?? (_selectedGov?['lat'] as double? ?? 30.0444);
+    final double lng = widget.preSelectedLng ?? (_selectedGov?['lng'] as double? ?? 31.2357);
+    final String location = widget.preSelectedPlaceName != null
+        ? widget.preSelectedPlaceName!
+        : (_selectedGov?['name'] as String? ?? 'Cairo');
+
+    if (widget.preSelectedLat == null && _selectedGov == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a destination city first.')),
+      );
+      return;
+    }
+
     final request = TripPlanRequest(
-      latitude: widget.preSelectedLat ?? 30.0444, // Default to Cairo
-      longitude: widget.preSelectedLng ?? 31.2357,
+      latitude: lat,
+      longitude: lng,
+      maxRadiusKm: 25,
       durationDays: _durationDays,
       budget: _selectedBudget,
+      location: location,
       centerPlaceId: widget.preSelectedPlaceId != null ? int.tryParse(widget.preSelectedPlaceId!) : null,
       preferences: _preferences,
       tourismTypes: _selectedTourismTypes,
@@ -66,7 +101,6 @@ class _GenerateAIItineraryScreenState extends State<GenerateAIItineraryScreen> {
     if (!mounted) return;
 
     if (tripVM.state == TripState.error) {
-      // Show real error so user knows why it failed
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tripVM.errorMessage ?? 'Failed to generate itinerary. Please try again.'),
@@ -89,6 +123,7 @@ class _GenerateAIItineraryScreenState extends State<GenerateAIItineraryScreen> {
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +163,42 @@ class _GenerateAIItineraryScreenState extends State<GenerateAIItineraryScreen> {
                     ),
                   ],
                 ),
+              )
+            else ...[
+              const Text('Where do you want to go?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.grey[50],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: DropdownButton<Map<String, dynamic>>(
+                  value: _selectedGov,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  borderRadius: BorderRadius.circular(16),
+                  icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFFC5A358)),
+                  onChanged: (val) => setState(() => _selectedGov = val),
+                  items: _kEgyptGovernorates.map((gov) {
+                    return DropdownMenuItem<Map<String, dynamic>>(
+                      value: gov,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_city, size: 18, color: Color(0xFFC5A358)),
+                          const SizedBox(width: 10),
+                          Text(gov['name'] as String,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
+              const SizedBox(height: 24),
+            ],
+
             const Text('How many days is your trip?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
             Row(

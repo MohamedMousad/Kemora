@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
@@ -31,7 +31,6 @@ namespace Kemora.Domain.Entities
 
     public class PostReaction
     {
-        [Key] public int ReactionID { get; set; }
         public string ReactionType { get; set; } // "Like", "Love"
         public DateTime ReactedAt { get; set; } = DateTime.UtcNow;
         public int PostID { get; set; }
@@ -69,7 +68,6 @@ namespace Kemora.Domain.Entities
 
     public class CommentReaction
     {
-        [Key] public int ReactionID { get; set; }
         public string ReactionType { get; set; }
         public DateTime ReactedAt { get; set; }
         public int CommentID { get; set; }

@@ -4,6 +4,7 @@ using Kemora.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Kemora.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427204912_RemoveGoogleAndWikipediaAndAddFoursquareAndOpenRouter")]
+    partial class RemoveGoogleAndWikipediaAndAddFoursquareAndOpenRouter
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -235,6 +238,9 @@ namespace Kemora.Infrastructure.Migrations
                     b.Property<DateTime>("ReactedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("ReactionID")
+                        .HasColumnType("int");
+
                     b.Property<string>("ReactionType")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -379,10 +385,6 @@ namespace Kemora.Infrastructure.Migrations
                     b.Property<string>("FoursquareId")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("GoogleDataId")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<int?>("GovernorateID")
                         .HasColumnType("int");
 
@@ -526,6 +528,9 @@ namespace Kemora.Infrastructure.Migrations
                     b.Property<DateTime>("ReactedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("ReactionID")
+                        .HasColumnType("int");
+
                     b.Property<string>("ReactionType")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -535,38 +540,6 @@ namespace Kemora.Infrastructure.Migrations
                     b.HasIndex("UserID");
 
                     b.ToTable("PostReactions");
-                });
-
-            modelBuilder.Entity("Kemora.Domain.Entities.PrecomputedTripPlan", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CacheKey")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ItineraryJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PlacesJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CacheKey")
-                        .IsUnique();
-
-                    b.ToTable("PrecomputedTripPlans");
                 });
 
             modelBuilder.Entity("Kemora.Domain.Entities.Review", b =>

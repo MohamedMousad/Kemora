@@ -124,7 +124,8 @@ namespace Kemora.Application.Services
             if (!await _postRepo.ExistsAsync(postId)) return false;
 
             var reactionRepo = _unitOfWork.Repository<PostReaction>();
-            var existingReaction = await reactionRepo.FirstOrDefaultAsync(r => r.PostID == postId && r.UserID == userId && r.ReactionType == "Like");
+            // Search for ANY reaction by this user on this post to handle toggle correctly
+            var existingReaction = await reactionRepo.FirstOrDefaultAsync(r => r.PostID == postId && r.UserID == userId);
             
             if (existingReaction != null)
             {

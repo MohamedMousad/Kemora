@@ -86,8 +86,8 @@ namespace Kemora.Application.DTOs
     {
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public double Latitude { get; set; }
-        public double Longitude { get; set; }
+        public double? Latitude { get; set; }   // Optional - AI may not provide coords
+        public double? Longitude { get; set; }  // Optional - AI may not provide coords
         public string? Category { get; set; }
         public string? ImageUrl { get; set; }
         public DateTime VisitDate { get; set; }

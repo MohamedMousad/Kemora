@@ -34,12 +34,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (authVM.state == AuthState.authenticated) {
       if (!mounted) return;
-      final destination = authVM.user?.preferences == null 
-          ? const UserPreferencesScreen() 
-          : const HomeScreen();
-          
+      // Always go to HomeScreen on login.
+      // Preferences are only collected during first registration.
+      // Users can update preferences from Settings > Travel Preferences.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => destination),
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     }
   }
@@ -50,12 +49,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (authVM.state == AuthState.authenticated) {
       if (!mounted) return;
-      final destination = authVM.user?.preferences == null 
-          ? const UserPreferencesScreen() 
-          : const HomeScreen();
-
+      // Always go to HomeScreen on Google login too.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => destination),
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     }
   }

@@ -11,6 +11,13 @@ appsettings.*.json
 *.txt
 secrets.json
 
+# Local Scratch & Docs
+scratch/
+foursquare_docs.html
+fetch_models.py
+logs/
+__pycache__/
+
 # .NET environment
 [Bb]in/
 [Oo]bj/

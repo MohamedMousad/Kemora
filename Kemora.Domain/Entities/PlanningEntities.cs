@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
@@ -25,5 +25,17 @@ namespace Kemora.Domain.Entities
         public Place Place { get; set; }
         public DateTime VisitDate { get; set; }
         public string? Notes { get; set; }
+    }
+
+    public class PrecomputedTripPlan
+    {
+        [Key] public int Id { get; set; }
+        
+        [MaxLength(255)]
+        public string CacheKey { get; set; }
+        
+        public string ItineraryJson { get; set; }
+        public string PlacesJson { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

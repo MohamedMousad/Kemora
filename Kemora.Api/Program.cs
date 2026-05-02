@@ -95,11 +95,22 @@ builder.Services.AddScoped<Kemora.Domain.Interfaces.IUserRepository, Kemora.Infr
 
 // Application Services
 builder.Services.AddScoped<Kemora.Domain.Interfaces.ITokenService, Kemora.Infrastructure.Services.TokenService>();
-builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlaceService, Kemora.Infrastructure.Services.GoogleMapsPlacesService>();
+
+var placesProvider = builder.Configuration["Places:Provider"] ?? "Foursquare";
+if (placesProvider.Equals("Google", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlacesDataService, Kemora.Infrastructure.Services.GooglePlacesService>();
+}
+else
+{
+    builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlacesDataService, Kemora.Infrastructure.Services.FoursquarePlacesService>();
+}
+builder.Services.AddScoped<Kemora.Domain.Interfaces.ISerpApiService, Kemora.Infrastructure.Services.SerpApiService>();
+builder.Services.AddSingleton<Kemora.Domain.Interfaces.IAiService, Kemora.Infrastructure.Services.OpenRouterAiService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IAuthService, Kemora.Infrastructure.Services.AuthService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IBadgeService, Kemora.Application.Services.BadgeService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IChatService, Kemora.Application.Services.ChatService>();
-builder.Services.AddScoped<Kemora.Domain.Interfaces.IWikipediaService, Kemora.Infrastructure.Services.WikipediaService>();
+// builder.Services.AddScoped<Kemora.Domain.Interfaces.IWikipediaService, Kemora.Infrastructure.Services.WikipediaService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IEmailService, Kemora.Infrastructure.Services.SmtpEmailService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IImageService, Kemora.Infrastructure.Services.CloudinaryImageService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.ICommentService, Kemora.Application.Services.CommentService>();
@@ -157,28 +168,23 @@ builder.Services.AddAutoMapper(cfg => {
     cfg.AddProfile<Kemora.Application.Mapping.MappingProfile>();
 });
 
-builder.Services.AddHttpClient("Overpass", client =>
+builder.Services.AddHttpClient("GooglePlaces", client =>
 {
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("application/json"));
-    client.Timeout = TimeSpan.FromSeconds(60);
-});
-
-// Named HttpClient for Google Maps API
-builder.Services.AddHttpClient("GoogleMaps", client =>
-{
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("application/json"));
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// Named HttpClient for WisdomGate / OpenAI compatible API
-builder.Services.AddHttpClient("LocalAI", client =>
+builder.Services.AddHttpClient("SerpApi", client =>
 {
-    client.BaseAddress = new Uri("https://wisdom-gate.juheapi.com/v1/");
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("application/json"));
-    client.Timeout = TimeSpan.FromMinutes(5);
+    client.BaseAddress = new Uri("https://serpapi.com/search.json");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddHttpClient("OpenRouter", client =>
+{
+    client.BaseAddress = new Uri("https://openrouter.ai/api/v1/");
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    client.DefaultRequestHeaders.Add("X-OpenRouter-Title", "Kemora Travel Planner");
+    client.Timeout = TimeSpan.FromMinutes(3);
 });
 
 builder.Services.AddControllers()
@@ -317,48 +323,17 @@ using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         
-        Log.Information("DATABASE RESET: Starting total system purge...");
-        
         try 
         {
-            // Social & Interactions
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM CommentReactions");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM PostReactions");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM CommentMedia");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Comments");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM PostMedia");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Posts");
-            
-            // Gamification
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM UserBadges");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM UserPoints");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Badges");
-            
-            // Trip Planning & Places
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM TripPlaces");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM UserFavorites");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Reviews");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Photos");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Events");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Places");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Trips");
-            
-            // Base Data
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM PlaceTypes");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Categories");
-            await context.Database.ExecuteSqlRawAsync("DELETE FROM Governorates");
-            
-            Log.Information("DATABASE RESET: Purge complete. System is empty.");
-            
-            Log.Information("DATABASE RESET: Starting fresh system seeding...");
+            Log.Information("DATABASE STARTUP: Ensuring base data is seeded...");
             await DataSeeder.SeedAsync(scope.ServiceProvider);
             
             var placeCount = await context.Places.CountAsync();
-            Log.Information("DATABASE RESET: Seeding complete. Current Place count: {Count}", placeCount);
+            Log.Information("DATABASE STARTUP: Ready. Current Place count: {Count}", placeCount);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "DATABASE RESET: Critical error during total purge/seed");
+            Log.Error(ex, "DATABASE STARTUP: Error during seeding check");
         }
     }
 }

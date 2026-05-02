@@ -4,6 +4,7 @@ using Kemora.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Kemora.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260427205800_AddPrecomputedTripPlanCache")]
+    partial class AddPrecomputedTripPlanCache
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -235,6 +238,9 @@ namespace Kemora.Infrastructure.Migrations
                     b.Property<DateTime>("ReactedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("ReactionID")
+                        .HasColumnType("int");
+
                     b.Property<string>("ReactionType")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -379,10 +385,6 @@ namespace Kemora.Infrastructure.Migrations
                     b.Property<string>("FoursquareId")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("GoogleDataId")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<int?>("GovernorateID")
                         .HasColumnType("int");
 
@@ -525,6 +527,9 @@ namespace Kemora.Infrastructure.Migrations
 
                     b.Property<DateTime>("ReactedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("ReactionID")
+                        .HasColumnType("int");
 
                     b.Property<string>("ReactionType")
                         .IsRequired()

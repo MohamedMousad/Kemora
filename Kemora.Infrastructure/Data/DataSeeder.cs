@@ -23,7 +23,7 @@ namespace Kemora.Infrastructure.Data
             
             await SeedUsersAsync(userManager, context);
             await SeedBadgesAsync(context);
-            await SeedHighQualityPlacesAsync(context);
+
             await SeedSocialPostsAsync(context);
             await AwardInitialBadgesAsync(context);
         }
@@ -133,51 +133,25 @@ namespace Kemora.Infrastructure.Data
 
         private static async Task SeedUsersAsync(UserManager<ApplicationUser> userManager, ApplicationDbContext context)
         {
-            if (userManager.Users.Any()) return;
-
             var users = new List<ApplicationUser>
             {
                 new ApplicationUser { UserName = "john_doe", Email = "john@example.com", FullName = "John Doe", Country = "USA", ProfilePictureUrl = "https://i.pravatar.cc/150?u=john", UserPreferencesJSON = "{\"Budget\": \"Mid-Range\", \"Vibe\": \"Historical\"}" },
                 new ApplicationUser { UserName = "sarah_smith", Email = "sarah@example.com", FullName = "Sarah Smith", Country = "UK", ProfilePictureUrl = "https://i.pravatar.cc/150?u=sarah", UserPreferencesJSON = "{\"Budget\": \"Luxury\", \"Vibe\": \"Relaxed\"}" },
-                new ApplicationUser { UserName = "ahmed_ali", Email = "ahmed@example.com", FullName = "Ahmed Ali", Country = "Egypt", ProfilePictureUrl = "https://i.pravatar.cc/150?u=ahmed", UserPreferencesJSON = "{\"Budget\": \"Budget\", \"Vibe\": \"Adventure\"}" }
+                new ApplicationUser { UserName = "ahmed_ali", Email = "ahmed@example.com", FullName = "Ahmed Ali", Country = "Egypt", ProfilePictureUrl = "https://i.pravatar.cc/150?u=ahmed", UserPreferencesJSON = "{\"Budget\": \"Budget\", \"Vibe\": \"Adventure\"}" },
+                new ApplicationUser { Id = "guest", UserName = "guest", Email = "guest@kemora.com", FullName = "Guest User", Country = "Egypt" }
             };
 
             foreach (var user in users)
             {
-                await userManager.CreateAsync(user, "Password123!");
+                if (await userManager.FindByNameAsync(user.UserName!) == null)
+                {
+                    if (user.Id == "guest") System.Console.WriteLine("SEED: Creating fallback 'guest' user...");
+                    await userManager.CreateAsync(user, "Password123!");
+                }
             }
         }
 
-        private static async Task SeedHighQualityPlacesAsync(ApplicationDbContext context)
-        {
-            var count = await context.Places.CountAsync();
-            if (count > 20) return;
 
-            var gizaGov = await context.Governorates.FirstOrDefaultAsync(g => g.Name == "Giza");
-            var luxorGov = await context.Governorates.FirstOrDefaultAsync(g => g.Name == "Luxor");
-            var cairoGov = await context.Governorates.FirstOrDefaultAsync(g => g.Name == "Cairo");
-            var alexGov = await context.Governorates.FirstOrDefaultAsync(g => g.Name == "Alexandria");
-            var aswanGov = await context.Governorates.FirstOrDefaultAsync(g => g.Name == "Aswan");
-
-            var pyramidType = await context.PlaceTypes.FirstOrDefaultAsync(pt => pt.GoogleType == "pyramid");
-            var templeType = await context.PlaceTypes.FirstOrDefaultAsync(pt => pt.GoogleType == "temple");
-            var museumType = await context.PlaceTypes.FirstOrDefaultAsync(pt => pt.GoogleType == "museum");
-            var citadelType = await context.PlaceTypes.FirstOrDefaultAsync(pt => pt.GoogleType == "citadel");
-
-            if (gizaGov == null || pyramidType == null || templeType == null) return;
-
-            var places = new List<Place>
-            {
-                new Place { Name = "The Great Pyramid of Giza", GooglePlaceID = "ChIJ9V-2_2m9WBQRz7fWf5n_Asw", Description = "The only surviving wonder of the ancient world.", Address = "Al Haram, Giza", Latitude = 29.9792m, Longitude = 31.1342m, Rating = 4.8m, MainImageURL = "https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&w=1200", GovernorateID = gizaGov.GovernorateID, PlaceTypeID = pyramidType.TypeID, Source = "seed", LastEnrichedAt = DateTime.UtcNow },
-                new Place { Name = "Egyptian Museum", GooglePlaceID = "ChIJX_Q8TID9WBQRy68vG-m9XoY", Description = "Home to the world's largest collection of pharaonic antiquities.", Address = "Tahrir Square, Cairo", Latitude = 30.0478m, Longitude = 31.2336m, Rating = 4.6m, MainImageURL = "https://images.unsplash.com/photo-1572252009286-268acec5ca0a?auto=format&fit=crop&w=1200", GovernorateID = cairoGov.GovernorateID, PlaceTypeID = museumType.TypeID, Source = "seed", LastEnrichedAt = DateTime.UtcNow },
-                new Place { Name = "Karnak Temple Complex", GooglePlaceID = "ChIJ4c7A_f_HWBQR92nL_q-hX4Q", Description = "The largest religious complex ever built by man.", Address = "Luxor", Latitude = 25.7188m, Longitude = 32.6573m, Rating = 4.9m, MainImageURL = "https://images.unsplash.com/photo-1594916301297-a7eb443a9926?auto=format&fit=crop&w=1200", GovernorateID = luxorGov.GovernorateID, PlaceTypeID = templeType.TypeID, Source = "seed", LastEnrichedAt = DateTime.UtcNow },
-                new Place { Name = "Philae Temple", GooglePlaceID = "ChIJV-vB4u6_WBQR--6s_q-hI80", Description = "Beautiful temple complex dedicated to the goddess Isis.", Address = "Aswan", Latitude = 24.0255m, Longitude = 32.8844m, Rating = 4.8m, MainImageURL = "https://images.unsplash.com/photo-1610486828590-edc9372e617d?auto=format&fit=crop&w=1200", GovernorateID = aswanGov.GovernorateID, PlaceTypeID = templeType.TypeID, Source = "seed", LastEnrichedAt = DateTime.UtcNow },
-                new Place { Name = "Citadel of Qaitbay", GooglePlaceID = "ChIJs8_O-b1q-hQR_Wj7o8F-h-o", Description = "15th-century defensive fortress on the Mediterranean sea coast.", Address = "Alexandria", Latitude = 31.2140m, Longitude = 29.8856m, Rating = 4.6m, MainImageURL = "https://images.unsplash.com/photo-1621251817478-f685c7bb74e6?auto=format&fit=crop&w=1200", GovernorateID = alexGov.GovernorateID, PlaceTypeID = citadelType.TypeID, Source = "seed", LastEnrichedAt = DateTime.UtcNow }
-            };
-
-            await context.Places.AddRangeAsync(places);
-            await context.SaveChangesAsync();
-        }
 
         private static async Task SeedSocialPostsAsync(ApplicationDbContext context)
         {
