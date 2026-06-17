@@ -75,3 +75,4 @@ kemora_app/android/app/src/main/res/values/secrets.xml
 
 # macOS
 .DS_Store
+.agent/
