@@ -39,7 +39,7 @@ class _GovernoratePlacesScreenState extends State<GovernoratePlacesScreen> {
                 fit: StackFit.expand,
                 children: [
                   Image.network(widget.governorate.imageUrl ?? 'https://via.placeholder.com/400', fit: BoxFit.cover),
-                  Container(color: Colors.black.withOpacity(0.3)),
+                  Container(color: Colors.black.withValues(alpha: 0.3)),
                 ],
               ),
             ),
@@ -71,7 +71,7 @@ class _GovernoratePlacesScreenState extends State<GovernoratePlacesScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.all(12),
@@ -86,12 +86,7 @@ class _GovernoratePlacesScreenState extends State<GovernoratePlacesScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => TripPlannerScreen(
-                        preSelectedPlaceId: place.id.toString(),
-                        preSelectedPlaceName: place.name,
-                        preSelectedLat: place.latitude,
-                        preSelectedLng: place.longitude,
-                      ),
+                      builder: (_) => const TripPlannerScreen(),
                     ),
                   );
                 },

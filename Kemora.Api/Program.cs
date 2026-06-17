@@ -112,7 +112,7 @@ builder.Services.AddScoped<Kemora.Application.Interfaces.IBadgeService, Kemora.A
 builder.Services.AddScoped<Kemora.Application.Interfaces.IChatService, Kemora.Application.Services.ChatService>();
 // builder.Services.AddScoped<Kemora.Domain.Interfaces.IWikipediaService, Kemora.Infrastructure.Services.WikipediaService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IEmailService, Kemora.Infrastructure.Services.SmtpEmailService>();
-builder.Services.AddScoped<Kemora.Application.Interfaces.IImageService, Kemora.Infrastructure.Services.CloudinaryImageService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IImageService, Kemora.Infrastructure.Services.LocalImageService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.ICommentService, Kemora.Application.Services.CommentService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IEventService, Kemora.Application.Services.EventService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IFavoriteService, Kemora.Application.Services.FavoriteService>();
@@ -127,6 +127,9 @@ builder.Services.AddScoped<Kemora.Application.Interfaces.IReviewService, Kemora.
 builder.Services.AddScoped<Kemora.Application.Interfaces.ITripService, Kemora.Application.Services.TripService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.ITripPlannerService, Kemora.Application.Services.TripPlannerService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IUserManagementService, Kemora.Infrastructure.Services.UserManagementService>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IStoryRepository, Kemora.Infrastructure.Repositories.StoryRepository>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IStoryService, Kemora.Application.Services.StoryService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IBadgeAwardService, Kemora.Infrastructure.Services.BadgeAwardService>();
 
 // SignalR
 builder.Services.AddSignalR();
@@ -304,6 +307,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
+
+// Serve uploaded images from wwwroot/uploads as static files
+app.UseStaticFiles();
 
 // IMPORTANT: Authentication must come BEFORE Authorization
 app.UseAuthentication();

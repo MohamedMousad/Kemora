@@ -1,5 +1,20 @@
 import 'package:equatable/equatable.dart';
 
+class ReviewSummary extends Equatable {
+  final String authorName;
+  final String text;
+  final int rating;
+
+  const ReviewSummary({
+    required this.authorName,
+    required this.text,
+    required this.rating,
+  });
+
+  @override
+  List<Object?> get props => [authorName, text, rating];
+}
+
 class Place extends Equatable {
   final String id;
   final String name;
@@ -10,6 +25,15 @@ class Place extends Equatable {
   final double longitude;
   final double rating;
 
+  // Extended fields from API
+  final String? type;
+  final String? address;
+  final String? governorateName;
+  final String? mainImageUrl;
+  final int? priceLevel;
+  final String? website;
+  final List<ReviewSummary> reviews;
+
   const Place({
     required this.id,
     required this.name,
@@ -19,6 +43,13 @@ class Place extends Equatable {
     required this.latitude,
     required this.longitude,
     required this.rating,
+    this.type,
+    this.address,
+    this.governorateName,
+    this.mainImageUrl,
+    this.priceLevel,
+    this.website,
+    this.reviews = const [],
   });
 
   @override
@@ -31,6 +62,13 @@ class Place extends Equatable {
         latitude,
         longitude,
         rating,
+        type,
+        address,
+        governorateName,
+        mainImageUrl,
+        priceLevel,
+        website,
+        reviews,
       ];
 }
 

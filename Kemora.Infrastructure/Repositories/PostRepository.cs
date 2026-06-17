@@ -18,6 +18,7 @@ namespace Kemora.Infrastructure.Repositories
                 .Include(x => x.User)
                 .Include(x => x.Media)
                 .Include(x => x.Reactions)
+                .Include(x => x.Location)
                 .Include(x => x.Comments).ThenInclude(c => c.User)
                 .Include(x => x.Comments).ThenInclude(c => c.Media)
                 .Include(x => x.Comments).ThenInclude(c => c.Reactions)

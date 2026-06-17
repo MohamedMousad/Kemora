@@ -9,13 +9,15 @@ class TripModel extends Trip {
     super.plannedPlaces,
   });
 
+  // [KEMORA-MIGRATION] Fixed field names to match backend TripDetailDto / TripListDto:
+  // Backend uses tripID (not id), name (not title), places[] (not placeIds).
   factory TripModel.fromJson(Map<String, dynamic> json) {
-    // You'd typically parse places conditionally, here we keep it simple
     return TripModel(
-      id: json['id']?.toString() ?? '',
-      title: json['title'] as String? ?? 'Unnamed Trip',
-      startDate: json['startDate'] != null ? DateTime.parse(json['startDate']) : DateTime.now(),
-      endDate: json['endDate'] != null ? DateTime.parse(json['endDate']) : DateTime.now().add(const Duration(days: 1)),
+      // Backend TripDetailDto / TripListDto → tripID, name
+      id: (json['tripID'] ?? json['id'])?.toString() ?? '',
+      title: json['name'] as String? ?? json['title'] as String? ?? 'Unnamed Trip',
+      startDate: json['startDate'] != null ? DateTime.parse(json['startDate'].toString()) : DateTime.now(),
+      endDate: json['endDate'] != null ? DateTime.parse(json['endDate'].toString()) : DateTime.now().add(const Duration(days: 1)),
     );
   }
 

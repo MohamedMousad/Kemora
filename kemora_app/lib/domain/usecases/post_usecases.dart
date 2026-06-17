@@ -19,7 +19,7 @@ class CreatePostUseCase {
 
   CreatePostUseCase(this.repository);
 
-  Future<Either<Failure, Post>> call(String content, {XFile? imageFile, String? locationId}) async {
+  Future<Either<Failure, Post>> call(String content, {XFile? imageFile, int? locationId}) async {
     return await repository.createPost(content, imageFile: imageFile, locationId: locationId);
   }
 }

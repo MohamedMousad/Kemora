@@ -24,6 +24,7 @@ namespace Kemora.Infrastructure.Data
         public DbSet<Comment> Comments { get; set; }
         public DbSet<CommentMedia> CommentMedia { get; set; }
         public DbSet<CommentReaction> CommentReactions { get; set; }
+        public DbSet<Story> Stories { get; set; }
 
         // Planning
         public DbSet<Trip> Trips { get; set; }

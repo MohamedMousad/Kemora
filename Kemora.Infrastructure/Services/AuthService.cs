@@ -75,16 +75,25 @@ namespace Kemora.Infrastructure.Services
                 user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
                 await _userManager.UpdateAsync(user);
 
-                // Send email confirmation
-                var emailToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                var baseUrl = _configuration["BaseUrl"] ?? "https://localhost:7210";
-                var confirmationLink = $"{baseUrl}/api/v1/auth/confirm-email-link?userId={user.Id}&token={Uri.EscapeDataString(emailToken)}";
-                
-                await _emailService.SendEmailAsync(user.Email!, "Welcome to Kemora - Confirm Your Email",
-                    GetHtmlVerificationEmail(user.FullName, confirmationLink));
-
                 var token = await _tokenService.CreateTokenAsync(user);
                 await transaction.CommitAsync();
+
+                // [FIX] Send welcome email AFTER committing — isolated in its own try/catch.
+                // SMTP misconfiguration (wrong credentials, placeholder username, etc.)
+                // must NEVER roll back a successfully created user account.
+                try
+                {
+                    var emailToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                    var baseUrl = _configuration["BaseUrl"] ?? "https://localhost:7210";
+                    var confirmationLink = $"{baseUrl}/api/v1/auth/confirm-email-link?userId={user.Id}&token={Uri.EscapeDataString(emailToken)}";
+                    await _emailService.SendEmailAsync(user.Email!, "Welcome to Kemora - Confirm Your Email",
+                        GetHtmlVerificationEmail(user.FullName, confirmationLink));
+                }
+                catch (Exception emailEx)
+                {
+                    // Log warning but do NOT fail registration — user can re-request from settings.
+                    Console.WriteLine($"[WARN] Welcome email failed for {user.Email}: {emailEx.Message}");
+                }
 
                 var response = _mapper.Map<AuthResponseDto>(user);
                 response.Token = token;

@@ -98,4 +98,21 @@ class PlacesViewModel extends ChangeNotifier {
     );
     notifyListeners();
   }
+
+  /// Looks up a place by ID from local caches first, then fetches from API.
+  Future<Place?> getPlaceById(String id) async {
+    // Check in-memory caches first
+    try {
+      return _topPlaces.firstWhere((p) => p.id == id);
+    } catch (_) {}
+    try {
+      return _places.firstWhere((p) => p.id == id);
+    } catch (_) {}
+    // Not cached — load all places and search again
+    await loadTopPlaces();
+    try {
+      return _topPlaces.firstWhere((p) => p.id == id);
+    } catch (_) {}
+    return null;
+  }
 }

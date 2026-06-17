@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../auth/token_storage.dart';
 
 import '../../data/datasources/auth_remote_data_source.dart';
@@ -40,12 +41,27 @@ import '../../presentation/viewmodels/trip_view_model.dart';
 import '../../domain/usecases/chat_usecases.dart';
 import '../../presentation/viewmodels/chat_view_model.dart';
 import '../../presentation/viewmodels/post_view_model.dart';
+import '../../presentation/viewmodels/story_view_model.dart';
 import '../../data/datasources/chat_remote_data_source.dart';
+import '../../data/datasources/story_remote_data_source.dart';
 import '../../domain/repositories/i_chat_repository.dart';
 import '../../data/repositories/chat_repository_impl.dart';
 import '../../presentation/viewmodels/badge_view_model.dart';
 
 final sl = GetIt.instance;
+
+String _resolveApiBaseUrl() {
+  if (kIsWeb) {
+    return 'http://localhost:5299';
+  }
+
+  // Android emulator cannot reach host loopback via localhost.
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return 'http://10.0.2.2:5299';
+  }
+
+  return 'http://localhost:5299';
+}
 
 Future<void> init() async {
   // Features - Auth
@@ -135,8 +151,6 @@ Future<void> init() async {
     () => TripRemoteDataSourceImpl(dio: sl()),
   );
 
-
-
   // Features - Social (Posts)
   // ViewModels
   sl.registerFactory(() => PostViewModel(
@@ -152,6 +166,7 @@ Future<void> init() async {
         sendChatMessageUseCase: sl(),
         markChatAsReadUseCase: sl(),
       ));
+  sl.registerFactory(() => StoryViewModel(remoteDataSource: sl()));
 
   // Use Cases
   sl.registerLazySingleton(() => GetFeedUseCase(sl()));
@@ -159,7 +174,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ToggleLikeUseCase(sl()));
   sl.registerLazySingleton(() => AddCommentUseCase(sl()));
   sl.registerLazySingleton(() => GetPostCommentsUseCase(sl()));
-  
+
   sl.registerLazySingleton(() => GetConversationsUseCase(sl()));
   sl.registerLazySingleton(() => GetConversationMessagesUseCase(sl()));
   sl.registerLazySingleton(() => SendChatMessageUseCase(sl()));
@@ -170,14 +185,14 @@ Future<void> init() async {
       () => PostRepositoryImpl(remoteDataSource: sl()));
   sl.registerLazySingleton<IChatRepository>(
       () => ChatRepositoryImpl(remoteDataSource: sl()));
-  
 
   // Data sources
   sl.registerLazySingleton<PostRemoteDataSource>(
       () => PostRemoteDataSourceImpl(dio: sl()));
   sl.registerLazySingleton<ChatRemoteDataSource>(
       () => ChatRemoteDataSourceImpl(dio: sl()));
-  
+  sl.registerLazySingleton<StoryRemoteDataSource>(
+      () => StoryRemoteDataSourceImpl(dio: sl()));
 
   // Features - Badges (Gamification)
   // ViewModels
@@ -204,9 +219,11 @@ Future<void> init() async {
   sl.registerLazySingleton(() {
     final dio = Dio(
       BaseOptions(
-        baseUrl: 'http://localhost:5299', // HTTP for Chrome Web (avoids self-signed cert issues); HTTPS 7210 for production
+        baseUrl: _resolveApiBaseUrl(),
         connectTimeout: const Duration(seconds: 60),
-        receiveTimeout: const Duration(seconds: 300), // Increased to 5 minutes (300s) for extremely long AI tasks like trip generation
+        receiveTimeout: const Duration(
+            seconds:
+                300), // Increased to 5 minutes (300s) for extremely long AI tasks like trip generation
         headers: {'Content-Type': 'application/json'},
       ),
     );
@@ -222,15 +239,17 @@ Future<void> init() async {
       },
     ));
 
-    // Logging interceptor for debugging
-    dio.interceptors.add(LogInterceptor(
-      request: true,
-      requestHeader: false,
-      requestBody: true,
-      responseHeader: false,
-      responseBody: true,
-      error: true,
-    ));
+    // Logging interceptor for debugging — only in debug mode to avoid leaking sensitive data
+    if (kDebugMode) {
+      dio.interceptors.add(LogInterceptor(
+        request: true,
+        requestHeader: false,
+        requestBody: true,
+        responseHeader: false,
+        responseBody: true,
+        error: true,
+      ));
+    }
 
     return dio;
   });

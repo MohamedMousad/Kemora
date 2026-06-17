@@ -1,83 +1,132 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'app_colors.dart';
+import 'app_typography.dart';
 
 class AppTheme {
-  // HSL Tailored Egyptian Theme
-  static const Color primaryGold = Color(0xFFD4AF37); // Classic Gold
-  static const Color primarySand = Color(0xFFF4E4BC); // Sand Gold
-  static const Color primaryBlue = Color(0xFF0D253F); // Deep Nile Blue
-  static const Color accentOasis = Color(0xFF1E824C); // Oasis Green
-  static const Color backgroundColor = Color(0xFFF9F6F0); // Off-white Papyrus
-  static const Color cardColor = Colors.white;
+  // Legacy color mappings for backward compatibility
+  static const Color primaryGold = AppColors.primaryContainer;
+  static const Color primaryBlue = AppColors.secondary;
+  static const Color primarySand = AppColors.surfaceContainerLow;
+  static const Color accentOasis = AppColors.tertiary;
+  static const Color textDark = AppColors.onSurface;
+  static const Color textLight = AppColors.onSurfaceVariant;
+  static const Color surfaceWhite = AppColors.surfaceContainerLowest;
+  static const Color errorRed = AppColors.error;
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryGold,
-        primary: primaryGold,
-        secondary: primaryBlue,
-        tertiary: accentOasis,
-        surface: backgroundColor,
+      colorScheme: const ColorScheme(
+        brightness: Brightness.light,
+        primary: AppColors.primary,
+        onPrimary: AppColors.onPrimary,
+        primaryContainer: AppColors.primaryContainer,
+        onPrimaryContainer: AppColors.onPrimaryContainer,
+        secondary: AppColors.secondary,
+        onSecondary: AppColors.onSecondary,
+        secondaryContainer: AppColors.secondaryContainer,
+        onSecondaryContainer: AppColors.onSecondaryContainer,
+        tertiary: AppColors.tertiary,
+        onTertiary: AppColors.onTertiary,
+        tertiaryContainer: AppColors.tertiaryContainer,
+        onTertiaryContainer: AppColors.onTertiaryContainer,
+        error: AppColors.error,
+        onError: AppColors.onError,
+        errorContainer: AppColors.errorContainer,
+        onErrorContainer: AppColors.onErrorContainer,
+        surface: AppColors.surface,
+        onSurface: AppColors.onSurface,
+        surfaceContainerHighest: AppColors.surfaceContainerHighest,
+        onSurfaceVariant: AppColors.onSurfaceVariant,
+        outline: AppColors.outline,
+        outlineVariant: AppColors.outlineVariant,
+        inverseSurface: AppColors.inverseSurface,
+        onInverseSurface: AppColors.inverseOnSurface,
+        inversePrimary: AppColors.inversePrimary,
+        scrim: Colors.black,
+        shadow: Colors.black,
       ),
-      scaffoldBackgroundColor: backgroundColor,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: primaryBlue,
-        foregroundColor: primarySand,
+      scaffoldBackgroundColor: AppColors.surface,
+      textTheme: AppTypography.textTheme.apply(
+        bodyColor: AppColors.onSurface,
+        displayColor: AppColors.onSurface,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-      ),
-      textTheme: GoogleFonts.outfitTextTheme().copyWith(
-        displayLarge: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold),
-        titleLarge: const TextStyle(color: primaryBlue, fontWeight: FontWeight.bold),
-        bodyLarge: const TextStyle(color: Colors.black87),
-        bodyMedium: const TextStyle(color: Colors.black54),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryGold,
-          foregroundColor: primaryBlue,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
-          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
+        titleTextStyle: AppTypography.titleLarge.copyWith(color: AppColors.onSurface),
+        iconTheme: const IconThemeData(color: AppColors.onSurface),
       ),
       cardTheme: CardThemeData(
-        color: cardColor,
-        elevation: 4,
-        shadowColor: primaryBlue.withAlpha(25),
+        elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
+        color: AppColors.surfaceContainerLowest,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surfaceContainerLowest,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primarySand),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primarySand),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryGold, width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        labelStyle: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant),
+        hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.outline),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryContainer,
+          foregroundColor: AppColors.onPrimary,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(9999), // Pill shape
+          ),
+          textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primaryGold,
-        foregroundColor: primaryBlue,
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.onSurface,
+          side: const BorderSide(color: AppColors.outlineVariant),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(9999),
+          ),
+          textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold),
+        ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: primaryGold,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          textStyle: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold),
+        ),
+      ),
+      iconTheme: const IconThemeData(
+        color: AppColors.onSurfaceVariant,
+        size: 24,
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.surfaceContainerHigh,
+        thickness: 1,
+        space: 1,
       ),
     );
   }

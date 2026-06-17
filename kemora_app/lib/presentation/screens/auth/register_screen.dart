@@ -1,8 +1,25 @@
+// [KEMORA-FIX] Phase 2: Wired to AuthViewModel.register() with all required fields.
+// BEFORE: StatelessWidget, no controllers, button hard-navigated to HomeScreen.
+// AFTER: StatefulWidget, reads fullName/email/country/password,
+//        calls AuthViewModel.register() — backend requires all 4 fields.
+//        Navigation handled by AuthGate in main.dart on authenticated state.
+//        Error displayed inline at top of form (including 409 duplicate email).
+//        Password confirmation field is UI-only and NOT sent to backend.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../widgets/kemora_app_bar.dart';
 import '../../viewmodels/auth_view_model.dart';
-import '../home/home_screen.dart';
-import 'user_preferences_screen.dart';
+
+// Full list of countries — trimmed for brevity; commonly needed ones at top
+const _countries = [
+  'Egypt', 'Saudi Arabia', 'UAE', 'Kuwait', 'Qatar', 'Jordan', 'Lebanon',
+  'Morocco', 'Tunisia', 'Libya', 'Iraq', 'Bahrain', 'Oman', 'Sudan',
+  'United States', 'United Kingdom', 'France', 'Germany', 'Italy', 'Spain',
+  'Canada', 'Australia', 'India', 'China', 'Japan', 'Turkey', 'Russia',
+  'Brazil', 'South Africa', 'Nigeria', 'Kenya', 'Pakistan', 'Bangladesh',
+];
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,205 +31,287 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _countryController = TextEditingController();
   final _passwordController = TextEditingController();
+  // [KEMORA-FIX] Password confirm is UI-only — NOT sent to backend (backend RegisterDto has no confirmPassword)
+  final _confirmPasswordController = TextEditingController();
+  String? _selectedCountry;
+  bool _obscurePassword = true;
+  bool _agreedToTerms = false;
 
   @override
   void dispose() {
     _fullNameController.dispose();
     _emailController.dispose();
-    _countryController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _onRegister() async {
-    FocusScope.of(context).unfocus();
-    final authVM = context.read<AuthViewModel>();
-    
-    await authVM.register(
-      _fullNameController.text.trim(),
-      _emailController.text.trim(),
-      _countryController.text.trim(),
-      _passwordController.text.trim()
-    );
+  Future<void> _onCreateAccount() async {
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+    final country = _selectedCountry ?? '';
 
-    if (authVM.state == AuthState.authenticated) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+    if (fullName.isEmpty || email.isEmpty || password.isEmpty || country.isEmpty) {
+      return;
     }
+    if (password != confirmPassword) {
+      // Show mismatch error via AuthViewModel's error state pattern
+      setState(() {}); // trigger rebuild to show local validation
+      return;
+    }
+
+    // [KEMORA-FIX] Calls POST /api/v1/auth/register with fields: fullName, email, country, password
+    // Password confirm is NOT sent to the backend
+    await context.read<AuthViewModel>().register(fullName, email, country, password);
+    // Navigation handled by AuthGate watching AuthViewModel.state
   }
 
-  void _onGoogleLogin() async {
-    final authVM = context.read<AuthViewModel>();
-    await authVM.signInWithGoogle();
-
-    if (authVM.state == AuthState.authenticated) {
-      if (!mounted) return;
-      final destination = authVM.user?.preferences == null 
-          ? const UserPreferencesScreen() 
-          : const HomeScreen();
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => destination),
-      );
-    }
-  }
-
+  bool get _passwordMismatch =>
+      _confirmPasswordController.text.isNotEmpty &&
+      _passwordController.text != _confirmPasswordController.text;
 
   @override
   Widget build(BuildContext context) {
-    final authViewModel = context.watch<AuthViewModel>();
+    final authVm = context.watch<AuthViewModel>();
+    final isLoading = authVm.state == AuthState.loading;
+    final errorMessage = authVm.state == AuthState.error ? authVm.errorMessage : null;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Create Account', style: TextStyle(color: Colors.black87)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-      ),
+      appBar: const KemoraAppBar(showBack: true),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Join Kemora',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A1A1A),
-                  letterSpacing: -0.5,
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Create Account', style: AppTypography.headlineLarge),
+            const SizedBox(height: 8),
+            Text('Join the elite travel circle today.', style: AppTypography.bodyLarge),
+            const SizedBox(height: 24),
+
+            // [KEMORA-FIX] Top-of-form error banner for API errors (400 field errors, 409 duplicate)
+            if (errorMessage != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Start your Egyptian adventure today',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              TextField(
-                controller: _fullNameController,
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _countryController,
-                decoration: InputDecoration(
-                  labelText: 'Country',
-                  prefixIcon: const Icon(Icons.public_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                ),
-                obscureText: true,
-              ),
-              const SizedBox(height: 32),
-              if (authViewModel.state == AuthState.loading)
-                const Center(child: CircularProgressIndicator())
-              else ...[
-                ElevatedButton(
-                  onPressed: _onRegister,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    backgroundColor: const Color(0xFFC5A358), // Gold
-                    foregroundColor: Colors.white,
-                    elevation: 2,
-                  ),
-                  child: const Text('Register', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 24),
-                Row(
+                child: Row(
                   children: [
-                    Expanded(child: Divider(color: Colors.grey[300])),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('OR', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    Icon(Icons.error_outline,
+                        color: AppColors.onErrorContainer, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        // [KEMORA-FIX] 409 Duplicate email → show specific message
+                        errorMessage.toLowerCase().contains('conflict') ||
+                                errorMessage.toLowerCase().contains('already') ||
+                                errorMessage.toLowerCase().contains('email')
+                            ? 'This email is already registered. Please sign in instead.'
+                            : errorMessage.toLowerCase().contains('server') ||
+                                    errorMessage.toLowerCase().contains('500')
+                                ? 'Registration failed, please try again.'
+                                : errorMessage,
+                        style: AppTypography.bodySmall
+                            .copyWith(color: AppColors.onErrorContainer),
+                      ),
                     ),
-                    Expanded(child: Divider(color: Colors.grey[300])),
                   ],
                 ),
-                const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  onPressed: _onGoogleLogin,
-                  icon: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
-                  label: const Text('Sign up with Google', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            Text('FULL NAME', style: AppTypography.labelSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _fullNameController,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                hintText: 'Enter your full name',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            Text('EMAIL ADDRESS', style: AppTypography.labelSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                hintText: 'name@luxury-travel.com',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            Text('PASSWORD', style: AppTypography.labelSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                hintText: '••••••••',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword
+                      ? Icons.visibility_off
+                      : Icons.visibility),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            Text('CONFIRM PASSWORD', style: AppTypography.labelSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _confirmPasswordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.next,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: '••••••••',
+                prefixIcon: const Icon(Icons.lock_outline),
+                // [KEMORA-FIX] Show mismatch error inline
+                errorText: _passwordMismatch ? 'Passwords do not match' : null,
+              ),
+            ),
+
+            // [KEMORA-FIX] Country — functional dropdown (required by backend RegisterDto)
+            const SizedBox(height: 24),
+            Text('COUNTRY', style: AppTypography.labelSmall),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedCountry,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.public),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: AppColors.surfaceContainerLowest,
+              ),
+              hint: Text('Select your country',
+                  style: AppTypography.bodyMedium
+                      .copyWith(color: AppColors.onSurfaceVariant)),
+              items: _countries
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedCountry = val),
+            ),
+
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _agreedToTerms,
+                    onChanged: (val) =>
+                        setState(() => _agreedToTerms = val ?? false),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: AppTypography.bodySmall,
+                      children: [
+                        const TextSpan(text: 'I agree to the '),
+                        TextSpan(
+                            text: 'Terms & Conditions',
+                            style: TextStyle(
+                                color: AppColors.primaryContainer,
+                                fontWeight: FontWeight.bold)),
+                        const TextSpan(text: ' and '),
+                        TextSpan(
+                            text: 'Privacy Policy',
+                            style: TextStyle(
+                                color: AppColors.primaryContainer,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+            ),
+
+            const SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: (isLoading || _passwordMismatch || !_agreedToTerms)
+                  ? null
+                  : _onCreateAccount,
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 56)),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Create Account'),
+            ),
+
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('OR SIGN UP WITH', style: AppTypography.labelSmall),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+            OutlinedButton.icon(
+              onPressed: isLoading
+                  ? null
+                  : () => context.read<AuthViewModel>().signInWithGoogle(),
+              icon: const Icon(Icons.g_mobiledata, color: Colors.black, size: 28),
+              label: const Text('Continue with Google',
+                  style:
+                      TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 56),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+            Center(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
                 child: RichText(
                   text: TextSpan(
-                    style: const TextStyle(color: Colors.grey),
+                    style: AppTypography.bodyMedium,
                     children: [
                       const TextSpan(text: 'Already have an account? '),
                       TextSpan(
-                        text: 'Login',
-                        style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
-                      ),
+                          text: 'Login',
+                          style: TextStyle(
+                              color: AppColors.primaryContainer,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
               ),
-              if (authViewModel.errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    authViewModel.errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,15 +1,19 @@
+// [KEMORA-MIGRATION] Wired to PostViewModel for real-time posts from backend.
+// Stories remain on CommunityProvider — no backend endpoint for stories exists yet.
+// [KEMORA-TODO] Stories — wire to a real stories/stories endpoint when available.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:timeago/timeago.dart' as timeago;
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import '../../../domain/entities/post.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../widgets/filter_chip_row.dart';
 import '../../viewmodels/post_view_model.dart';
-import '../../viewmodels/trip_view_model.dart';
-import 'chat_list_screen.dart';
-import 'post_detail_screen.dart';
-import '../profile/public_profile_screen.dart';
+import '../../viewmodels/story_view_model.dart';
+import 'create_post_screen.dart';
+import 'widgets/feed_post_card.dart';
+import 'widgets/story_viewer_screen.dart';
+import 'widgets/comment_bottom_sheet.dart';
+import '../../widgets/fade_slide_in.dart';
+import '../../../core/router/page_transitions.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -19,348 +23,276 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> {
+  int _selectedFilter = 0;
+  final List<String> _filters = ['All', 'English', 'Arabic', 'Current Place'];
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PostViewModel>().loadFeed();
-      context.read<TripViewModel>().loadTrips();
+      final postVm = context.read<PostViewModel>();
+      if (postVm.state == PostState.initial) {
+        postVm.loadFeed();
+      }
+      
+      final storyVm = context.read<StoryViewModel>();
+      if (storyVm.state == StoryState.initial) {
+        storyVm.loadActiveStories();
+      }
     });
-  }
-
-  void _showCreatePostBottomSheet() {
-    final contentController = TextEditingController();
-    String? selectedTripId;
-    String? selectedTripTitle;
-    XFile? selectedImage;
-    final ImagePicker picker = ImagePicker();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final tripVM = context.watch<TripViewModel>();
-            
-            Future<void> pickImage() async {
-              final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-              if (image != null) {
-                setModalState(() {
-                  selectedImage = image;
-                });
-              }
-            }
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-                left: 20, right: 20, top: 24,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('Create Post', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: contentController,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: "Share your experience...",
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey[200]!)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (selectedImage != null)
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: kIsWeb 
-                                ? Image.network(selectedImage!.path, height: 150, width: double.infinity, fit: BoxFit.cover)
-                                : Image.file(File(selectedImage!.path), height: 150, width: double.infinity, fit: BoxFit.cover),
-                          ),
-                          Positioned(
-                            top: 8, right: 8,
-                            child: CircleAvatar(
-                              backgroundColor: Colors.black54,
-                              child: IconButton(
-                                icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                                onPressed: () => setModalState(() => selectedImage = null),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      OutlinedButton.icon(
-                        onPressed: pickImage,
-                        icon: const Icon(Icons.image_outlined),
-                        label: const Text('Add Photo'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-                    const Text('Recommend a Trip Plan', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    if (tripVM.trips.isEmpty)
-                      const Text('No trips found to recommend.', style: TextStyle(color: Colors.grey, fontSize: 12))
-                    else
-                      SizedBox(
-                        height: 50,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: tripVM.trips.length,
-                          itemBuilder: (context, index) {
-                            final trip = tripVM.trips[index];
-                            final isSelected = selectedTripId == trip.id;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: FilterChip(
-                                label: Text(trip.title),
-                                selected: isSelected,
-                                onSelected: (val) {
-                                  setModalState(() {
-                                    selectedTripId = val ? trip.id : null;
-                                    selectedTripTitle = val ? trip.title : null;
-                                  });
-                                },
-                                selectedColor: const Color(0xFFC5A358),
-                                labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A1A1A),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      onPressed: () {
-                        if (contentController.text.isNotEmpty) {
-                          context.read<PostViewModel>().createPost(
-                            contentController.text,
-                            imageFile: selectedImage,
-                            recommendedTripId: selectedTripId,
-                            recommendedTripTitle: selectedTripTitle,
-                          );
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: const Text('Post', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-            );
-          }
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<PostViewModel>();
+    final storyVm = context.watch<StoryViewModel>();
+    final stories = storyVm.activeStories;
+    final postVm = context.watch<PostViewModel>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text('Kemora Social', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.message_outlined, color: Colors.black),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListScreen())),
+      backgroundColor: AppColors.surfaceContainerLow,
+      body: CustomScrollView(
+        slivers: [
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+
+          // Stories
+          SliverToBoxAdapter(
+            child: FadeSlideIn(
+              delayMs: 0,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    _buildStoryItem(isAdd: true, name: 'Your Story'),
+                    const SizedBox(width: 16),
+                    if (storyVm.state == StoryState.loading)
+                      const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(),
+                      )
+                    else
+                      ...stories.map((group) => Padding(
+                            padding: const EdgeInsets.only(right: 16),
+                            child: _buildStoryItem(
+                              name: group.userName,
+                              imageUrl: group.userProfilePicture ?? group.stories.first.mediaUrl,
+                              userGroup: group,
+                            ),
+                          )),
+                  ],
+                ),
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.add_box_outlined, color: Colors.black),
-            onPressed: _showCreatePostBottomSheet,
+
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+          // Filters
+          SliverToBoxAdapter(
+            child: FadeSlideIn(
+              delayMs: 100,
+              child: FilterChipRow(
+                chips: _filters,
+                selectedIndex: _selectedFilter,
+                onSelected: (i) => setState(() => _selectedFilter = i),
+              ),
+            ),
           ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+
+          // [KEMORA-MIGRATION] Feed posts — from PostViewModel (real API)
+          if (postVm.state == PostState.loading)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 60),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            )
+          else if (postVm.state == PostState.error)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off_outlined,
+                        color: AppColors.outline, size: 48),
+                    const SizedBox(height: 16),
+                    Text(
+                      postVm.errorMessage ?? 'Could not load posts.',
+                      style: AppTypography.bodyMedium
+                          .copyWith(color: AppColors.onSurfaceVariant),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () => postVm.loadFeed(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (postVm.posts.isEmpty && postVm.state == PostState.loaded)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 60),
+                child: Center(
+                  child: Text(
+                    'No posts yet. Be the first to share!',
+                    style: TextStyle(color: AppColors.onSurfaceVariant),
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final post = postVm.posts[index];
+                  return FadeSlideIn(
+                    delayMs: 200 + (index * 60),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24)
+                          .copyWith(bottom: 40),
+                      child: FeedPostCard(
+                        postId: post.id,
+                        authorName: post.authorName,
+                        location: post.locationName ?? '',
+                        timeAgo: _timeAgo(post.createdAt),
+                        content: post.content,
+                        hashtags: '',
+                        imageUrl: post.imageUrl ??
+                            'assets/images/mocked/CommunityPost.jpg',
+                        initialLikes: post.likesCount,
+                        isLiked: post.isLikedByMe,
+                        initialComments: post.commentsCount,
+                        onLikeTap: () => postVm.toggleLike(post.id),
+                        onCommentTap: () {
+                          postVm.loadComments(post.id);
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) =>
+                                ChangeNotifierProvider<PostViewModel>.value(
+                              value: postVm,
+                              child: CommentBottomSheet(postId: post.id),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+                childCount: postVm.posts.length,
+              ),
+            ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
-      body: _buildContent(viewModel),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80),
+        child: FloatingActionButton(
+          onPressed: () {
+            Navigator.of(context).push(FadePageRoute(child: const CreatePostScreen()));
+          },
+          backgroundColor: AppColors.primaryContainer,
+          elevation: 8,
+          child: const Icon(Icons.add_a_photo, color: Colors.white),
+        ),
+      ),
     );
   }
 
-  Widget _buildContent(PostViewModel viewModel) {
-    if (viewModel.state == PostState.loading && viewModel.posts.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFC5A358)));
-    }
-
-    if (viewModel.state == PostState.error && viewModel.posts.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(viewModel.errorMessage ?? 'Could not load feed', style: const TextStyle(color: Colors.grey, fontSize: 16)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => viewModel.loadFeed(),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC5A358), foregroundColor: Colors.white),
-              child: const Text('Retry'),
-            ),
-          ],
+  Widget _buildStoryItem({
+    bool isAdd = false,
+    required String name,
+    String? imageUrl,
+    dynamic userGroup,
+  }) {
+    final fallbackImage = 'assets/images/mocked/CommunityStory.jpg';
+    
+    Widget imageWidget;
+    if (imageUrl != null && imageUrl.startsWith('http')) {
+      imageWidget = Image.network(imageUrl, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          color: AppColors.surfaceContainerHigh,
+          child: const Icon(Icons.person, color: AppColors.outlineVariant, size: 40),
+        ),
+      );
+    } else {
+      imageWidget = Image.asset(imageUrl ?? fallbackImage, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          color: AppColors.surfaceContainerHigh,
+          child: const Icon(Icons.person, color: AppColors.outlineVariant, size: 40),
         ),
       );
     }
 
-    if (viewModel.posts.isEmpty) {
-      return const Center(child: Text('Start the conversation!'));
-    }
-
-    return RefreshIndicator(
-      color: const Color(0xFFC5A358),
-      onRefresh: () => viewModel.loadFeed(),
-      child: ListView.builder(
-        itemCount: viewModel.posts.length,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        itemBuilder: (context, index) {
-          final post = viewModel.posts[index];
-          return _buildPostCard(post, viewModel);
-        },
-      ),
-    );
-  }
-
-  Widget _buildPostCard(Post post, PostViewModel viewModel) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            ListTile(
-              leading: GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => PublicProfileScreen(
-                    userId: post.authorId,
-                    userName: post.authorName,
-                    profilePictureUrl: post.authorProfilePicture,
-                  )),
-                ),
-                child: CircleAvatar(
-                  backgroundImage: NetworkImage(post.authorProfilePicture),
-                  onBackgroundImageError: (_, __) {},
-                  child: post.authorProfilePicture.isEmpty
-                      ? Text(post.authorName.isNotEmpty ? post.authorName[0].toUpperCase() : '?')
-                      : null,
-                ),
-              ),
-              title: Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(timeago.format(post.createdAt)),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(post.content, style: const TextStyle(fontSize: 15, height: 1.4)),
-            ),
-            // Media image display
-            if (post.imageUrl != null && post.imageUrl!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                ),
-                child: Image.network(
-                  post.imageUrl!,
-                  width: double.infinity,
-                  height: 220,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 100,
-                    color: Colors.grey[100],
-                    child: const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)),
-                  ),
-                ),
-              ),
-            ],
-            if (post.recommendedTripId != null)
-              _buildRecommendedPlanCard(post.recommendedTripTitle ?? 'Trip Plan'),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    post.isLikedByMe ? Icons.favorite : Icons.favorite_border,
-                    color: post.isLikedByMe ? Colors.red : Colors.grey,
-                  ),
-                  onPressed: () => viewModel.toggleLike(post.id),
-                ),
-                Text('${post.likesCount}', style: const TextStyle(color: Colors.grey)),
-                const SizedBox(width: 8),
-                // Comment button now navigates to PostDetailScreen
-                IconButton(
-                  icon: const Icon(Icons.comment_outlined, color: Colors.grey),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
-                  ),
-                ),
-                Text('${post.commentsCount}', style: const TextStyle(color: Colors.grey)),
-              ],
-            ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
-
-  Widget _buildRecommendedPlanCard(String title) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFC5A358).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC5A358).withOpacity(0.25)),
-      ),
-      child: Row(
+    return GestureDetector(
+      onTap: () {
+        if (!isAdd && userGroup != null) {
+          Navigator.push(
+              context, FadePageRoute(child: StoryViewerScreen(userGroup: userGroup)));
+        } else if (isAdd) {
+          // Routing to CreatePostScreen for creating a story
+          Navigator.push(context, FadePageRoute(child: const CreatePostScreen(isStory: true)));
+        }
+      },
+      child: Column(
         children: [
-          const Icon(Icons.map_outlined, color: Color(0xFFC5A358), size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Recommended Plan', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFC5A358))),
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              ],
+          Container(
+            width: 80,
+            height: 80,
+            padding: const EdgeInsets.all(3),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.secondaryContainer]),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.surfaceContainerLowest,
+                border: Border.all(color: AppColors.surfaceContainerLowest, width: 2),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipOval(child: imageWidget),
+                  if (isAdd)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(Icons.add, size: 12, color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-          const Icon(Icons.chevron_right, color: Color(0xFFC5A358)),
+          const SizedBox(height: 8),
+          Text(name,
+              style: AppTypography.labelSmall
+                  .copyWith(color: AppColors.onSurfaceVariant)),
         ],
       ),
     );
