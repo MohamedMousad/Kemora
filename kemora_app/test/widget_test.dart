@@ -25,17 +25,17 @@ void main() {
     // Let the widget tree build.
     await tester.pump();
 
-    // Verify the AppBar title.
-    expect(find.text('Login to Kemora'), findsOneWidget);
+    // Verify the app title
+    expect(find.text('KEMORA'), findsOneWidget);
 
     // Verify the welcome text.
-    expect(find.text('Welcome Back to Kemora'), findsOneWidget);
+    expect(find.text('Welcome Back'), findsOneWidget);
 
-    // Find TextFields by their labelText.
-    expect(find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.labelText == 'Email'), findsOneWidget);
-    expect(find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.labelText == 'Password'), findsOneWidget);
+    // Find TextFields by their hintText.
+    expect(find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == 'Email Address'), findsOneWidget);
+    expect(find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == 'Password'), findsOneWidget);
 
     // Verify the presence of the login button.
-    expect(find.widgetWithText(ElevatedButton, 'Login'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, 'SIGN IN TO KEMORA'), findsOneWidget);
   });
 }

@@ -76,3 +76,9 @@ kemora_app/android/app/src/main/res/values/secrets.xml
 # macOS
 .DS_Store
 .agent/
+
+# Local Scratch and IDE configs
+.idea/
+scratch/
+*.html
+*.py
