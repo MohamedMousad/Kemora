@@ -33,6 +33,7 @@ namespace Kemora.Application.Services
                 Content = dto.Content,
                 CreatedAt = DateTime.UtcNow,
                 UserID = userId,
+                LocationId = dto.LocationId,
                 Media = dto.Media?.ConvertAll(m => new PostMedia { MediaURL = m.MediaURL, MediaType = m.MediaType })
             };
 
@@ -46,7 +47,7 @@ namespace Kemora.Application.Services
 
         public async Task<PagedResult<PostListResponseDto>> GetPostsAsync(string? currentUserId, int page, int pageSize)
         {
-            var posts = await _postRepo.GetPagedAsync(null, q => q.OrderByDescending(p => p.CreatedAt), page, pageSize, p => p.User, p => p.Media, p => p.Reactions, p => p.Comments);
+            var posts = await _postRepo.GetPagedAsync(null, q => q.OrderByDescending(p => p.CreatedAt), page, pageSize, p => p.User, p => p.Media, p => p.Reactions, p => p.Comments, p => p.Location);
             var count = await _postRepo.CountAsync();
             
             var postsList = posts.ToList();
@@ -83,7 +84,7 @@ namespace Kemora.Application.Services
 
         public async Task<PagedResult<PostListResponseDto>> GetMyPostsAsync(string userId, int page, int pageSize)
         {
-            var posts = await _postRepo.GetPagedAsync(p => p.UserID == userId, q => q.OrderByDescending(p => p.CreatedAt), page, pageSize, p => p.User, p => p.Media, p => p.Reactions, p => p.Comments);
+            var posts = await _postRepo.GetPagedAsync(p => p.UserID == userId, q => q.OrderByDescending(p => p.CreatedAt), page, pageSize, p => p.User, p => p.Media, p => p.Reactions, p => p.Comments, p => p.Location);
             var count = await _postRepo.CountAsync(p => p.UserID == userId);
             
             var postsList = posts.ToList();

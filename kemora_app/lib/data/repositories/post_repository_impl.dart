@@ -23,7 +23,7 @@ class PostRepositoryImpl implements IPostRepository {
   }
 
   @override
-  Future<Either<Failure, Post>> createPost(String content, {XFile? imageFile, String? locationId}) async {
+  Future<Either<Failure, Post>> createPost(String content, {XFile? imageFile, int? locationId}) async {
     try {
       final post = await remoteDataSource.createPost(content, imageFile: imageFile, locationId: locationId);
       return Right(post);

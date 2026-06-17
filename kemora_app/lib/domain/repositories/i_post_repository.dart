@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 abstract class IPostRepository {
   Future<Either<Failure, List<Post>>> getFeed();
-  Future<Either<Failure, Post>> createPost(String content, {XFile? imageFile, String? locationId});
+  Future<Either<Failure, Post>> createPost(String content, {XFile? imageFile, int? locationId});
   Future<Either<Failure, void>> likePost(String postId);
   Future<Either<Failure, void>> unlikePost(String postId);
   Future<Either<Failure, List<Comment>>> getPostComments(String postId);

@@ -10,18 +10,44 @@ class PlaceModel extends Place {
     required super.latitude,
     required super.longitude,
     required super.rating,
+    super.type,
+    super.address,
+    super.governorateName,
+    super.mainImageUrl,
+    super.priceLevel,
+    super.website,
+    super.reviews,
   });
 
   factory PlaceModel.fromJson(Map<String, dynamic> json) {
+    // Parse reviews if present
+    final rawReviews = json['reviews'] as List<dynamic>? ?? [];
+    final reviews = rawReviews
+        .map((r) => ReviewSummary(
+              authorName: r['authorName'] as String? ?? r['author_name'] as String? ?? 'Anonymous',
+              text: r['text'] as String? ?? '',
+              rating: (r['rating'] as num?)?.toInt() ?? 5,
+            ))
+        .toList();
+
+    final mainImageUrl = json['mainImageURL'] as String? ?? json['mainImageUrl'] as String?;
+
     return PlaceModel(
-      id: json['placeID']?.toString() ?? '',
+      id: json['placeID']?.toString() ?? json['id']?.toString() ?? '',
       name: json['name'] as String? ?? 'Unknown Place',
-      description: json['description'] as String? ?? json['address'] as String? ?? 'No description available.',
-      category: json['placeTypeName'] as String? ?? 'Uncategorized',
-      imageUrl: json['mainImageURL'] as String? ?? 'https://picsum.photos/400/300',
+      description: json['description'] as String? ?? 'No description available.',
+      category: json['placeTypeName'] as String? ?? json['type'] as String? ?? 'Uncategorized',
+      imageUrl: mainImageUrl ?? 'https://picsum.photos/400/300',
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      type: json['placeTypeName'] as String? ?? json['type'] as String?,
+      address: json['address'] as String?,
+      governorateName: json['governorateName'] as String?,
+      mainImageUrl: mainImageUrl,
+      priceLevel: (json['priceLevel'] as num?)?.toInt(),
+      website: json['website'] as String?,
+      reviews: reviews,
     );
   }
 

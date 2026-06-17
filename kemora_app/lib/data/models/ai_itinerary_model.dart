@@ -62,25 +62,10 @@ class ItineraryItemModel extends ItineraryItem {
   });
 
   factory ItineraryItemModel.fromJson(Map<String, dynamic> json) {
-    // Strip any type labels like [HOTEL], [RESTAURANT] etc from place names
-    String rawName = json['place'] as String? ?? (json['name'] as String? ?? 'Unknown Place');
-    final labelRegex = RegExp(r'^\[(HOTEL|RESTAURANT|CAFÉ|CAFE|ATTRACTION)\]\s*', caseSensitive: false);
-    final cleanName = rawName.replaceFirst(labelRegex, '').trim();
-
-    // Determine time slot: prefer explicit time_slot, fall back to deriving from time
-    String timeSlot = json['time_slot'] as String? ?? json['time_of_day'] as String? ?? '';
-    if (timeSlot.isEmpty) {
-      final timeStr = json['time'] as String? ?? '';
-      final hour = int.tryParse(timeStr.split(':').first) ?? 12;
-      if (hour < 12) timeSlot = 'Morning';
-      else if (hour < 18) timeSlot = 'Afternoon';
-      else timeSlot = 'Evening';
-    }
-
     return ItineraryItemModel(
-      name: cleanName,
+      name: json['place'] as String? ?? (json['name'] as String? ?? 'Unknown Place'),
       description: json['description'] as String? ?? '',
-      timeOfDay: timeSlot,
+      timeOfDay: json['time_slot'] as String? ?? (json['time_of_day'] as String? ?? 'Morning'),
       suggestedHours: json['suggested_hours'] as String?,
       imageUrl: json['image_url'] as String?,
       rating: (json['rating'] as num?)?.toDouble(),

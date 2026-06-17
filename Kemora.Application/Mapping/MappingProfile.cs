@@ -55,7 +55,8 @@ namespace Kemora.Application.Mapping
                 .ForMember(d => d.AuthorProfilePicture, o => o.MapFrom(s => s.User.ProfilePictureUrl))
                 .ForMember(d => d.ReactionCount, o => o.MapFrom(s => s.Reactions.Count))
                 .ForMember(d => d.CommentCount, o => o.MapFrom(s => s.Comments.Count))
-                .ForMember(d => d.IsLikedByMe, o => o.Ignore());
+                .ForMember(d => d.IsLikedByMe, o => o.Ignore())
+                .ForMember(d => d.LocationName, o => o.MapFrom(s => s.Location != null ? s.Location.Name : null));
             
             CreateMap<Post, PostDetailResponseDto>()
                 .ForMember(d => d.AuthorId, o => o.MapFrom(s => s.UserID))
@@ -64,6 +65,7 @@ namespace Kemora.Application.Mapping
                 .ForMember(d => d.ReactionCount, o => o.MapFrom(s => s.Reactions.Count))
                 .ForMember(d => d.CommentCount, o => o.MapFrom(s => s.Comments.Count))
                 .ForMember(d => d.IsLikedByMe, o => o.Ignore())
+                .ForMember(d => d.LocationName, o => o.MapFrom(s => s.Location != null ? s.Location.Name : null))
                 .ForMember(d => d.Comments, o => o.MapFrom(s => s.Comments.Where(c => c.ParentCommentId == null).OrderByDescending(c => c.CreatedAt)));
 
             CreateMap<Comment, CommentResponseDto>()

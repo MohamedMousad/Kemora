@@ -476,6 +476,9 @@ namespace Kemora.Infrastructure.Migrations
                     b.Property<int?>("LinkedTripId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("LocationId")
+                        .HasColumnType("int");
+
                     b.Property<string>("UserID")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -483,6 +486,8 @@ namespace Kemora.Infrastructure.Migrations
                     b.HasKey("PostID");
 
                     b.HasIndex("LinkedTripId");
+
+                    b.HasIndex("LocationId");
 
                     b.HasIndex("UserID");
 
@@ -596,6 +601,44 @@ namespace Kemora.Infrastructure.Migrations
                     b.HasIndex("PlaceID");
 
                     b.ToTable("Reviews");
+                });
+
+            modelBuilder.Entity("Kemora.Domain.Entities.Story", b =>
+                {
+                    b.Property<int>("StoryID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("StoryID"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("LocationId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MediaUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserID")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("StoryID");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("UserID");
+
+                    b.ToTable("Stories");
                 });
 
             modelBuilder.Entity("Kemora.Domain.Entities.Trip", b =>
@@ -976,6 +1019,10 @@ namespace Kemora.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("LinkedTripId");
 
+                    b.HasOne("Kemora.Domain.Entities.Place", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId");
+
                     b.HasOne("Kemora.Domain.Entities.ApplicationUser", "User")
                         .WithMany("Posts")
                         .HasForeignKey("UserID")
@@ -983,6 +1030,8 @@ namespace Kemora.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("LinkedTrip");
+
+                    b.Navigation("Location");
 
                     b.Navigation("User");
                 });
@@ -1026,6 +1075,23 @@ namespace Kemora.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Place");
+                });
+
+            modelBuilder.Entity("Kemora.Domain.Entities.Story", b =>
+                {
+                    b.HasOne("Kemora.Domain.Entities.Place", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId");
+
+                    b.HasOne("Kemora.Domain.Entities.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Kemora.Domain.Entities.Trip", b =>

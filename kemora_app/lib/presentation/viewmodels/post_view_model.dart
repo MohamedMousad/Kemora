@@ -175,13 +175,13 @@ class PostViewModel extends ChangeNotifier {
     );
   }
 
-  Future<void> createPost(String content, {XFile? imageFile, String? recommendedTripId, String? recommendedTripTitle}) async {
+  Future<void> createPost(String content, {XFile? imageFile, int? locationId, String? recommendedTripId, String? recommendedTripTitle}) async {
     _state = PostState.loading;
     _errorMessage = null;
     notifyListeners();
 
     // Note: Assuming createPostUseCase is updated internally or we'll update it next if needed
-    final result = await createPostUseCase(content, imageFile: imageFile);
+    final result = await createPostUseCase(content, imageFile: imageFile, locationId: locationId);
     result.fold(
       (failure) {
         _state = PostState.error;
@@ -213,4 +213,5 @@ class PostViewModel extends ChangeNotifier {
       },
     );
   }
+
 }

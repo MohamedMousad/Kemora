@@ -30,12 +30,23 @@ class UserBadgeModel extends UserBadge {
     required super.earnedAt,
   });
 
+  // [KEMORA-MIGRATION] Backend UserBadgeResponseDto is flat — no nested 'badge' object.
+  // Fields: badgeID, badgeName, badgeDescription, iconUrl, criteria, pointsReward, earnedAt
   factory UserBadgeModel.fromJson(Map<String, dynamic> json) {
+    // Build the nested BadgeModel from the flat fields at root level
+    final badge = BadgeModel(
+      id: json['badgeID']?.toString() ?? '',
+      name: json['badgeName'] as String? ?? json['name'] as String? ?? 'Unknown Badge',
+      description: json['badgeDescription'] as String? ?? json['description'] as String? ?? '',
+      iconUrl: json['iconUrl'] as String? ?? 'https://via.placeholder.com/150',
+      criteria: json['criteria'] as String? ?? '',
+      pointsReward: json['pointsReward'] as int? ?? 0,
+    );
     return UserBadgeModel(
       id: json['badgeID']?.toString() ?? '',
-      userId: json['userId']?.toString() ?? '',
-      badge: BadgeModel.fromJson(json['badge'] ?? {}),
-      earnedAt: json['earnedAt'] != null ? DateTime.parse(json['earnedAt']) : DateTime.now(),
+      userId: '',  // Not returned by backend in this DTO
+      badge: badge,
+      earnedAt: json['earnedAt'] != null ? DateTime.parse(json['earnedAt'].toString()) : DateTime.now(),
     );
   }
 }

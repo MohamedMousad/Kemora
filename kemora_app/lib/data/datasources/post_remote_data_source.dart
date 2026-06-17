@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 abstract class PostRemoteDataSource {
   Future<List<PostModel>> getFeed();
-  Future<PostModel> createPost(String content, {XFile? imageFile, String? locationId});
+  Future<PostModel> createPost(String content, {XFile? imageFile, int? locationId});
   Future<void> likePost(String postId);
   Future<void> unlikePost(String postId);
   Future<List<CommentModel>> getPostComments(String postId);
@@ -34,7 +34,7 @@ class PostRemoteDataSourceImpl implements PostRemoteDataSource {
   }
 
   @override
-  Future<PostModel> createPost(String content, {XFile? imageFile, String? locationId}) async {
+  Future<PostModel> createPost(String content, {XFile? imageFile, int? locationId}) async {
     try {
       String? remoteImageUrl;
       
@@ -54,6 +54,7 @@ class PostRemoteDataSourceImpl implements PostRemoteDataSource {
 
       final response = await dio.post('/api/v1/posts', data: {
         'content': content,
+        'locationId': locationId,
         // The API maps 'mediaURL' based on the DTO. Use exactly what the DTO expects.
         'media': remoteImageUrl != null ? [{'mediaURL': remoteImageUrl, 'mediaType': 'Image'}] : null,
       });

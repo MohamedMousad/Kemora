@@ -15,9 +15,27 @@ namespace Kemora.Domain.Entities
         public int? LinkedTripId { get; set; }
         public Trip? LinkedTrip { get; set; }
 
+        public int? LocationId { get; set; }
+        public Place? Location { get; set; }
+
         public ICollection<PostMedia> Media { get; set; }
         public ICollection<PostReaction> Reactions { get; set; }
         public ICollection<Comment> Comments { get; set; }
+    }
+
+    public class Story
+    {
+        [Key] public int StoryID { get; set; }
+        public string MediaUrl { get; set; } = string.Empty;
+        public string MediaType { get; set; } = string.Empty; // "Image", "Video"
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime ExpiresAt { get; set; }
+        
+        public string UserID { get; set; } = string.Empty;
+        public ApplicationUser User { get; set; } = null!;
+
+        public int? LocationId { get; set; }
+        public Place? Location { get; set; }
     }
 
     public class PostMedia

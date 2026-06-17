@@ -20,11 +20,13 @@ namespace Kemora.Api.Controllers
     {
         private readonly IPostService _postService;
         private readonly IImageService _imageService;
+        private readonly IBadgeAwardService _badgeAwardService;
 
-        public PostsController(IPostService postService, IImageService imageService)
+        public PostsController(IPostService postService, IImageService imageService, IBadgeAwardService badgeAwardService)
         {
             _postService = postService;
             _imageService = imageService;
+            _badgeAwardService = badgeAwardService;
         }
 
         private string? GetCurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -40,6 +42,8 @@ namespace Kemora.Api.Controllers
             if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
             var post = await _postService.CreateAsync(userId, dto);
+            // Award "Community Starter" badge non-blockingly
+            _ = _badgeAwardService.TryAwardCommunityStarterAsync(userId);
             return Ok(post);
         }
 

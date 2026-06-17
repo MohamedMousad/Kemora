@@ -111,9 +111,22 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(post.authorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(
-                    timeago.format(post.createdAt),
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  Row(
+                    children: [
+                      Text(
+                        timeago.format(post.createdAt),
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                      if (post.locationName != null && post.locationName!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.location_on, size: 12, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          post.locationName!,
+                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -250,7 +263,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5)),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5)),
             ],
           ),
           child: Row(

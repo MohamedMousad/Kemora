@@ -18,10 +18,12 @@ namespace Kemora.Api.Controllers
     public class TripsController : ControllerBase
     {
         private readonly ITripService _tripService;
+        private readonly IBadgeAwardService _badgeAwardService;
 
-        public TripsController(ITripService tripService)
+        public TripsController(ITripService tripService, IBadgeAwardService badgeAwardService)
         {
             _tripService = tripService;
+            _badgeAwardService = badgeAwardService;
         }
 
         private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -137,6 +139,9 @@ namespace Kemora.Api.Controllers
             // Support both authenticated and guest users
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "guest";
             var t = await _tripService.SaveAIPlanAsync(userId, dto);
+            // Award achievement badges non-blockingly
+            _ = _badgeAwardService.TryAwardAiPioneerAsync(userId);
+            _ = _badgeAwardService.TryAwardCityHopperAsync(userId);
             return CreatedAtAction(nameof(Get), new { id = t.TripID }, t);
         }
     }

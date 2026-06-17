@@ -73,24 +73,12 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
       );
       
       if (response.statusCode == 200) {
-        // Backend returns the newActivity object directly as JSON
-        Map<String, dynamic> data;
+        // Backend returns the new place as JSON string or object
+        // Assuming it's a JSON string representing the activity
         if (response.data is String) {
-          data = json.decode(response.data);
-        } else {
-          data = response.data;
+          return ItineraryItemModel.fromJson(json.decode(response.data));
         }
-        
-        // Map the AI response fields to ItineraryItemModel fields
-        final mapped = {
-          'place': data['place'] ?? data['name'] ?? 'Alternative Place',
-          'description': data['description'] ?? '',
-          'time_of_day': data['time'] ?? data['time_of_day'] ?? data['time_slot'] ?? 'Morning',
-          'image_url': data['image_url'],
-          'rating': data['rating'],
-        };
-        
-        return ItineraryItemModel.fromJson(mapped);
+        return ItineraryItemModel.fromJson(response.data);
       } else {
         throw const ServerFailure('Failed to swap place');
       }
@@ -152,17 +140,22 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
   }
 
   @override
+  // [KEMORA-MIGRATION] Backend GET /api/v1/trips returns PagedResult<TripListDto> { items: [...], totalCount, page, pageSize }
+  // Fixed to unwrap the 'items' array. Falls back to direct list if server returns flat array.
   Future<List<TripModel>> getUserTrips() async {
     try {
       final response = await dio.get('/api/v1/trips');
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data;
-        return data.map((json) => TripModel.fromJson(json)).toList();
+        final data = response.data;
+        final List<dynamic> items = (data is Map && data.containsKey('items'))
+            ? data['items'] as List<dynamic>
+            : data as List<dynamic>;
+        return items.map((json) => TripModel.fromJson(json)).toList();
       } else {
         throw const ServerFailure('Failed to fetch trips');
       }
     } on DioException catch (e) {
-      throw ServerFailure(e.response?.data['message'] ?? 'Server Error');
+      throw ServerFailure(e.response?.data?['message'] ?? 'Server Error');
     }
   }
 }
