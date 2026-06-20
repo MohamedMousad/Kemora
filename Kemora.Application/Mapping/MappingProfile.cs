@@ -41,9 +41,21 @@ namespace Kemora.Application.Mapping
             CreateMap<TripPlace, TripPlaceResponseDto>()
                 .ForMember(d => d.PlaceName, o => o.MapFrom(s => s.Place.Name));
             CreateMap<Trip, TripListDto>()
-                .ForMember(d => d.PlaceCount, o => o.MapFrom(s => s.TripPlaces.Count));
+                .ForMember(d => d.PlaceCount, o => o.MapFrom(s => s.TripPlaces.Count))
+                .ForMember(d => d.Location, o => o.MapFrom(s => 
+                    s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault() != null 
+                    && s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault().Place != null 
+                    && s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault().Place.Governorate != null 
+                    ? s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault().Place.Governorate.Name 
+                    : "Egypt"));
             CreateMap<Trip, TripDetailDto>()
-                .ForMember(d => d.Places, o => o.MapFrom(s => s.TripPlaces.OrderBy(tp => tp.VisitDate)));
+                .ForMember(d => d.Places, o => o.MapFrom(s => s.TripPlaces.OrderBy(tp => tp.VisitDate)))
+                .ForMember(d => d.Location, o => o.MapFrom(s => 
+                    s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault() != null 
+                    && s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault().Place != null 
+                    && s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault().Place.Governorate != null 
+                    ? s.TripPlaces.OrderBy(tp => tp.VisitDate).FirstOrDefault().Place.Governorate.Name 
+                    : "Egypt"));
 
             // Social/Posts
             CreateMap<PostMedia, PostMediaResponseDto>();

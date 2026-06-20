@@ -32,6 +32,7 @@ import '../../domain/usecases/trip_usecases.dart';
 import '../../domain/usecases/generate_ai_itinerary_usecase.dart';
 import '../../domain/usecases/swap_place_usecase.dart';
 import '../../domain/usecases/save_ai_plan_usecase.dart';
+import '../../domain/usecases/update_place_visited_status_usecase.dart';
 import '../../domain/usecases/get_places_by_category_usecase.dart';
 import '../../domain/usecases/post_usecases.dart';
 import '../../domain/usecases/badge_usecases.dart';
@@ -132,6 +133,10 @@ Future<void> init() async {
         generateAiItineraryUseCase: sl(),
         swapPlaceUseCase: sl(),
         saveAiPlanUseCase: sl(),
+        updatePlaceVisitedStatusUseCase: sl(),
+        getTripDetailsUseCase: sl(),
+        deleteTripUseCase: sl(),
+        renameTripUseCase: sl(),
       ));
 
   // Use Cases
@@ -140,6 +145,10 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GenerateAiItineraryUseCase(repository: sl()));
   sl.registerLazySingleton(() => SwapPlaceUseCase(repository: sl()));
   sl.registerLazySingleton(() => SaveAiPlanUseCase(repository: sl()));
+  sl.registerLazySingleton(() => UpdatePlaceVisitedStatusUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetTripDetailsUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteTripUseCase(sl()));
+  sl.registerLazySingleton(() => RenameTripUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<ITripRepository>(

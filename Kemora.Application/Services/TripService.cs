@@ -110,6 +110,7 @@ namespace Kemora.Application.Services
 
             if (dto.VisitDate.HasValue) tp.VisitDate = dto.VisitDate.Value;
             if (dto.Notes != null) tp.Notes = dto.Notes;
+            if (dto.IsVisited.HasValue) tp.IsVisited = dto.IsVisited.Value;
             await _unitOfWork.CommitAsync();
             return true;
         }

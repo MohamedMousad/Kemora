@@ -17,7 +17,9 @@ namespace Kemora.Infrastructure.Repositories
             return await _dbSet
                 .Where(t => t.UserID == userId)
                 .OrderByDescending(t => t.StartDate)
-                .Include(t=>t.TripPlaces)
+                .Include(t => t.TripPlaces)
+                    .ThenInclude(tp => tp.Place)
+                        .ThenInclude(p => p.Governorate)
                 .Skip((page - 1) * size).Take(size)
                 .ToListAsync();
         }

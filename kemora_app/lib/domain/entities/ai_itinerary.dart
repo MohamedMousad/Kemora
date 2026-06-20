@@ -12,6 +12,8 @@ class ItineraryItem extends Equatable {
   final double? latitude;
   final double? longitude;
   final String? category;
+  final bool isVisited;
+  final int? tripPlaceId;
 
   const ItineraryItem({
     required this.name,
@@ -25,7 +27,41 @@ class ItineraryItem extends Equatable {
     this.latitude,
     this.longitude,
     this.category,
+    this.isVisited = false,
+    this.tripPlaceId,
   });
+
+  ItineraryItem copyWith({
+    String? name,
+    String? description,
+    String? timeOfDay,
+    String? suggestedHours,
+    String? imageUrl,
+    double? rating,
+    String? price,
+    String? itineraryReview,
+    double? latitude,
+    double? longitude,
+    String? category,
+    bool? isVisited,
+    int? tripPlaceId,
+  }) {
+    return ItineraryItem(
+      name: name ?? this.name,
+      description: description ?? this.description,
+      timeOfDay: timeOfDay ?? this.timeOfDay,
+      suggestedHours: suggestedHours ?? this.suggestedHours,
+      imageUrl: imageUrl ?? this.imageUrl,
+      rating: rating ?? this.rating,
+      price: price ?? this.price,
+      itineraryReview: itineraryReview ?? this.itineraryReview,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      category: category ?? this.category,
+      isVisited: isVisited ?? this.isVisited,
+      tripPlaceId: tripPlaceId ?? this.tripPlaceId,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -40,6 +76,8 @@ class ItineraryItem extends Equatable {
         latitude,
         longitude,
         category,
+        isVisited,
+        tripPlaceId,
       ];
 }
 

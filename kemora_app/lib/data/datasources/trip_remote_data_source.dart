@@ -9,9 +9,13 @@ import '../../domain/entities/ai_itinerary.dart';
 abstract class TripRemoteDataSource {
   Future<TripModel> createTripPlan(String title, DateTime startDate, DateTime endDate, List<String> placeIds);
   Future<List<TripModel>> getUserTrips();
+  Future<TripModel> getTripDetails(String id);
+  Future<bool> deleteTrip(String id);
+  Future<bool> renameTrip(String id, String newName);
   Future<AIItinerary> generateItinerary(TripPlanRequest request);
   Future<ItineraryItem> swapPlace(String currentPlaceName, String preferences);
   Future<TripModel> saveAIPlan(AIItinerary itinerary, DateTime startDate, DateTime endDate);
+  Future<bool> updatePlaceVisitedStatus(int tripId, int tripPlaceId, bool isVisited);
 }
 
 class TripRemoteDataSourceImpl implements TripRemoteDataSource {
@@ -40,24 +44,43 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
         }
       }
 
-      final response = await dio.post(
-        '/api/v1/trips/save-plan',
-        data: {
+      final requestData = {
           'title': itinerary.title,
           'description': 'AI generated trip for ${itinerary.duration}',
           'startDate': startDate.toIso8601String(),
           'endDate': endDate.toIso8601String(),
           'activities': activities,
-        },
+        };
+      print('DATA: $requestData');
+
+      final response = await dio.post(
+        '/api/v1/trips/save-plan',
+        data: requestData,
       );
 
+      print('=== SAVE AI PLAN RES ===');
+      print('STATUS: ${response.statusCode}');
+      print('DATA TYPE: ${response.data.runtimeType}');
+      print('DATA: ${response.data}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return TripModel.fromJson(response.data);
+        if (response.data is! Map<String, dynamic>) {
+          print('SAVE AI PLAN ERROR: Expected Map but got ${response.data.runtimeType}: ${response.data}');
+          throw const ServerFailure('Unexpected response format from server');
+        }
+        return TripModel.fromJson(response.data as Map<String, dynamic>);
       } else {
         throw const ServerFailure('Failed to save AI plan');
       }
     } on DioException catch (e) {
-      throw ServerFailure(e.response?.data?['message'] ?? 'Server Error saving plan');
+      final data = e.response?.data;
+      print('=== SAVE AI PLAN DIO ERROR ===');
+      print('STATUS: ${e.response?.statusCode}');
+      print('DATA TYPE: ${data?.runtimeType}');
+      print('DATA: $data');
+      // data can be a Map or a plain String (e.g. HTML error page from middleware)
+      final message = data is Map ? (data['message'] ?? data['Message'] ?? 'Server Error') : 'Server Error (${e.response?.statusCode})';
+      throw ServerFailure(message.toString());
     }
   }
 
@@ -135,7 +158,9 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
         throw const ServerFailure('Failed to create trip');
       }
     } on DioException catch (e) {
-      throw ServerFailure(e.response?.data['message'] ?? 'Server Error');
+      final data = e.response?.data;
+      final message = data is Map ? (data['message'] ?? 'Server Error') : 'Server Error';
+      throw ServerFailure(message.toString());
     }
   }
 
@@ -144,7 +169,11 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
   // Fixed to unwrap the 'items' array. Falls back to direct list if server returns flat array.
   Future<List<TripModel>> getUserTrips() async {
     try {
+      print('=== GET USER TRIPS REQ ===');
       final response = await dio.get('/api/v1/trips');
+      print('=== GET USER TRIPS RES ===');
+      print('STATUS: ${response.statusCode}');
+      print('DATA: ${response.data}');
       if (response.statusCode == 200) {
         final data = response.data;
         final List<dynamic> items = (data is Map && data.containsKey('items'))
@@ -155,6 +184,86 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
         throw const ServerFailure('Failed to fetch trips');
       }
     } on DioException catch (e) {
+      print('=== GET USER TRIPS ERROR ===');
+      print('ERROR: ${e.response?.data}');
+      throw ServerFailure(e.response?.data?['message'] ?? 'Server Error');
+    } catch (e, stack) {
+      print('=== GET USER TRIPS UNHANDLED ERROR ===');
+      print(e);
+      print(stack);
+      throw ServerFailure('Data parsing error');
+    }
+  }
+
+  @override
+  Future<bool> updatePlaceVisitedStatus(int tripId, int tripPlaceId, bool isVisited) async {
+    try {
+      final response = await dio.put(
+        '/api/v1/trips/$tripId/places/$tripPlaceId',
+        data: {
+          'isVisited': isVisited,
+        },
+      );
+      return response.statusCode == 204;
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final message = data is Map ? (data['message'] ?? 'Server Error') : 'Server Error updating visited status';
+      throw ServerFailure(message.toString());
+    }
+  }
+
+  @override
+  Future<TripModel> getTripDetails(String id) async {
+    try {
+      print('=== GET_TRIP_DETAILS: id="$id" ===');
+      final response = await dio.get('/api/v1/trips/$id');
+      print('=== GET_TRIP_DETAILS RES: status=${response.statusCode} ===');
+      if (response.statusCode == 200) {
+        return TripModel.fromJson(response.data);
+      } else {
+        throw const ServerFailure('Failed to fetch trip details');
+      }
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      print('=== GET_TRIP_DETAILS ERROR: status=${e.response?.statusCode} data=$data ===');
+      final message = data is Map ? (data['message'] ?? 'Server Error') : 'Server Error';
+      throw ServerFailure(message.toString());
+    }
+  }
+
+  @override
+  Future<bool> deleteTrip(String id) async {
+    try {
+      print('=== DELETE_TRIP: id="$id" url=/api/v1/trips/$id ===');
+      if (id.isEmpty) {
+        print('DELETE_TRIP ERROR: id is empty! Cannot delete.');
+        throw const ServerFailure('Trip ID is empty — cannot delete.');
+      }
+      final response = await dio.delete('/api/v1/trips/$id');
+      print('=== DELETE_TRIP RES: status=${response.statusCode} ===');
+      return response.statusCode == 200 || response.statusCode == 204;
+    } on DioException catch (e) {
+      print('=== DELETE_TRIP ERROR: status=${e.response?.statusCode} data=${e.response?.data} ===');
+      throw ServerFailure(e.response?.data?['message'] ?? 'Server Error');
+    }
+  }
+
+  @override
+  Future<bool> renameTrip(String id, String newName) async {
+    try {
+      print('=== RENAME_TRIP: id="$id" newName="$newName" url=/api/v1/trips/$id ===');
+      if (id.isEmpty) {
+        print('RENAME_TRIP ERROR: id is empty! Cannot rename.');
+        throw const ServerFailure('Trip ID is empty — cannot rename.');
+      }
+      final response = await dio.put(
+        '/api/v1/trips/$id',
+        data: {'name': newName},
+      );
+      print('=== RENAME_TRIP RES: status=${response.statusCode} ===');
+      return response.statusCode == 200 || response.statusCode == 204;
+    } on DioException catch (e) {
+      print('=== RENAME_TRIP ERROR: status=${e.response?.statusCode} data=${e.response?.data} ===');
       throw ServerFailure(e.response?.data?['message'] ?? 'Server Error');
     }
   }
