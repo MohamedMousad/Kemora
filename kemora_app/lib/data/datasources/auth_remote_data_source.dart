@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/error/failures.dart';
 import '../models/user_model.dart';
 import '../../domain/entities/user_preferences.dart';
@@ -11,7 +12,7 @@ abstract class AuthRemoteDataSource {
   Future<void> changePassword(String currentPassword, String newPassword);
   Future<void> changeEmail(String newEmail, String password);
   Future<UserModel> updateProfile(String fullName, String? bio);
-  Future<String> uploadProfilePicture(String filePath);
+  Future<String> uploadProfilePicture(XFile imageFile);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -160,11 +161,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<String> uploadProfilePicture(String filePath) async {
+  Future<String> uploadProfilePicture(XFile imageFile) async {
     try {
-      final fileName = filePath.split('/').last;
+      final bytes = await imageFile.readAsBytes();
       final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(filePath, filename: fileName),
+        'file': MultipartFile.fromBytes(bytes, filename: imageFile.name),
       });
 
       final response = await dio.post(
@@ -173,7 +174,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        return response.data['profilePictureUrl'] as String;
+        return (response.data['profilePictureUrl'] ?? response.data['ProfilePictureUrl']) as String;
       }
       throw const ServerFailure('Failed to upload profile picture.');
     } on DioException catch (e) {

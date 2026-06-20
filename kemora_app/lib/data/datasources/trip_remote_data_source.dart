@@ -98,7 +98,7 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
       );
       
       if (response.statusCode == 200) {
-        final String? tripPlanJson = response.data['tripPlan'];
+        final String? tripPlanJson = response.data['tripPlan'] ?? response.data['TripPlan'];
         if (tripPlanJson != null && tripPlanJson.isNotEmpty) {
           try {
             return AIItineraryModel.fromString(tripPlanJson);

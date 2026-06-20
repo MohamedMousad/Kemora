@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -194,7 +195,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     fit: StackFit.expand,
                     children: [
                       if (_selectedImageFile != null)
-                        Image.file(File(_selectedImageFile!.path), fit: BoxFit.cover)
+                        kIsWeb
+                            ? Image.network(_selectedImageFile!.path, fit: BoxFit.cover)
+                            : Image.file(File(_selectedImageFile!.path), fit: BoxFit.cover)
                       else
                         const Center(
                           child: Column(

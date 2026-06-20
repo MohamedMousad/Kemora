@@ -36,10 +36,32 @@ namespace Kemora.Api.Controllers
         /// </summary>
         [HttpPost]
         [ProducesResponseType(typeof(PostListResponseDto), StatusCodes.Status200OK)]
-        public async Task<ActionResult<PostListResponseDto>> CreatePost([FromBody] CreatePostDto dto)
+        public async Task<ActionResult<PostListResponseDto>> CreatePost(
+            [FromForm] string content,
+            [FromForm] int? locationId,
+            [FromForm] IFormFile? mediaFile)
         {
             var userId = GetCurrentUserId();
             if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var dto = new CreatePostDto
+            {
+                Content = content,
+                LocationId = locationId
+            };
+
+            if (mediaFile != null && mediaFile.Length > 0)
+            {
+                using var stream = mediaFile.OpenReadStream();
+                var imageUrl = await _imageService.UploadImageAsync(stream, mediaFile.FileName);
+                if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    dto.Media = new List<CreatePostMediaDto>
+                    {
+                        new CreatePostMediaDto { MediaURL = imageUrl, MediaType = "Image" }
+                    };
+                }
+            }
 
             var post = await _postService.CreateAsync(userId, dto);
             // Award "Community Starter" badge non-blockingly

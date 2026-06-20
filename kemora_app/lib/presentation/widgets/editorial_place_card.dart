@@ -69,6 +69,17 @@ class EditorialPlaceCard extends StatelessWidget {
                           ),
                         ),
                       )
+                    else if (imageUrl != null && imageUrl!.isNotEmpty)
+                      Image.asset(
+                        imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.surfaceContainer,
+                          child: const Center(
+                            child: Icon(Icons.image_outlined, color: AppColors.outline, size: 48),
+                          ),
+                        ),
+                      )
                     else if (imageAsset != null)
                       Image.asset(
                         imageAsset!,

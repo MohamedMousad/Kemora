@@ -4,6 +4,7 @@ import '../../domain/entities/user.dart';
 import '../../domain/entities/user_preferences.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AuthRepositoryImpl implements IAuthRepository {
   final AuthRemoteDataSource remoteDataSource;
@@ -107,9 +108,11 @@ class AuthRepositoryImpl implements IAuthRepository {
   }
 
   @override
-  Future<Either<Failure, String>> uploadProfilePicture(String filePath) async {
+  Future<Either<Failure, String>> uploadProfilePicture(XFile imageFile) async {
     try {
-      final url = await remoteDataSource.uploadProfilePicture(filePath);
+      final url = await remoteDataSource.uploadProfilePicture(imageFile);
+      // We don't update local state here completely because it's usually managed via a user reload,
+      // but we return the URL so the ViewModel can use it.
       return Right(url);
     } on Failure catch (e) {
       return Left(e);

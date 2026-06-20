@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -318,12 +319,12 @@ class AuthViewModel extends ChangeNotifier {
 
   /// Upload profile picture from a file path.
   /// Image picking should be done in the UI layer before calling this.
-  Future<void> uploadProfilePicture(String filePath) async {
+  Future<void> uploadProfilePicture(XFile imageFile) async {
     _state = AuthState.loading;
     _errorMessage = null;
     notifyListeners();
 
-    final result = await uploadProfilePictureUseCase(filePath);
+    final result = await uploadProfilePictureUseCase(imageFile);
 
     result.fold(
       (failure) {

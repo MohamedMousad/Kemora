@@ -188,7 +188,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                       distance: place.distance,
                       isFavorite: false,
                       imageAsset: place.imageAsset,
-                      aspectRatio: 1.0,
+                      aspectRatio: 1.6,
                     ),
                   ),
                 ),

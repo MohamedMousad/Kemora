@@ -36,28 +36,21 @@ class PostRemoteDataSourceImpl implements PostRemoteDataSource {
   @override
   Future<PostModel> createPost(String content, {XFile? imageFile, int? locationId}) async {
     try {
-      String? remoteImageUrl;
-      
-      if (imageFile != null) {
-        final bytes = await imageFile.readAsBytes();
-        final formData = FormData.fromMap({
-          'file': MultipartFile.fromBytes(bytes, filename: imageFile.name),
-        });
-        
-        final uploadResponse = await dio.post('/api/v1/posts/image', data: formData);
-        if (uploadResponse.statusCode == 200) {
-          remoteImageUrl = uploadResponse.data['url'];
-        } else {
-          throw const ServerFailure('Failed to upload image to server');
-        }
+      final formDataMap = <String, dynamic>{
+        'content': content,
+      };
+
+      if (locationId != null) {
+        formDataMap['locationId'] = locationId.toString();
       }
 
-      final response = await dio.post('/api/v1/posts', data: {
-        'content': content,
-        'locationId': locationId,
-        // The API maps 'mediaURL' based on the DTO. Use exactly what the DTO expects.
-        'media': remoteImageUrl != null ? [{'mediaURL': remoteImageUrl, 'mediaType': 'Image'}] : null,
-      });
+      if (imageFile != null) {
+        final bytes = await imageFile.readAsBytes();
+        formDataMap['mediaFile'] = MultipartFile.fromBytes(bytes, filename: imageFile.name);
+      }
+
+      final formData = FormData.fromMap(formDataMap);
+      final response = await dio.post('/api/v1/posts', data: formData);
       
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PostModel.fromJson(response.data);

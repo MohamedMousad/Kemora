@@ -205,6 +205,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                     distance: '',
                                     isFavorite: false,
                                     imageUrl: place.mainImageUrl,
+                                    aspectRatio: 1.15,
                                   ),
                                 ),
                               ),
@@ -246,7 +247,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                             child: _buildStoryItem(
                               context,
                               name: group.userName,
-                              imageUrl: group.userProfilePicture ?? group.stories.first.mediaUrl,
+                              imageUrl: group.stories.isNotEmpty ? group.stories.last.mediaUrl : group.userProfilePicture,
                               userGroup: group,
                             ),
                           )),
@@ -419,6 +420,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     Widget imageWidget;
     if (imageUrl != null && imageUrl.startsWith('http')) {
       imageWidget = Image.network(imageUrl, fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          color: AppColors.surfaceContainerHigh,
+          child: const Icon(Icons.person, color: AppColors.outlineVariant, size: 40),
+        ));
+    } else if (imageUrl != null && imageUrl.isNotEmpty) {
+      imageWidget = Image.asset(imageUrl, fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Container(
           color: AppColors.surfaceContainerHigh,
           child: const Icon(Icons.person, color: AppColors.outlineVariant, size: 40),

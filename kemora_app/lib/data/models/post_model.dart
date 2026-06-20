@@ -50,7 +50,8 @@ class PostModel extends Post {
     // Media handling: assuming one image for simplicity in the basic model
     String? imageUrl;
     if (json['media'] != null && (json['media'] as List).isNotEmpty) {
-      imageUrl = json['media'][0]['mediaURL'];
+      final firstMedia = json['media'][0];
+      imageUrl = firstMedia['mediaURL'] ?? firstMedia['mediaUrl'] ?? firstMedia['MediaURL'];
     }
 
     return PostModel(

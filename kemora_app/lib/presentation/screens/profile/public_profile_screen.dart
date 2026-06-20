@@ -27,7 +27,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       if (!context.mounted) return;
-      await context.read<AuthViewModel>().uploadProfilePicture(image.path);
+      await context.read<AuthViewModel>().uploadProfilePicture(image);
     }
   }
 
@@ -73,7 +73,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                           clipBehavior: Clip.antiAlias,
                           child: Center(
                             child: profilePic != null && profilePic.isNotEmpty
-                                ? Image.network(profilePic, fit: BoxFit.cover, width: 120, height: 120)
+                                ? Image.network(profilePic, fit: BoxFit.cover, width: 120, height: 120,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 64, color: AppColors.outlineVariant))
                                 : const Icon(Icons.person, size: 64, color: AppColors.outlineVariant),
                           ),
                         ),

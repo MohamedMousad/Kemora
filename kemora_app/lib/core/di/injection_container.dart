@@ -246,7 +246,7 @@ Future<void> init() async {
         requestHeader: false,
         requestBody: true,
         responseHeader: false,
-        responseBody: true,
+        responseBody: false, // Set to false to prevent UI freezes on large payloads
         error: true,
       ));
     }

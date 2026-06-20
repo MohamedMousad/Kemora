@@ -140,46 +140,8 @@ namespace Kemora.Application.Services
                 await _unitOfWork.CommitAsync();
             }
 
-            // --- FETCH Missing Images SEQUENTIALLY (DbContext is NOT thread-safe) ---
-            bool hasImageUpdates = false;
-            foreach (var p in finalPlaces.Take(30))
-            {
-                if (string.IsNullOrEmpty(p.ImageUrl) || p.ImageUrl.Contains("placeholder"))
-                {
-                    try
-                    {
-                        var placeInDb = await _unitOfWork.Repository<Place>().FirstOrDefaultAsync(dp => dp.Name == p.Name || (dp.FoursquareId != null && dp.FoursquareId == p.ExternalId));
-                        if (placeInDb != null)
-                        {
-                            if (string.IsNullOrEmpty(placeInDb.GoogleDataId))
-                            {
-                                var match = await _serpApiService.SearchPlaceAsync(placeInDb.Name, (double)placeInDb.Latitude, (double)placeInDb.Longitude);
-                                if (match != null && !string.IsNullOrEmpty(match.DataId))
-                                {
-                                    placeInDb.GoogleDataId = match.DataId;
-                                    if (string.IsNullOrEmpty(placeInDb.MainImageURL) && !string.IsNullOrEmpty(match.Thumbnail))
-                                        placeInDb.MainImageURL = match.Thumbnail;
-                                }
-                            }
-
-                            if (!string.IsNullOrEmpty(placeInDb.GoogleDataId) && (string.IsNullOrEmpty(placeInDb.MainImageURL) || placeInDb.MainImageURL.Contains("placeholder")))
-                            {
-                                var photos = await _serpApiService.GetPlacePhotosAsync(placeInDb.GoogleDataId, 1);
-                                if (photos != null && photos.Count > 0)
-                                {
-                                    placeInDb.MainImageURL = photos.First();
-                                }
-                            }
-
-                            _unitOfWork.Repository<Place>().Update(placeInDb);
-                            p.ImageUrl = placeInDb.MainImageURL ?? "";
-                            hasImageUpdates = true;
-                        }
-                    }
-                    catch (Exception) { /* Skip failed image enrichment, don't crash the whole plan */ }
-                }
-            }
-            if (hasImageUpdates) await _unitOfWork.CommitAsync();
+            // Sequential image fetching removed to massively improve API response time.
+            // Images are now fetched concurrently only for places the AI actually selected.
 
             if (finalPlaces.Count == 0)
             {
@@ -292,9 +254,11 @@ Select ONLY from this curated list:
                 }
             }
 
-            // Try to re-inject image URLs into the itinerary
+            // Try to re-inject image URLs into the itinerary and fetch missing ones concurrently
             try
             {
+                var activitiesToEnrich = new List<(System.Text.Json.Nodes.JsonObject Activity, FetchedPlaceDto Place)>();
+
                 var jObject = System.Text.Json.Nodes.JsonObject.Parse(tripPlanContent);
                 var itinerary = jObject?["itinerary"]?.AsArray();
                 if (itinerary != null)
@@ -311,15 +275,69 @@ Select ONLY from this curated list:
                                 {
                                     var match = finalPlaces.FirstOrDefault(p =>
                                         p.Name.Equals(placeName, StringComparison.OrdinalIgnoreCase));
-                                    if (match != null && !string.IsNullOrEmpty(match.ImageUrl))
+                                    if (match != null)
                                     {
-                                        act["image_url"] = match.ImageUrl;
+                                        if (string.IsNullOrEmpty(match.ImageUrl) || match.ImageUrl.Contains("placeholder"))
+                                        {
+                                            activitiesToEnrich.Add((act.AsObject(), match));
+                                        }
+                                        else
+                                        {
+                                            act["image_url"] = match.ImageUrl;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+
+                // Parallel fetch for only the selected places missing images
+                if (activitiesToEnrich.Count > 0)
+                {
+                    var tasks = activitiesToEnrich.Select(async item => 
+                    {
+                        try 
+                        {
+                            var serpMatch = await _serpApiService.SearchPlaceAsync(item.Place.Name, item.Place.Latitude, item.Place.Longitude);
+                            if (serpMatch != null) 
+                            {
+                                var img = serpMatch.Thumbnail;
+                                if (string.IsNullOrEmpty(img) && !string.IsNullOrEmpty(serpMatch.DataId)) 
+                                {
+                                    var photos = await _serpApiService.GetPlacePhotosAsync(serpMatch.DataId, 1);
+                                    if (photos != null && photos.Count > 0) img = photos.First();
+                                }
+                                if (!string.IsNullOrEmpty(img)) 
+                                {
+                                    return new { Item = item, ImageUrl = img, DataId = serpMatch.DataId };
+                                }
+                            }
+                        } catch { }
+                        return new { Item = item, ImageUrl = (string)null, DataId = (string)null };
+                    }).ToList();
+
+                    var results = await Task.WhenAll(tasks);
+                    bool hasDbUpdates = false;
+
+                    foreach (var res in results.Where(r => r.ImageUrl != null))
+                    {
+                        res.Item.Activity["image_url"] = res.ImageUrl;
+                        res.Item.Place.ImageUrl = res.ImageUrl;
+
+                        var placeInDb = await _unitOfWork.Repository<Place>().FirstOrDefaultAsync(dp => dp.Name == res.Item.Place.Name || (dp.FoursquareId != null && dp.FoursquareId == res.Item.Place.ExternalId));
+                        if (placeInDb != null) 
+                        {
+                            placeInDb.MainImageURL = res.ImageUrl;
+                            if (!string.IsNullOrEmpty(res.DataId)) placeInDb.GoogleDataId = res.DataId;
+                            _unitOfWork.Repository<Place>().Update(placeInDb);
+                            hasDbUpdates = true;
+                        }
+                    }
+
+                    if (hasDbUpdates) await _unitOfWork.CommitAsync();
+                }
+
                 tripPlanContent = jObject?.ToJsonString() ?? tripPlanContent;
             }
             catch { /* Ignore image injection errors — the clean JSON is still valid */ }

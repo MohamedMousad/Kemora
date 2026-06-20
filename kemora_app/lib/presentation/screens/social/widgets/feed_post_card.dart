@@ -91,13 +91,21 @@ class FeedPostCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.asset(imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                        color: AppColors.surfaceContainer,
-                        child: const Center(
-                            child: Icon(Icons.image,
-                                size: 64, color: AppColors.outlineVariant)))),
+                imageUrl.startsWith('http')
+                    ? Image.network(imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.surfaceContainer,
+                            child: const Center(
+                                child: Icon(Icons.image,
+                                    size: 64, color: AppColors.outlineVariant))))
+                    : Image.asset(imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.surfaceContainer,
+                            child: const Center(
+                                child: Icon(Icons.image,
+                                    size: 64, color: AppColors.outlineVariant)))),
                 Positioned(
                   top: 16,
                   right: 16,

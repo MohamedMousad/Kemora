@@ -22,7 +22,7 @@ class UserModel extends User {
       email: json['email'] as String? ?? '',
       // Backend AuthResponseDto field: fullName
       fullName: json['fullName'] as String? ?? json['username'] as String? ?? '',
-      profilePictureUrl: json['profilePictureUrl'] as String?,
+      profilePictureUrl: (json['profilePictureUrl'] ?? json['ProfilePictureUrl']) as String?,
       country: json['country'] as String?,
       bio: json['bio'] as String?,
       token: json['token'] as String?,
