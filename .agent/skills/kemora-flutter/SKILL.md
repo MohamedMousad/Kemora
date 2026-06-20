@@ -55,6 +55,7 @@
 ## Auth Flow
 - **Endpoints**: `POST /api/v1/auth/login`, `POST /api/v1/auth/register`, `POST /api/v1/auth/google-login`
 - **Token Storage**: Uses a `TokenStorage` singleton wrapping `SharedPreferences`. The JWT is automatically attached to API requests via a `Dio` interceptor. `UserModel` details are persisted locally.
+- **Token Refresh**: Currently there is NO automatic interceptor for refreshing expired tokens on 401s. To avoid mid-session crashes, the backend JWT expiry is set to 7 days. If a 401 occurs, the user must log out and log back in.
 - **Dev Bypass**: ✅ **REMOVED**. Login always goes through real backend. Admin account `zyadkhaled151@gmail.com` / `123456789@Zz` is seeded in the database with `Admin` role.
 
 ## AI Trip Planner Flow
@@ -62,7 +63,10 @@
 - **Endpoint**: `POST /api/v1/places/trip-plan` handled by `TripViewModel.generateAiItinerary()`.
 - **Results Display**: Displayed via `TripDetailScreen`, which parses the real AI itinerary.
 - **Swap Location**: Uses `GET /api/v1/places/swap`.
-- **Save Trip**: Uses `POST /api/v1/trips/save-plan`. Awards **AI Pioneer** and **City Hopper** badges automatically.
+- **Save Trip**: Uses `POST /api/v1/trips/save-plan`. 
+  - Date picker has been **removed**. The plan is saved immediately using `DateTime.now()` as the `startDate`.
+  - Awards **AI Pioneer** and **City Hopper** badges automatically.
+  - Safe error extraction is implemented in `TripRemoteDataSource` to handle both `Map` (JSON) and `String` (HTML) backend error responses, preventing `type 'String' is not a subtype of type 'int' of 'index'` crashes when 4xx/5xx occur.
 
 ## Posts / Comments Flow
 - **State Handling**: Managed by `PostViewModel`.

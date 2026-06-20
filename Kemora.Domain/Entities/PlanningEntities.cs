@@ -25,6 +25,7 @@ namespace Kemora.Domain.Entities
         public Place Place { get; set; }
         public DateTime VisitDate { get; set; }
         public string? Notes { get; set; }
+        public bool IsVisited { get; set; }
     }
 
     public class PrecomputedTripPlan

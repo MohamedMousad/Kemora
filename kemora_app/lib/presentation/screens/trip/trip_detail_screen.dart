@@ -3,8 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
-import '../../../data/local/trip_mock_data.dart';
-import '../../../data/local/place_data.dart';
+import '../../../domain/entities/trip.dart';
 import '../explore/place_detail_screen.dart';
 import '../../../domain/entities/ai_itinerary.dart' as ai;
 import '../../../domain/entities/trip_plan_request.dart';
@@ -14,7 +13,7 @@ import '../../viewmodels/auth_view_model.dart';
 enum _SaveState { idle, loading, saved, error }
 
 class TripDetailScreen extends StatefulWidget {
-  final LocalTrip? trip;
+  final Trip? trip;
   final ai.AIItinerary? aiItinerary;
   final TripPlanRequest? request;
 
@@ -26,58 +25,71 @@ class TripDetailScreen extends StatefulWidget {
 
 class _TripDetailScreenState extends State<TripDetailScreen> {
   _SaveState _saveState = _SaveState.idle;
+  bool _isLoadingDetails = false;
+  Trip? _fullTrip;
 
-  bool get isAi => widget.aiItinerary != null;
+  Trip? get activeTrip => _fullTrip ?? widget.trip;
 
-  ai.AIItinerary get currentAiItinerary {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.trip != null && widget.trip!.savedItinerary == null) {
+      _isLoadingDetails = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final fullTrip = await context.read<TripViewModel>().loadTripDetails(widget.trip!.id);
+        if (mounted && fullTrip != null) {
+          setState(() {
+            _fullTrip = fullTrip;
+            _isLoadingDetails = false;
+          });
+          if (fullTrip.savedItinerary != null) {
+            context.read<TripViewModel>().setCurrentPlan(fullTrip.savedItinerary!);
+          }
+        } else if (mounted) {
+          setState(() => _isLoadingDetails = false);
+        }
+      });
+    } else {
+      _fullTrip = widget.trip;
+      if (_fullTrip?.savedItinerary != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          context.read<TripViewModel>().setCurrentPlan(_fullTrip!.savedItinerary!);
+        });
+      }
+    }
+  }
+
+  bool get isAi => widget.aiItinerary != null || activeTrip?.savedItinerary != null;
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<TripViewModel>().setCurrentPlan(null);
+    });
+    super.dispose();
+  }
+
+  ai.AIItinerary _getCurrentAiItinerary(BuildContext context, {bool listen = true}) {
     if (!isAi) throw Exception('Not AI itinerary');
-    final tripVM = context.watch<TripViewModel>();
-    return tripVM.currentPlan ?? widget.aiItinerary!;
+    final tripVM = listen ? context.watch<TripViewModel>() : context.read<TripViewModel>();
+    return tripVM.currentPlan ?? widget.aiItinerary ?? activeTrip!.savedItinerary!;
   }
 
   Future<void> _onSaveTrip() async {
     final authVM = context.read<AuthViewModel>();
     if (authVM.state != AuthState.authenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please sign in to save your trip.'),
-          action: SnackBarAction(
-            label: 'Sign In',
-            onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false),
-          ),
-        ),
+        const SnackBar(content: Text('Please sign in to save your trip.')),
       );
       return;
     }
 
     setState(() => _saveState = _SaveState.loading);
 
-    final DateTime? startDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'When does your journey start?',
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(
-            primary: AppColors.primaryContainer,
-            onPrimary: AppColors.onPrimary,
-            onSurface: AppColors.onSurface,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-
-    if (startDate == null) {
-      setState(() => _saveState = _SaveState.idle);
-      return;
-    }
-
-    final endDate = startDate.add(Duration(days: currentAiItinerary.days.length - 1));
-
-    if (!mounted) return;
+    final currentItinerary = _getCurrentAiItinerary(context, listen: false);
+    // Use today as start date, compute end from itinerary length (no date picker)
+    final startDate = DateTime.now();
+    final endDate = startDate.add(Duration(days: currentItinerary.days.length > 0 ? currentItinerary.days.length - 1 : 0));
 
     final tripVM = context.read<TripViewModel>();
     final success = await tripVM.savePlan(startDate, endDate);
@@ -88,7 +100,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       setState(() => _saveState = _SaveState.saved);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Your trip has been saved! dYZ%'),
+          content: Text('Trip saved successfully! ✓'),
           backgroundColor: AppColors.primaryContainer,
         ),
       );
@@ -97,10 +109,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tripVM.errorMessage ?? 'Could not save trip. Try again.'),
-          action: SnackBarAction(
-            label: 'Retry',
-            onPressed: _onSaveTrip,
-          ),
+          action: SnackBarAction(label: 'Retry', onPressed: _onSaveTrip),
         ),
       );
     }
@@ -133,8 +142,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = isAi ? currentAiItinerary.title : widget.trip!.title;
-    final duration = isAi ? '${currentAiItinerary.days.length} Days' : '${widget.trip!.durationDays} Days • ${widget.trip!.governorate}';
+    if (_isLoadingDetails) {
+      return Scaffold(
+        appBar: KemoraAppBar(showBack: true),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final currentItinerary = isAi ? _getCurrentAiItinerary(context) : null;
+    final title = isAi ? currentItinerary!.title : activeTrip!.title;
+    final durationDays = !isAi ? activeTrip!.endDate.difference(activeTrip!.startDate).inDays + 1 : 0;
+    final duration = isAi ? '${currentItinerary!.days.length} Days' : '${durationDays > 0 ? durationDays : 1} Days • ${activeTrip!.location}';
 
     return Scaffold(
       appBar: KemoraAppBar(
@@ -160,9 +178,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             Text(duration, style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant)),
             const SizedBox(height: 32),
             if (isAi)
-              ...currentAiItinerary.days.map((day) => _buildAiDaySection(context, day))
+              ..._getCurrentAiItinerary(context).days.asMap().entries.map((entry) => _buildAiDaySection(context, entry.key, entry.value))
             else
-              ...widget.trip!.days.map((day) => _buildDaySection(context, day)),
+              _buildTripPlacesSection(context, activeTrip!.plannedPlaces),
             const SizedBox(height: 80),
           ],
         ),
@@ -170,27 +188,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  Widget _buildDaySection(BuildContext context, TripDay day) {
-    return _buildDayBase(
-      context,
-      day.dayNumber,
-      day.title,
-      day.stops.length,
-      (index, isLast) => _buildTimelineStop(context, day.stops[index], isLast),
+  Widget _buildTripPlacesSection(BuildContext context, List<dynamic> places) {
+    if (places.isEmpty) return const Text('No places planned yet.');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Planned Places', style: AppTypography.titleLarge),
+        const SizedBox(height: 16),
+        ...List.generate(places.length, (index) {
+          final place = places[index];
+          final isLast = index == places.length - 1;
+          return _buildTimelineStop(context, place, isLast);
+        }),
+        const SizedBox(height: 24),
+      ],
     );
   }
 
-  Widget _buildAiDaySection(BuildContext context, ai.TripDay day) {
-    return _buildDayBase(
-      context,
-      day.dayNumber,
-      day.dailySummary ?? 'Day ${day.dayNumber}',
-      day.activities.length,
-      (index, isLast) => _buildAiTimelineStop(context, day.activities[index], isLast),
-    );
-  }
-
-  Widget _buildDayBase(BuildContext context, int dayNumber, String title, int count, Widget Function(int, bool) stopBuilder) {
+  Widget _buildAiDaySection(BuildContext context, int dayIndex, ai.TripDay day) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -210,66 +225,82 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
-                  child: Text('$dayNumber',
+                  child: Text('${day.dayNumber}',
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Text('Day $dayNumber — $title', style: AppTypography.titleLarge, maxLines: 2, overflow: TextOverflow.ellipsis)),
+              Expanded(child: Text('Day ${day.dayNumber} — ${day.dailySummary ?? "Day ${day.dayNumber}"}', style: AppTypography.titleLarge, maxLines: 2, overflow: TextOverflow.ellipsis)),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        ...List.generate(count, (index) {
-          final isLast = index == count - 1;
-          return stopBuilder(index, isLast);
-        }),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: day.activities.length,
+          onReorder: (oldIndex, newIndex) {
+            context.read<TripViewModel>().reorderPlace(dayIndex, oldIndex, newIndex);
+          },
+          itemBuilder: (context, index) {
+            final isLast = index == day.activities.length - 1;
+            return Container(
+              key: ValueKey(day.activities[index].name + index.toString()),
+              child: _buildAiTimelineStop(context, dayIndex, index, day.activities[index], isLast),
+            );
+          },
+        ),
         const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _buildTimelineStop(BuildContext context, TripStop stop, bool isLast) {
-    final place = placesData.where((p) => p.id == stop.placeId).firstOrNull;
-    final categoryIcon = _categoryIcon(stop.category);
+  Widget _buildTimelineStop(BuildContext context, dynamic place, bool isLast) {
+    final categoryIcon = _categoryIcon('Others');
 
-    return _buildStopBase(
-      context: context,
-      isLast: isLast,
-      isCompleted: stop.isCompleted,
-      name: stop.name,
-      time: stop.time,
-      icon: categoryIcon,
-      imageUrl: place?.imageAsset,
-      isNetworkImage: false,
-      onTap: () {
-        if (place != null) {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(place: place)));
-        }
-      },
-      onLongPress: () => _showStopInfo(context, stop),
-    );
-  }
-
-  Widget _buildAiTimelineStop(BuildContext context, ai.ItineraryItem stop, bool isLast) {
-    final categoryIcon = _categoryIcon(stop.category ?? 'Others');
     return _buildStopBase(
       context: context,
       isLast: isLast,
       isCompleted: false,
+      name: place.name,
+      time: '',
+      icon: categoryIcon,
+      imageUrl: place.imageAsset,
+      isNetworkImage: false,
+      onTap: () {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(place: place)));
+      },
+    );
+  }
+
+  Widget _buildAiTimelineStop(BuildContext context, int dayIndex, int activityIndex, ai.ItineraryItem stop, bool isLast) {
+    final categoryIcon = _categoryIcon(stop.category ?? 'Others');
+    return _buildStopBase(
+      context: context,
+      isLast: isLast,
+      isCompleted: stop.isVisited,
+      onCircleTap: () => context.read<TripViewModel>().toggleVisitedStatus(widget.trip?.id ?? '', dayIndex, activityIndex),
       name: stop.name,
       time: stop.timeOfDay,
       icon: categoryIcon,
       imageUrl: stop.imageUrl,
       isNetworkImage: true,
       onTap: null,
-      trailing: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert, color: AppColors.outlineVariant),
-        onSelected: (val) {
-          if (val == 'swap') _onSwapPlace(stop.name);
-        },
-        itemBuilder: (context) => [
-          const PopupMenuItem(value: 'swap', child: Text('Swap Place')),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.drag_handle, color: AppColors.outlineVariant),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: AppColors.outlineVariant),
+            onSelected: (val) {
+              if (val == 'swap') _onSwapPlace(stop.name);
+              if (val == 'remove') context.read<TripViewModel>().removePlace(dayIndex, activityIndex);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'swap', child: Text('Swap Place')),
+              const PopupMenuItem(value: 'remove', child: Text('Remove', style: TextStyle(color: Colors.red))),
+            ],
+          ),
         ],
       ),
     );
@@ -286,6 +317,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     bool isNetworkImage = false,
     VoidCallback? onTap,
     VoidCallback? onLongPress,
+    VoidCallback? onCircleTap,
     Widget? trailing,
   }) {
     return IntrinsicHeight(
@@ -296,18 +328,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             width: 40,
             child: Column(
               children: [
-                Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isCompleted ? AppColors.primaryContainer : AppColors.surfaceContainerHigh,
-                    border: Border.all(
-                      color: isCompleted ? AppColors.primaryContainer : AppColors.outlineVariant,
-                      width: 2,
+                GestureDetector(
+                  onTap: onCircleTap,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isCompleted ? AppColors.primaryContainer : AppColors.surfaceContainerHigh,
+                      border: Border.all(
+                        color: isCompleted ? AppColors.primaryContainer : AppColors.outlineVariant,
+                        width: 2,
+                      ),
                     ),
+                    child: isCompleted ? const Icon(Icons.check, size: 12, color: Colors.white) : null,
                   ),
-                  child: isCompleted ? const Icon(Icons.check, size: 8, color: Colors.white) : null,
                 ),
                 if (!isLast)
                   Expanded(
@@ -391,44 +426,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  void _showStopInfo(BuildContext context, TripStop stop) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceContainerLowest,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(stop.name, style: AppTypography.headlineSmall),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Icon(Icons.star, color: AppColors.tertiary, size: 20),
-                const SizedBox(width: 8),
-                Text('${stop.reviewScore}/5.0', style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(width: 8),
-                Text('Review Score', style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: stop.tags.map((tag) => Chip(
-                    label: Text(tag, style: AppTypography.labelMedium),
-                    backgroundColor: AppColors.surfaceContainer,
-                    side: BorderSide.none,
-                  )).toList(),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   IconData _categoryIcon(String category) {
     switch (category) {

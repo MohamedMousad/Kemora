@@ -33,6 +33,7 @@ namespace Kemora.Application.DTOs
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public int PlaceCount { get; set; }
+        public string Location { get; set; } = "Egypt";
     }
 
     public class TripDetailDto
@@ -42,6 +43,7 @@ namespace Kemora.Application.DTOs
         public string Description { get; set; } = string.Empty;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
+        public string Location { get; set; } = "Egypt";
         public List<TripPlaceResponseDto> Places { get; set; } = [];
     }
 
@@ -61,6 +63,7 @@ namespace Kemora.Application.DTOs
     {
         public DateTime? VisitDate { get; set; }
         public string? Notes { get; set; }
+        public bool? IsVisited { get; set; }
     }
 
     public class TripPlaceResponseDto
@@ -70,6 +73,7 @@ namespace Kemora.Application.DTOs
         public string PlaceName { get; set; } = string.Empty;
         public DateTime VisitDate { get; set; }
         public string? Notes { get; set; }
+        public bool IsVisited { get; set; }
     }
 
     public class SaveAIPlanDto

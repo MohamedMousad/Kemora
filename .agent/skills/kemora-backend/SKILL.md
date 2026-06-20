@@ -172,9 +172,12 @@ Services are split between Application (business logic) and Infrastructure (exte
 
 ## Authentication & Authorization
 - JWT Bearer tokens (HS512, configurable via `TokenKey`)
+- **Token Expiration**: Access token expiration is currently set to **7 days** (in `TokenService.cs`) to prevent 401 Unauthorized errors during long app sessions (like AI trip generation) since the Flutter frontend doesn't yet support automatic token refresh interceptors.
 - Roles: "User" (default), "Admin"
 - Admin endpoints use `[Authorize(Roles = "Admin")]`
+- `TripsController` endpoints (`save-plan`, `update`, etc.) enforce `[Authorize]` strictly so all user plans map to the authenticated `userId`.
 - Rate limiting: "auth" policy (10/min), "fixed" policy (60/min)
+- JSON Serialization: ASP.NET Core default serialization converts properties to camelCase (e.g., `TripID` becomes `tripId`). Flutter models must use camelCase keys.
 
 ## Configuration (appsettings.json + .env)
 ```

@@ -22,3 +22,33 @@ class GetUserTripsUseCase {
     return await repository.getUserTrips();
   }
 }
+
+class GetTripDetailsUseCase {
+  final ITripRepository repository;
+
+  GetTripDetailsUseCase(this.repository);
+
+  Future<Either<Failure, Trip>> call(String id) async {
+    return await repository.getTripDetails(id);
+  }
+}
+
+class DeleteTripUseCase {
+  final ITripRepository repository;
+
+  DeleteTripUseCase(this.repository);
+
+  Future<Either<Failure, bool>> call(String id) async {
+    return await repository.deleteTrip(id);
+  }
+}
+
+class RenameTripUseCase {
+  final ITripRepository repository;
+
+  RenameTripUseCase(this.repository);
+
+  Future<Either<Failure, bool>> call(String id, String newName) async {
+    return await repository.renameTrip(id, newName);
+  }
+}

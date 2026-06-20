@@ -37,6 +37,36 @@ class TripRepositoryImpl implements ITripRepository {
   }
 
   @override
+  Future<Either<Failure, Trip>> getTripDetails(String id) async {
+    try {
+      final trip = await remoteDataSource.getTripDetails(id);
+      return Right(trip);
+    } catch (e) {
+      return Left(ServerFailure('Connection Error: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> deleteTrip(String id) async {
+    try {
+      final success = await remoteDataSource.deleteTrip(id);
+      return Right(success);
+    } catch (e) {
+      return Left(ServerFailure('Connection Error: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> renameTrip(String id, String newName) async {
+    try {
+      final success = await remoteDataSource.renameTrip(id, newName);
+      return Right(success);
+    } catch (e) {
+      return Left(ServerFailure('Connection Error: ${e.toString()}'));
+    }
+  }
+
+  @override
   Future<Either<Failure, AIItinerary>> generateItinerary(TripPlanRequest request) async {
     try {
       final itinerary = await remoteDataSource.generateItinerary(request);
@@ -65,6 +95,18 @@ class TripRepositoryImpl implements ITripRepository {
     try {
       final trip = await remoteDataSource.saveAIPlan(itinerary, startDate, endDate);
       return Right(trip);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure('Connection Error: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, bool>> updatePlaceVisitedStatus(int tripId, int tripPlaceId, bool isVisited) async {
+    try {
+      final success = await remoteDataSource.updatePlaceVisitedStatus(tripId, tripPlaceId, isVisited);
+      return Right(success);
     } on Failure catch (e) {
       return Left(e);
     } catch (e) {
