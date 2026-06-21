@@ -21,7 +21,7 @@ class CommentModel extends Comment {
       authorName: json['authorName'] as String? ?? 'Unknown User',
       authorProfilePicture: json['authorProfilePicture'] as String? ?? 'https://picsum.photos/150',
       content: json['content'] as String? ?? '',
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'].toString().endsWith('Z') ? json['createdAt'] : '${json['createdAt']}Z').toLocal() : DateTime.now(),
       parentCommentId: json['parentCommentId']?.toString(),
       replies: json['replies'] != null 
           ? (json['replies'] as List).map((r) => CommentModel.fromJson(r, postId)).toList() 
@@ -63,7 +63,7 @@ class PostModel extends Post {
       imageUrl: imageUrl,
       locationId: json['linkedTripId']?.toString(), // Example mapping
       locationName: null, // Would need more backend data for this
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'].toString().endsWith('Z') ? json['createdAt'] : '${json['createdAt']}Z').toLocal() : DateTime.now(),
       likesCount: json['reactionCount'] as int? ?? 0,
       commentsCount: json['commentCount'] as int? ?? 0,
       isLikedByMe: json['isLikedByMe'] as bool? ?? false,

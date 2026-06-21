@@ -10,6 +10,8 @@ abstract class PostRemoteDataSource {
   Future<void> unlikePost(String postId);
   Future<List<CommentModel>> getPostComments(String postId);
   Future<CommentModel> addComment(String postId, String content, {String? parentCommentId});
+  Future<void> deletePost(String postId);
+  Future<void> updatePost(String postId, String content);
 }
 
 class PostRemoteDataSourceImpl implements PostRemoteDataSource {
@@ -107,6 +109,33 @@ class PostRemoteDataSourceImpl implements PostRemoteDataSource {
         return CommentModel.fromJson(response.data, postId);
       } else {
         throw const ServerFailure('Failed to add comment');
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.response?.data['message'] ?? 'Server Error');
+    }
+  }
+
+  @override
+  Future<void> deletePost(String postId) async {
+    try {
+      final response = await dio.delete('/api/v1/posts/$postId');
+      if (response.statusCode != 204 && response.statusCode != 200) {
+        throw const ServerFailure('Failed to delete post');
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.response?.data['message'] ?? 'Server Error');
+    }
+  }
+
+  @override
+  Future<void> updatePost(String postId, String content) async {
+    try {
+      final response = await dio.put(
+        '/api/v1/posts/$postId',
+        data: {'content': content},
+      );
+      if (response.statusCode != 204 && response.statusCode != 200) {
+        throw const ServerFailure('Failed to update post');
       }
     } on DioException catch (e) {
       throw ServerFailure(e.response?.data['message'] ?? 'Server Error');

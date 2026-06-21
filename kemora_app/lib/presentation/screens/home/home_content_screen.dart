@@ -5,6 +5,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../widgets/filter_chip_row.dart';
 import '../../widgets/editorial_place_card.dart';
 import '../explore/place_detail_screen.dart';
+import '../explore/places_screen.dart';
 import '../../viewmodels/places_view_model.dart';
 import '../../viewmodels/story_view_model.dart';
 import '../../viewmodels/auth_view_model.dart';
@@ -140,17 +141,22 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(_sectionTitle, style: AppTypography.titleLarge),
-                  Row(
-                    children: [
-                      Text(
-                        'View All',
-                        style: AppTypography.labelLarge
-                            .copyWith(color: AppColors.primaryContainer),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.arrow_forward_rounded,
-                          color: AppColors.primaryContainer, size: 16),
-                    ],
+                  TapScale(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const PlacesScreen()));
+                    },
+                    child: Row(
+                      children: [
+                        Text(
+                          'View All',
+                          style: AppTypography.labelLarge
+                              .copyWith(color: AppColors.primaryContainer),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.arrow_forward_rounded,
+                            color: AppColors.primaryContainer, size: 16),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -507,37 +513,47 @@ class _StickySearchDelegate extends SliverPersistentHeaderDelegate {
       alignment: Alignment.center,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: GestureDetector(
-          onTap: () {
-            // [KEMORA-PLACEHOLDER] SearchScreen
-          },
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.location_on,
-                    color: AppColors.primaryContainer, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Where to next?',
-                    style: AppTypography.bodyMedium
-                        .copyWith(color: AppColors.outline),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.location_on,
+                  color: AppColors.primaryContainer, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Where to next?',
+                    hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.outline),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
                   ),
+                  style: AppTypography.bodyMedium,
+                  onSubmitted: (query) {
+                    if (query.trim().isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PlacesScreen(initialSearchQuery: query.trim()),
+                        ),
+                      );
+                    }
+                  },
                 ),
-                GestureDetector(
+              ),
+              GestureDetector(
                   onTap: () {
                     // [KEMORA-PLACEHOLDER] SearchFiltersScreen
                   },
@@ -554,7 +570,6 @@ class _StickySearchDelegate extends SliverPersistentHeaderDelegate {
               ],
             ),
           ),
-        ),
       ),
     );
   }

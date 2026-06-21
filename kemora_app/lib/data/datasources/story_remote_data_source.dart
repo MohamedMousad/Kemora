@@ -75,7 +75,7 @@ class StoryRemoteDataSourceImpl implements StoryRemoteDataSource {
   Future<void> deleteStory(int storyId) async {
     try {
       final response = await dio.delete('/api/v1/stories/$storyId');
-      if (response.statusCode != 204) {
+      if (response.statusCode != 204 && response.statusCode != 200) {
         throw const ServerFailure('Failed to delete story');
       }
     } on DioException catch (e) {

@@ -49,4 +49,14 @@ class StoryViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> deleteStory(int storyId) async {
+    try {
+      await _remoteDataSource.deleteStory(storyId);
+      await loadActiveStories();
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
 }

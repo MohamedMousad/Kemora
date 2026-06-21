@@ -168,6 +168,8 @@ Future<void> init() async {
         toggleLikeUseCase: sl(),
         addCommentUseCase: sl(),
         getPostCommentsUseCase: sl(),
+        deletePostUseCase: sl(),
+        updatePostUseCase: sl(),
       ));
   sl.registerFactory(() => ChatViewModel(
         getConversationsUseCase: sl(),
@@ -183,6 +185,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ToggleLikeUseCase(sl()));
   sl.registerLazySingleton(() => AddCommentUseCase(sl()));
   sl.registerLazySingleton(() => GetPostCommentsUseCase(sl()));
+  sl.registerLazySingleton(() => DeletePostUseCase(sl()));
+  sl.registerLazySingleton(() => UpdatePostUseCase(sl()));
 
   sl.registerLazySingleton(() => GetConversationsUseCase(sl()));
   sl.registerLazySingleton(() => GetConversationMessagesUseCase(sl()));

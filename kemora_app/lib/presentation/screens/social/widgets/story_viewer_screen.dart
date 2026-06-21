@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../../../data/models/story_model.dart';
+import 'package:provider/provider.dart';
+import '../../../../presentation/viewmodels/auth_view_model.dart';
+import '../../../../presentation/viewmodels/story_view_model.dart';
 
 class StoryViewerScreen extends StatefulWidget {
   final UserStoriesGroup userGroup;
@@ -78,6 +81,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   Widget build(BuildContext context) {
     if (widget.userGroup.stories.isEmpty) return const SizedBox.shrink();
     final story = widget.userGroup.stories[_currentIndex];
+    final currentUserId = context.read<AuthViewModel>().user?.id;
+    final isMyStory = story.authorId == currentUserId;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -190,13 +195,66 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               ),
               // Close button
               Positioned(
-                top: 20,
+                top: 30,
                 right: 10,
-                child: IconButton(
-                  icon: const Icon(Icons.close,
-                      color: Colors.white,
-                      shadows: [Shadow(color: Colors.black54, blurRadius: 4)]),
-                  onPressed: () => Navigator.pop(context),
+                child: Row(
+                  children: [
+                    if (isMyStory)
+                      IconButton(
+                        icon: const Icon(Icons.delete,
+                            color: Colors.white,
+                            shadows: [Shadow(color: Colors.black54, blurRadius: 4)]),
+                        onPressed: () {
+                          _timer?.cancel();
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete Story'),
+                              content: const Text('Are you sure you want to delete this story?'),
+                              actions: [
+                                TextButton(onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _startTimer();
+                                }, child: const Text('Cancel')),
+                                TextButton(
+                                  onPressed: () async {
+                                    final vm = context.read<StoryViewModel>();
+                                    Navigator.pop(ctx); // Close dialog
+                                    
+                                    // Optimistically remove from local group so UI updates
+                                    setState(() {
+                                      widget.userGroup.stories.removeAt(_currentIndex);
+                                    });
+                                    
+                                    // Call the backend to delete
+                                    await vm.deleteStory(story.id);
+
+                                    if (!mounted) return;
+
+                                    if (widget.userGroup.stories.isEmpty) {
+                                      Navigator.pop(context); // Close viewer if empty
+                                    } else {
+                                      // Adjust index if we deleted the last remaining story
+                                      if (_currentIndex >= widget.userGroup.stories.length) {
+                                        _currentIndex = widget.userGroup.stories.length - 1;
+                                      }
+                                      _startTimer();
+                                    }
+                                  },
+                                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close,
+                          color: Colors.white,
+                          shadows: [Shadow(color: Colors.black54, blurRadius: 4)]),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ),
             ],

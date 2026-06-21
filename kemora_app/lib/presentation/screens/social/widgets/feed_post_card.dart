@@ -15,6 +15,9 @@ class FeedPostCard extends StatelessWidget {
   final int initialComments;
   final VoidCallback? onLikeTap;
   final VoidCallback? onCommentTap;
+  final bool isMyPost;
+  final VoidCallback? onDeleteTap;
+  final VoidCallback? onEditTap;
 
   const FeedPostCard({
     super.key,
@@ -30,6 +33,9 @@ class FeedPostCard extends StatelessWidget {
     required this.initialComments,
     this.onLikeTap,
     this.onCommentTap,
+    this.isMyPost = false,
+    this.onDeleteTap,
+    this.onEditTap,
   });
 
   @override
@@ -80,7 +86,29 @@ class FeedPostCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.more_vert, color: AppColors.onSurfaceVariant),
+                if (isMyPost)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: AppColors.onSurfaceVariant),
+                    onSelected: (val) {
+                      if (val == 'edit') {
+                        onEditTap?.call();
+                      } else if (val == 'delete') {
+                        onDeleteTap?.call();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Edit Post'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete Post', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  )
+                else
+                  const Icon(Icons.more_vert, color: AppColors.onSurfaceVariant),
               ],
             ),
           ),

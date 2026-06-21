@@ -195,8 +195,8 @@ class _TripPlannerEntryScreenState extends State<TripPlannerEntryScreen> {
                                   child: Stack(
                                     children: [
                                       Positioned(
-                                        top: -8,
-                                        right: -8,
+                                        top: 0,
+                                        right: 0,
                                         child: PopupMenuButton<String>(
                                           icon: const Icon(Icons.more_vert, color: Colors.white70),
                                           onSelected: (value) {

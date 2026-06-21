@@ -11,6 +11,8 @@ class PostViewModel extends ChangeNotifier {
   final ToggleLikeUseCase toggleLikeUseCase;
   final AddCommentUseCase addCommentUseCase;
   final GetPostCommentsUseCase getPostCommentsUseCase;
+  final DeletePostUseCase deletePostUseCase;
+  final UpdatePostUseCase updatePostUseCase;
 
   PostViewModel({
     required this.getFeedUseCase,
@@ -18,6 +20,8 @@ class PostViewModel extends ChangeNotifier {
     required this.toggleLikeUseCase,
     required this.addCommentUseCase,
     required this.getPostCommentsUseCase,
+    required this.deletePostUseCase,
+    required this.updatePostUseCase,
   });
 
   PostState _state = PostState.initial;
@@ -210,6 +214,55 @@ class PostViewModel extends ChangeNotifier {
         _posts = List<Post>.from(_posts)..insert(0, finalPost);
         _state = PostState.loaded;
         notifyListeners();
+      },
+    );
+  }
+
+  Future<void> deletePost(String postId) async {
+    final result = await deletePostUseCase(postId);
+    result.fold(
+      (failure) {
+        _errorMessage = failure.message;
+        notifyListeners();
+      },
+      (_) {
+        _posts.removeWhere((p) => p.id == postId);
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<void> updatePost(String postId, String newContent) async {
+    final result = await updatePostUseCase(postId, newContent);
+    result.fold(
+      (failure) {
+        _errorMessage = failure.message;
+        notifyListeners();
+      },
+      (_) {
+        final index = _posts.indexWhere((p) => p.id == postId);
+        if (index != -1) {
+          final post = _posts[index];
+          final newList = List<Post>.from(_posts);
+          newList[index] = Post(
+            id: post.id,
+            authorId: post.authorId,
+            authorName: post.authorName,
+            authorProfilePicture: post.authorProfilePicture,
+            content: newContent,
+            imageUrl: post.imageUrl,
+            locationId: post.locationId,
+            locationName: post.locationName,
+            createdAt: post.createdAt,
+            likesCount: post.likesCount,
+            commentsCount: post.commentsCount,
+            isLikedByMe: post.isLikedByMe,
+            recommendedTripId: post.recommendedTripId,
+            recommendedTripTitle: post.recommendedTripTitle,
+          );
+          _posts = newList;
+          notifyListeners();
+        }
       },
     );
   }

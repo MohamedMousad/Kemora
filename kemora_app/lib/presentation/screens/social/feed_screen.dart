@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../widgets/filter_chip_row.dart';
 import '../../viewmodels/post_view_model.dart';
 import '../../viewmodels/story_view_model.dart';
+import '../../viewmodels/auth_view_model.dart';
 import 'create_post_screen.dart';
 import 'widgets/feed_post_card.dart';
 import 'widgets/story_viewer_screen.dart';
@@ -55,6 +56,8 @@ class _FeedScreenState extends State<FeedScreen> {
     final storyVm = context.watch<StoryViewModel>();
     final stories = storyVm.activeStories;
     final postVm = context.watch<PostViewModel>();
+    final authVm = context.watch<AuthViewModel>();
+    final currentUserId = authVm.user?.id;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceContainerLow,
@@ -176,6 +179,51 @@ class _FeedScreenState extends State<FeedScreen> {
                         initialLikes: post.likesCount,
                         isLiked: post.isLikedByMe,
                         initialComments: post.commentsCount,
+                        isMyPost: post.authorId == currentUserId,
+                        onDeleteTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete Post'),
+                              content: const Text('Are you sure you want to delete this post?'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    postVm.deletePost(post.id);
+                                  },
+                                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        onEditTap: () {
+                          // For simplicity, just an alert to enter new content
+                          final txtController = TextEditingController(text: post.content);
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Edit Post'),
+                              content: TextField(
+                                controller: txtController,
+                                maxLines: 4,
+                                decoration: const InputDecoration(border: OutlineInputBorder()),
+                              ),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    postVm.updatePost(post.id, txtController.text);
+                                  },
+                                  child: const Text('Save'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                         onLikeTap: () => postVm.toggleLike(post.id),
                         onCommentTap: () {
                           postVm.loadComments(post.id);

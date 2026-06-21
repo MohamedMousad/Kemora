@@ -81,4 +81,28 @@ class PostRepositoryImpl implements IPostRepository {
       return const Left(ServerFailure('Unexpected Error'));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> deletePost(String postId) async {
+    try {
+      await remoteDataSource.deletePost(postId);
+      return const Right(null);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return const Left(ServerFailure('Unexpected Error'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updatePost(String postId, String content) async {
+    try {
+      await remoteDataSource.updatePost(postId, content);
+      return const Right(null);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return const Left(ServerFailure('Unexpected Error'));
+    }
+  }
 }

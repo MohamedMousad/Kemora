@@ -53,3 +53,23 @@ class GetPostCommentsUseCase {
     return await repository.getPostComments(postId);
   }
 }
+
+class DeletePostUseCase {
+  final IPostRepository repository;
+
+  DeletePostUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(String postId) async {
+    return await repository.deletePost(postId);
+  }
+}
+
+class UpdatePostUseCase {
+  final IPostRepository repository;
+
+  UpdatePostUseCase(this.repository);
+
+  Future<Either<Failure, void>> call(String postId, String content) async {
+    return await repository.updatePost(postId, content);
+  }
+}

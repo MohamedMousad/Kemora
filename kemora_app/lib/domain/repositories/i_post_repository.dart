@@ -10,4 +10,6 @@ abstract class IPostRepository {
   Future<Either<Failure, void>> unlikePost(String postId);
   Future<Either<Failure, List<Comment>>> getPostComments(String postId);
   Future<Either<Failure, Comment>> addComment(String postId, String content, {String? parentCommentId});
+  Future<Either<Failure, void>> deletePost(String postId);
+  Future<Either<Failure, void>> updatePost(String postId, String content);
 }

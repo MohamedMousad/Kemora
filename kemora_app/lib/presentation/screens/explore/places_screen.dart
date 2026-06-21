@@ -10,8 +10,9 @@ import 'place_detail_screen.dart';
 
 class PlacesScreen extends StatefulWidget {
   final String? governorate;
+  final String? initialSearchQuery;
   
-  const PlacesScreen({super.key, this.governorate});
+  const PlacesScreen({super.key, this.governorate, this.initialSearchQuery});
 
   @override
   State<PlacesScreen> createState() => _PlacesScreenState();
@@ -25,6 +26,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialSearchQuery != null) {
+      _searchController.text = widget.initialSearchQuery!;
+    }
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -48,10 +52,13 @@ class _PlacesScreenState extends State<PlacesScreen> {
         }
       }
 
-      // 2. Filter by Search Query
-      if (_searchController.text.isNotEmpty &&
-          !place.name.toLowerCase().contains(_searchController.text.toLowerCase())) {
-        return false;
+      // 2. Filter by Search Query (Name or Governorate)
+      if (_searchController.text.isNotEmpty) {
+        final query = _searchController.text.toLowerCase();
+        final govName = governoratesData.firstWhere((g) => g.id == place.governorateId, orElse: () => governoratesData.first).name.toLowerCase();
+        if (!place.name.toLowerCase().contains(query) && !govName.contains(query)) {
+          return false;
+        }
       }
 
       // 3. Filter by Category chip
