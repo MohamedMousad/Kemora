@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../data/local/achievement_data.dart';
 import '../../../providers/voucher_provider.dart';
+import '../../viewmodels/badge_view_model.dart';
 import 'all_achievements_screen.dart';
 import '../../viewmodels/auth_view_model.dart';
 import '../../widgets/fade_slide_in.dart';
@@ -34,8 +34,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final voucherProvider = context.watch<VoucherProvider>();
-    final int availablePoints = voucherProvider.availablePoints;
-    final top4Achievements = achievementsData.take(4).toList();
+    final int availablePoints = voucherProvider.availablePoints(context);
+    final badgeVM = context.watch<BadgeViewModel>();
+    final top4Achievements = badgeVM.userBadges.map((ub) => ub.badge).take(4).toList();
     
     final authVM = context.watch<AuthViewModel>();
     final user = authVM.user;
@@ -269,41 +270,26 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
   }
 
-  Widget _buildAchievementBento(AchievementInfo achievement) {
+  Widget _buildAchievementBento(dynamic achievement) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: achievement.isEarned
-            ? AppColors.surfaceContainerLowest
-            : AppColors.surfaceContainerHigh,
+        color: AppColors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(20),
-        border: achievement.isEarned
-            ? Border.all(
-                color: AppColors.primaryContainer.withValues(alpha: 0.3))
-            : null,
-        boxShadow: achievement.isEarned
-            ? [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)
-              ]
-            : null,
+        border: Border.all(color: AppColors.primaryContainer.withValues(alpha: 0.3)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: achievement.isEarned
-                  ? AppColors.primaryContainer.withValues(alpha: 0.1)
-                  : AppColors.surfaceContainer,
+              color: AppColors.primaryContainer.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons
-                  .workspace_premium, // You could map icons dynamically based on ID
-              color: achievement.isEarned
-                  ? AppColors.primaryContainer
-                  : AppColors.outlineVariant,
+            child: Text(
+              achievement.iconUrl.isNotEmpty ? achievement.iconUrl : '🏆',
+              style: const TextStyle(fontSize: 24, color: AppColors.primaryContainer),
             ),
           ),
           const SizedBox(width: 16),
@@ -312,20 +298,12 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  achievement.title,
-                  style: AppTypography.titleMedium.copyWith(
-                    color: achievement.isEarned
-                        ? AppColors.onSurface
-                        : AppColors.outlineVariant,
-                  ),
+                  achievement.name,
+                  style: AppTypography.titleMedium.copyWith(color: AppColors.onSurface),
                 ),
                 Text(
                   achievement.description,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: achievement.isEarned
-                        ? AppColors.onSurfaceVariant
-                        : AppColors.outlineVariant,
-                  ),
+                  style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant),
                 ),
               ],
             ),
@@ -333,9 +311,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              if (!achievement.isEarned)
-                const Icon(Icons.lock,
-                    size: 16, color: AppColors.outlineVariant),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -343,7 +318,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   color: AppColors.surfaceContainer,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text('${achievement.points} pts',
+                child: Text('${achievement.pointsReward} pts',
                     style: AppTypography.labelSmall
                         .copyWith(color: AppColors.outline)),
               ),
@@ -431,7 +406,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                           color: AppColors.primaryContainer.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text('${provider.availablePoints} pts',
+                        child: Text('${provider.availablePoints(context)} pts',
                             style: AppTypography.labelMedium
                                 .copyWith(color: AppColors.primaryContainer)),
                       ),
@@ -442,7 +417,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     child: SingleChildScrollView(
                       child: Column(
                         children: availableRewards.map((reward) {
-                          final canAfford = provider.canAfford(reward.pointsCost);
+                          final canAfford = provider.canAfford(context, reward.pointsCost);
                           return _buildRewardItem(context, setState, provider, reward, canAfford);
                         }).toList(),
                       ),
@@ -470,7 +445,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       padding: const EdgeInsets.only(bottom: 16),
       child: GestureDetector(
         onTap: canAfford ? () {
-          final voucher = provider.redeemVoucher(reward);
+          final voucher = provider.redeemVoucher(context, reward);
           if (voucher != null) {
             setState(() {}); // refresh the bottom sheet
             ScaffoldMessenger.of(context).showSnackBar(

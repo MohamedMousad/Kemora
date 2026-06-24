@@ -8,8 +8,9 @@ namespace Kemora.Application.Interfaces
     /// </summary>
     public interface IBadgeAwardService
     {
-        /// <summary>Awards "Community Starter" badge on a user's first post.</summary>
-        Task TryAwardCommunityStarterAsync(string userId);
+        Task CheckPostAchievementsAsync(string userId);
+        Task CheckCommentAchievementsAsync(string userId);
+        Task CheckExplorerAchievementAsync(string userId);
 
         /// <summary>Awards "AI Pioneer" badge on a user's first saved AI trip.</summary>
         Task TryAwardAiPioneerAsync(string userId);

@@ -13,11 +13,14 @@ import 'presentation/viewmodels/post_view_model.dart';
 import 'presentation/viewmodels/story_view_model.dart';
 import 'presentation/viewmodels/trip_view_model.dart';
 import 'presentation/viewmodels/chat_view_model.dart';
+import 'services/signalr_service.dart';
 
 import 'providers/community_provider.dart';
 import 'providers/trip_local_provider.dart';
 import 'providers/voucher_provider.dart';
 import 'l10n/app_localizations.dart';
+
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,8 +30,53 @@ void main() async {
   runApp(const KemoraApp());
 }
 
-class KemoraApp extends StatelessWidget {
+class KemoraApp extends StatefulWidget {
   const KemoraApp({super.key});
+
+  @override
+  State<KemoraApp> createState() => _KemoraAppState();
+}
+
+class _KemoraAppState extends State<KemoraApp> {
+  @override
+  void initState() {
+    super.initState();
+    _initSignalR();
+  }
+
+  void _initSignalR() {
+    SignalRService().onNotificationReceived = (title, message) {
+      final context = scaffoldMessengerKey.currentContext;
+      if (context != null) {
+        final authVM = Provider.of<AuthViewModel>(context, listen: false);
+        final badgeVM = Provider.of<BadgeViewModel>(context, listen: false);
+        if (authVM.user != null) {
+          badgeVM.loadUserBadges(authVM.user!.id);
+        }
+      }
+
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(
+          content: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(message),
+            ],
+          ),
+          backgroundColor: Colors.amber.shade900,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    };
+
+    if (TokenStorage.instance.isAuthenticated) {
+      SignalRService().init();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +95,7 @@ class KemoraApp extends StatelessWidget {
         ChangeNotifierProvider(create: (context) => VoucherProvider()),
       ],
       child: MaterialApp(
+        scaffoldMessengerKey: scaffoldMessengerKey,
         title: 'Kemora Travel Guide',
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,

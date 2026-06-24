@@ -19,11 +19,13 @@ namespace Kemora.Api.Controllers
     {
         private readonly IStoryService _storyService;
         private readonly IImageService _imageService;
+        private readonly IBadgeAwardService _badgeAwardService;
 
-        public StoriesController(IStoryService storyService, IImageService imageService)
+        public StoriesController(IStoryService storyService, IImageService imageService, IBadgeAwardService badgeAwardService)
         {
             _storyService = storyService;
             _imageService = imageService;
+            _badgeAwardService = badgeAwardService;
         }
 
         private string? GetCurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);

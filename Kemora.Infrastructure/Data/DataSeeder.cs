@@ -573,29 +573,21 @@ namespace Kemora.Infrastructure.Data
 
         private static async Task SeedBadgesAsync(ApplicationDbContext context)
         {
-            if (await context.Badges.AnyAsync()) return;
+            // Only seed if we don't have exactly 5 badges (the exact ones we need)
+            if (await context.Badges.CountAsync() == 5 && await context.Badges.AnyAsync(b => b.Name == "Explorer")) return;
+
+            // Clear existing badges and user progress to ensure exact requested state
+            context.UserBadges.RemoveRange(context.UserBadges);
+            context.Badges.RemoveRange(context.Badges);
+            await context.SaveChangesAsync();
 
             var badges = new List<Badge>
             {
-                // Existing badges
-                new() { Name = "First Steps", Description = "Complete your profile and join the Kemora community!", Criteria = "Profile Completion", PointsReward = 50, IconUrl = "👣" },
-                new() { Name = "Explorer", Description = "Visit and review 5 different places across Egypt.", Criteria = "5 Place Reviews", PointsReward = 100, IconUrl = "🧭" },
-                new() { Name = "Adventurer", Description = "Visit 10 different places across Egypt.", Criteria = "10 Places Visited", PointsReward = 200, IconUrl = "⛰️" },
-                new() { Name = "Pharaoh's Path", Description = "Visit 3 different historical sites.", Criteria = "3 Historical Sites", PointsReward = 150, IconUrl = "🏛️" },
-                new() { Name = "Beach Lover", Description = "Visit 3 different beach destinations.", Criteria = "3 Beach Visits", PointsReward = 150, IconUrl = "🏖️" },
-                new() { Name = "Social Butterfly", Description = "Create 5 social posts for your followers.", Criteria = "5 Social Posts", PointsReward = 100, IconUrl = "🦋" },
-                new() { Name = "Navigator", Description = "Plan 3 successful trips using the AI Planner.", Criteria = "3 AI Trips", PointsReward = 150, IconUrl = "🗺️" },
-                new() { Name = "Foodie", Description = "Visit and review 5 different restaurants.", Criteria = "5 Restaurant Reviews", PointsReward = 100, IconUrl = "🍽️" },
-                new() { Name = "Egypt Master", Description = "Visit a place in all 27 governorates of Egypt.", Criteria = "27 Governorates", PointsReward = 500, IconUrl = "👑" },
-                new() { Name = "Globe Trotter", Description = "Complete 10 total trip itineraries.", Criteria = "10 Itineraries", PointsReward = 300, IconUrl = "🌍" },
-                // New achievement-based badges
-                new() { Name = "Community Starter", Description = "Share your first post with the Kemora community.", Criteria = "First Post", PointsReward = 75, IconUrl = "📸" },
-                new() { Name = "AI Pioneer", Description = "Generate and save your first AI-planned trip.", Criteria = "First AI Trip", PointsReward = 100, IconUrl = "🤖" },
-                new() { Name = "City Hopper", Description = "Save trips visiting places in 5 different governorates.", Criteria = "5 Governorates in Trips", PointsReward = 200, IconUrl = "🏙️" },
-                new() { Name = "Daily Devotee", Description = "Log in for 7 days in a row.", Criteria = "7-Day Login Streak", PointsReward = 125, IconUrl = "🔥" },
-                new() { Name = "Cairo Explorer", Description = "Visit a place in Cairo governorate.", Criteria = "Visit Cairo", PointsReward = 50, IconUrl = "🌆" },
-                new() { Name = "Luxor Legend", Description = "Visit a place in Luxor governorate.", Criteria = "Visit Luxor", PointsReward = 50, IconUrl = "🏺" },
-                new() { Name = "Nile Wanderer", Description = "Visit places along the Nile in 3 different governorates.", Criteria = "3 Nile Governorates", PointsReward = 175, IconUrl = "🚢" },
+                new() { Name = "First Post", Description = "Share your first post with the Kemora community.", Criteria = "First Post", PointsReward = 75, IconUrl = "📸" },
+                new() { Name = "First Comment", Description = "Leave your first comment on a post.", Criteria = "First Comment", PointsReward = 50, IconUrl = "💬" },
+                new() { Name = "5 Posts", Description = "Active contributor! You've made 5 posts.", Criteria = "5 Posts", PointsReward = 200, IconUrl = "🌟" },
+                new() { Name = "5 Comments", Description = "Chatterbox! You've left 5 comments.", Criteria = "5 Comments", PointsReward = 150, IconUrl = "🗣️" },
+                new() { Name = "Explorer", Description = "You started exploring! Viewed a place for the first time.", Criteria = "Explorer", PointsReward = 100, IconUrl = "🗺️" }
             };
 
             context.Badges.AddRange(badges);

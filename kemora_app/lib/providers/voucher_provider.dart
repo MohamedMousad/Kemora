@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../data/local/achievement_data.dart';
+import 'package:provider/provider.dart';
+import '../presentation/viewmodels/badge_view_model.dart';
 
 /// Reward item available for redemption.
 class RewardItem {
@@ -57,20 +58,19 @@ class VoucherProvider with ChangeNotifier {
 
   List<RedeemedVoucher> get redeemedVouchers => _redeemedVouchers;
 
-  int get totalEarnedPoints {
-    return achievementsData
-        .where((a) => a.isEarned)
-        .fold(0, (sum, a) => sum + a.points);
+  int totalEarnedPoints(BuildContext context) {
+    final badgeVM = Provider.of<BadgeViewModel>(context, listen: false);
+    return badgeVM.userBadges.fold(0, (sum, ub) => sum + ub.badge.pointsReward);
   }
 
-  int get availablePoints => totalEarnedPoints - _spentPoints;
+  int availablePoints(BuildContext context) => totalEarnedPoints(context) - _spentPoints;
 
-  bool canAfford(int cost) => availablePoints >= cost;
+  bool canAfford(BuildContext context, int cost) => availablePoints(context) >= cost;
 
   /// Redeems a reward: deducts points, generates a random code, stores the voucher.
   /// Returns the generated voucher or null if insufficient points.
-  RedeemedVoucher? redeemVoucher(RewardItem reward) {
-    if (!canAfford(reward.pointsCost)) return null;
+  RedeemedVoucher? redeemVoucher(BuildContext context, RewardItem reward) {
+    if (!canAfford(context, reward.pointsCost)) return null;
 
     _spentPoints += reward.pointsCost;
 

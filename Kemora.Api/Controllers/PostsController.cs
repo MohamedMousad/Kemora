@@ -7,6 +7,8 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
+using Microsoft.Extensions.Logging;
+
 namespace Kemora.Api.Controllers
 {
     /// <summary>
@@ -21,12 +23,14 @@ namespace Kemora.Api.Controllers
         private readonly IPostService _postService;
         private readonly IImageService _imageService;
         private readonly IBadgeAwardService _badgeAwardService;
+        private readonly ILogger<PostsController> _logger;
 
-        public PostsController(IPostService postService, IImageService imageService, IBadgeAwardService badgeAwardService)
+        public PostsController(IPostService postService, IImageService imageService, IBadgeAwardService badgeAwardService, ILogger<PostsController> logger)
         {
             _postService = postService;
             _imageService = imageService;
             _badgeAwardService = badgeAwardService;
+            _logger = logger;
         }
 
         private string? GetCurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -64,8 +68,8 @@ namespace Kemora.Api.Controllers
             }
 
             var post = await _postService.CreateAsync(userId, dto);
-            // Award "Community Starter" badge non-blockingly
-            _ = _badgeAwardService.TryAwardCommunityStarterAsync(userId);
+            // Award post achievements
+            await _badgeAwardService.CheckPostAchievementsAsync(userId);
             return Ok(post);
         }
 
@@ -154,6 +158,10 @@ namespace Kemora.Api.Controllers
 
             var comment = await _postService.AddCommentAsync(id, userId, dto);
             if (comment == null) return NotFound();
+            
+            _logger.LogInformation("CommentCreated: User {UserId} commented on Post {PostId}", userId, id);
+            await _badgeAwardService.CheckCommentAchievementsAsync(userId);
+            
             return Ok(comment);
         }
 

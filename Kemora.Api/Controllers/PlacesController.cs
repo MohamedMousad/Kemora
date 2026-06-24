@@ -3,6 +3,7 @@ using Kemora.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Asp.Versioning;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace Kemora.Api.Controllers
@@ -18,11 +19,13 @@ namespace Kemora.Api.Controllers
     {
         private readonly IPlacePublicService _placeService;
         private readonly ITripPlannerService _tripPlannerService;
+        private readonly IBadgeAwardService _badgeAwardService;
 
-        public PlacesController(IPlacePublicService placeService, ITripPlannerService tripPlannerService)
+        public PlacesController(IPlacePublicService placeService, ITripPlannerService tripPlannerService, IBadgeAwardService badgeAwardService)
         {
             _placeService = placeService;
             _tripPlannerService = tripPlannerService;
+            _badgeAwardService = badgeAwardService;
         }
 
         /// <summary>
@@ -60,6 +63,13 @@ namespace Kemora.Api.Controllers
         {
             var place = await _placeService.GetPlaceDetailAsync(id);
             if (place == null) return NotFound();
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await _badgeAwardService.CheckExplorerAchievementAsync(userId);
+            }
+
             return Ok(place);
         }
 

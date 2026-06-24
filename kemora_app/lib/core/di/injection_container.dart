@@ -51,7 +51,7 @@ import '../../presentation/viewmodels/badge_view_model.dart';
 
 final sl = GetIt.instance;
 
-String _resolveApiBaseUrl() {
+String resolveApiBaseUrl() {
   if (kIsWeb) {
     return 'http://localhost:5299';
   }
@@ -232,7 +232,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() {
     final dio = Dio(
       BaseOptions(
-        baseUrl: _resolveApiBaseUrl(),
+        baseUrl: resolveApiBaseUrl(),
         connectTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(
             seconds:

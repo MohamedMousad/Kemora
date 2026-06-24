@@ -6,6 +6,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Logging;
+
 namespace Kemora.Infrastructure.Services
 {
     /// <summary>
@@ -15,16 +17,36 @@ namespace Kemora.Infrastructure.Services
     public class BadgeAwardService : IBadgeAwardService
     {
         private readonly ApplicationDbContext _context;
+        private readonly INotificationPusher _notificationPusher;
+        private readonly ILogger<BadgeAwardService> _logger;
 
-        public BadgeAwardService(ApplicationDbContext context)
+        public BadgeAwardService(ApplicationDbContext context, INotificationPusher notificationPusher, ILogger<BadgeAwardService> logger)
         {
             _context = context;
+            _notificationPusher = notificationPusher;
+            _logger = logger;
         }
 
-        /// <summary>Awards "Community Starter" on the user's first post.</summary>
-        public async Task TryAwardCommunityStarterAsync(string userId)
+        public async Task CheckPostAchievementsAsync(string userId)
         {
-            await TryAwardAsync(userId, "Community Starter");
+            var postsCount = await _context.Posts.CountAsync(p => p.UserID == userId);
+            if (postsCount >= 1) await TryAwardAsync(userId, "First Post");
+            if (postsCount >= 5) await TryAwardAsync(userId, "5 Posts");
+        }
+
+        public async Task CheckCommentAchievementsAsync(string userId)
+        {
+            _logger.LogInformation("AchievementCheck started for Comments. UserId: {UserId}", userId);
+            var commentsCount = await _context.Comments.CountAsync(c => c.UserID == userId);
+            _logger.LogInformation("UserCommentCount for {UserId}: {Count}", userId, commentsCount);
+            
+            if (commentsCount >= 1) await TryAwardAsync(userId, "First Comment");
+            if (commentsCount >= 5) await TryAwardAsync(userId, "5 Comments");
+        }
+
+        public async Task CheckExplorerAchievementAsync(string userId)
+        {
+            await TryAwardAsync(userId, "Explorer");
         }
 
         /// <summary>Awards "AI Pioneer" on the user's first saved AI trip.</summary>
@@ -66,6 +88,7 @@ namespace Kemora.Infrastructure.Services
 
                 if (!alreadyHas)
                 {
+                    _logger.LogInformation("AchievementUnlocked: {UserId} unlocked {BadgeName}", userId, badgeName);
                     _context.UserBadges.Add(new UserBadge
                     {
                         UserID = userId,
@@ -73,6 +96,17 @@ namespace Kemora.Infrastructure.Services
                         EarnedAt = DateTime.UtcNow
                     });
                     await _context.SaveChangesAsync();
+
+                    // Notify user
+                    await _notificationPusher.PushToUserAsync(
+                        userId,
+                        "Achievement Unlocked! 🏆",
+                        $"{badge.IconUrl} {badge.Name}\n{badge.Description}"
+                    );
+                }
+                else
+                {
+                    _logger.LogInformation("Achievement check: {UserId} already has {BadgeName}", userId, badgeName);
                 }
             }
             catch

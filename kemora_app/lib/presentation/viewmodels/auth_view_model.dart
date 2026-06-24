@@ -17,6 +17,7 @@ import '../../domain/usecases/update_profile_usecase.dart';
 import '../../domain/usecases/upload_profile_picture_usecase.dart';
 import '../../domain/entities/user_preferences.dart';
 import '../../core/auth/token_storage.dart';
+import '../../services/signalr_service.dart';
 
 enum AuthState { initial, loading, authenticated, unauthenticated, error }
 
@@ -109,6 +110,10 @@ class AuthViewModel extends ChangeNotifier {
     }
     _persistUser(user);
     _state = AuthState.authenticated;
+    
+    // Initialize real-time notifications
+    SignalRService().init();
+    
     notifyListeners();
   }
 
@@ -285,6 +290,10 @@ class AuthViewModel extends ChangeNotifier {
     } catch (_) {
       // Ignore sign-out failures — user is already being logged out locally
     }
+    
+    // Disconnect real-time notifications
+    await SignalRService().disconnect();
+    
     _state = AuthState.unauthenticated;
     notifyListeners();
   }
