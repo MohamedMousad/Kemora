@@ -15,12 +15,15 @@ void main() {
 
     // Start the app
     app.main();
+    // Splash screen uses Future.delayed for 2.5 seconds, so we need to pump time
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
 
     // 1. Handle Onboarding Screen (if first time launch)
-    final getStartedButton = find.text('GET STARTED');
-    if (getStartedButton.evaluate().isNotEmpty) {
-      await tester.tap(getStartedButton);
+    final skipButton = find.text('SKIP');
+    if (skipButton.evaluate().isNotEmpty) {
+      await tester.tap(skipButton);
       await tester.pumpAndSettle();
     }
 
@@ -101,11 +104,29 @@ void main() {
         // Verify itinerary loaded
         expect(find.textContaining('Day 1'), findsWidgets);
         
-        // Navigate back
-        final backButton = find.byTooltip('Back');
-        if (backButton.evaluate().isNotEmpty) {
-            await tester.tap(backButton);
+        // Click Save Plan
+        final savePlanBtn = find.text('Save Plan');
+        if (savePlanBtn.evaluate().isNotEmpty) {
+            await tester.ensureVisible(savePlanBtn);
+            await tester.tap(savePlanBtn);
             await tester.pumpAndSettle();
+            
+            // The Save Plan button opens a date picker, tap OK
+            final okButton = find.text('OK');
+            if (okButton.evaluate().isNotEmpty) {
+                await tester.tap(okButton);
+                await tester.pumpAndSettle(const Duration(seconds: 5));
+            }
+            
+            // Verify success snackbar
+            expect(find.textContaining('Plan saved successfully'), findsWidgets);
+        } else {
+            // Navigate back
+            final backButton = find.byTooltip('Back');
+            if (backButton.evaluate().isNotEmpty) {
+                await tester.tap(backButton);
+                await tester.pumpAndSettle();
+            }
         }
       }
     }

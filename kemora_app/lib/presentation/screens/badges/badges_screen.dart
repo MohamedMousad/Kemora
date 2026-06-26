@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../domain/entities/badge.dart' as entity;
 import '../../viewmodels/badge_view_model.dart';
+import '../../../core/theme/app_colors.dart';
 // inline points display
 
 class BadgesScreen extends StatefulWidget {
@@ -43,7 +44,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
       body: Consumer<BadgeViewModel>(
         builder: (context, viewModel, child) {
           if (viewModel.state == BadgeState.loading && viewModel.allBadges.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFFC5A358)));
+            return const Center(child: CircularProgressIndicator(color: AppColors.primaryContainer));
           }
 
           if (viewModel.state == BadgeState.error && viewModel.allBadges.isEmpty) {
@@ -60,7 +61,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
                       viewModel.loadAllBadges();
                       viewModel.loadUserBadges(widget.userId);
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC5A358), foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryContainer, foregroundColor: Colors.white),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -99,13 +100,13 @@ class _BadgesScreenState extends State<BadgesScreen> {
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1A1A1A), Color(0xFF2D2D2D)],
+            colors: [AppColors.primary, AppColors.secondary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
-            BoxShadow(color: const Color(0xFFC5A358).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
+            BoxShadow(color: AppColors.primaryContainer.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
           ],
         ),
         child: Column(
@@ -118,7 +119,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
               children: [
                 Text(
                   '$totalPoints',
-                  style: const TextStyle(color: Color(0xFFC5A358), fontSize: 48, fontWeight: FontWeight.bold, height: 1),
+                  style: const TextStyle(color: AppColors.primaryContainer, fontSize: 48, fontWeight: FontWeight.bold, height: 1),
                 ),
                 const SizedBox(width: 8),
                 const Padding(
@@ -190,9 +191,9 @@ class _BadgesScreenState extends State<BadgesScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isEarned ? const Color(0xFFC5A358).withValues(alpha: 0.5) : Colors.transparent,
+          color: isEarned ? AppColors.primaryContainer.withValues(alpha: 0.5) : Colors.transparent,
           width: 2,
         ),
         boxShadow: [
@@ -218,7 +219,14 @@ class _BadgesScreenState extends State<BadgesScreen> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isEarned ? const Color(0xFFC5A358).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+                      gradient: isEarned 
+                        ? const LinearGradient(
+                            colors: [AppColors.primaryContainer, AppColors.secondary],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ) 
+                        : null,
+                      color: isEarned ? null : Colors.grey.withValues(alpha: 0.1),
                     ),
                     child: _buildBadgeIcon(badge, isEarned),
                   ),
@@ -241,7 +249,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isEarned ? const Color(0xFFC5A358) : Colors.grey,
+                    color: isEarned ? AppColors.primaryContainer : Colors.grey,
                     fontWeight: isEarned ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -259,7 +267,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFC5A358),
+                  color: AppColors.primaryContainer,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.check, color: Colors.white, size: 12),
@@ -306,7 +314,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
           child: LinearProgressIndicator(
             value: progress,
             backgroundColor: Colors.grey[200],
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFC5A358)),
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryContainer),
             minHeight: 4,
           ),
         ),
@@ -320,7 +328,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
     return Icon(
       Icons.workspace_premium,
       size: 40,
-      color: isEarned ? const Color(0xFFC5A358) : Colors.grey,
+      color: isEarned ? AppColors.primaryContainer : Colors.grey,
     );
   }
 }

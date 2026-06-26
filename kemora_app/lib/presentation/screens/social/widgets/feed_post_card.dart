@@ -63,9 +63,10 @@ class FeedPostCard extends StatelessWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.surfaceContainerHigh,
+                    border: Border.all(color: AppColors.primaryContainer, width: 2),
                   ),
                   child: Center(
                       child: Text(authorName[0],

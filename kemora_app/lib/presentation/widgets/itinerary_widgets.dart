@@ -114,11 +114,11 @@ class ActivityTimelineTile extends StatelessWidget {
                 height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.primaryGold,
+                  color: AppColors.primaryContainer,
                   border: Border.all(color: Colors.white, width: 3),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryGold.withValues(alpha: 0.3),
+                      color: AppColors.primaryContainer.withValues(alpha: 0.3),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -129,7 +129,7 @@ class ActivityTimelineTile extends StatelessWidget {
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: AppTheme.primarySand,
+                    color: AppColors.primaryContainer,
                     margin: const EdgeInsets.symmetric(vertical: 4),
                   ),
                 ),
@@ -158,10 +158,10 @@ class PremiumActivityCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryBlue.withValues(alpha: 0.05),
+            color: AppColors.secondary.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -173,7 +173,7 @@ class PremiumActivityCard extends StatelessWidget {
           // Image / Slot Header
           if (activity.imageUrl != null && activity.imageUrl!.isNotEmpty)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               child: CachedNetworkImage(
                 imageUrl: activity.imageUrl!,
                 height: 150,
