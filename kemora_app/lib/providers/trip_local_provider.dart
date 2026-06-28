@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../data/local/trip_mock_data.dart';
-import '../data/local/place_data.dart';
-
 /// Local-only trip state management.
 /// Bypasses the backend-dependent TripViewModel for frontend-only mode.
 class TripLocalProvider with ChangeNotifier {
@@ -85,9 +83,5 @@ class TripLocalProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Find the PlaceInfo from placesData by placeId
-  PlaceInfo? findPlace(String placeId) {
-    final index = placesData.indexWhere((p) => p.id == placeId);
-    return index == -1 ? null : placesData[index];
-  }
+  // Removed findPlace method because place_data.dart was deleted.
 }

@@ -4,15 +4,17 @@ class ReviewSummary extends Equatable {
   final String authorName;
   final String text;
   final int rating;
+  final String? source;
 
   const ReviewSummary({
     required this.authorName,
     required this.text,
     required this.rating,
+    this.source,
   });
 
   @override
-  List<Object?> get props => [authorName, text, rating];
+  List<Object?> get props => [authorName, text, rating, source];
 }
 
 class Place extends Equatable {
@@ -32,6 +34,9 @@ class Place extends Equatable {
   final String? mainImageUrl;
   final int? priceLevel;
   final String? website;
+  final String? googleMapsUrl;
+  final List<String> additionalPhotoUrls;
+  final dynamic openingHours; // Can be a List or parsed JSON
   final List<ReviewSummary> reviews;
 
   const Place({
@@ -49,6 +54,9 @@ class Place extends Equatable {
     this.mainImageUrl,
     this.priceLevel,
     this.website,
+    this.googleMapsUrl,
+    this.additionalPhotoUrls = const [],
+    this.openingHours,
     this.reviews = const [],
   });
 
@@ -68,6 +76,9 @@ class Place extends Equatable {
         mainImageUrl,
         priceLevel,
         website,
+        googleMapsUrl,
+        additionalPhotoUrls,
+        openingHours,
         reviews,
       ];
 }

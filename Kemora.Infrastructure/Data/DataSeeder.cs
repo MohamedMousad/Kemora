@@ -24,7 +24,6 @@ namespace Kemora.Infrastructure.Data
             await SeedUsersAsync(userManager, context);
             await SeedAdminRolesAsync(userManager);
             await SeedBadgesAsync(context);
-            await SeedPlacesAsync(context);
 
             await SeedSocialPostsAsync(context);
             await AwardInitialBadgesAsync(context);
@@ -111,6 +110,21 @@ namespace Kemora.Infrastructure.Data
             var shopping = await context.Categories.FirstAsync(c => c.Name == "Shopping");
             var food = await context.Categories.FirstAsync(c => c.Name == "Food & Dining");
 
+            // Ensure new categories exist
+            if (!await context.Categories.AnyAsync(c => c.Name == "Entertainment"))
+            {
+                context.Categories.Add(new Category { Name = "Entertainment" });
+                await context.SaveChangesAsync();
+            }
+            if (!await context.Categories.AnyAsync(c => c.Name == "Accommodation"))
+            {
+                context.Categories.Add(new Category { Name = "Accommodation" });
+                await context.SaveChangesAsync();
+            }
+
+            var entertainment = await context.Categories.FirstAsync(c => c.Name == "Entertainment");
+            var accommodation = await context.Categories.FirstAsync(c => c.Name == "Accommodation");
+
             var types = new List<PlaceType>
             {
                 new() { GoogleType = "temple", DisplayName = "Temple", CategoryID = historical.CategoryID },
@@ -126,7 +140,12 @@ namespace Kemora.Infrastructure.Data
                 new() { GoogleType = "oasis", DisplayName = "Oasis", CategoryID = nature.CategoryID },
                 new() { GoogleType = "diving_spot", DisplayName = "Diving Spot", CategoryID = adventure.CategoryID },
                 new() { GoogleType = "safari", DisplayName = "Desert Safari", CategoryID = adventure.CategoryID },
-                new() { GoogleType = "citadel", DisplayName = "Citadel/Fort", CategoryID = historical.CategoryID }
+                new() { GoogleType = "citadel", DisplayName = "Citadel/Fort", CategoryID = historical.CategoryID },
+                new() { GoogleType = "cafe", DisplayName = "Cafe", CategoryID = food.CategoryID },
+                new() { GoogleType = "park", DisplayName = "Park", CategoryID = nature.CategoryID },
+                new() { GoogleType = "amusement_park", DisplayName = "Amusement Park", CategoryID = entertainment.CategoryID },
+                new() { GoogleType = "tourist_attraction", DisplayName = "Tourist Attraction", CategoryID = cultural.CategoryID },
+                new() { GoogleType = "historical_landmark", DisplayName = "Historical Landmark", CategoryID = historical.CategoryID }
             };
 
             context.PlaceTypes.AddRange(types);

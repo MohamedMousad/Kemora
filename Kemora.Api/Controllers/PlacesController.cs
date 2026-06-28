@@ -45,9 +45,10 @@ namespace Kemora.Api.Controllers
             [FromQuery] int? categoryId,
             [FromQuery] string? categoryName,
             [FromQuery] string? search,
+            [FromQuery] string? sortBy,
             [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            return Ok(await _placeService.GetPlacesAsync(governorateId, categoryId, categoryName, search, page, pageSize));
+            return Ok(await _placeService.GetPlacesAsync(governorateId, categoryId, categoryName, search, sortBy, page, pageSize));
         }
 
         /// <summary>

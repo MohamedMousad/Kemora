@@ -16,6 +16,9 @@ class PlaceModel extends Place {
     super.mainImageUrl,
     super.priceLevel,
     super.website,
+    super.googleMapsUrl,
+    super.additionalPhotoUrls,
+    super.openingHours,
     super.reviews,
   });
 
@@ -27,17 +30,21 @@ class PlaceModel extends Place {
               authorName: r['authorName'] as String? ?? r['author_name'] as String? ?? 'Anonymous',
               text: r['text'] as String? ?? '',
               rating: (r['rating'] as num?)?.toInt() ?? 5,
+              source: r['source'] as String?,
             ))
         .toList();
 
     final mainImageUrl = json['mainImageURL'] as String? ?? json['mainImageUrl'] as String?;
+    
+    final rawPhotos = json['additionalPhotoUrls'] as List<dynamic>? ?? [];
+    final additionalPhotos = rawPhotos.map((e) => e.toString()).toList();
 
     return PlaceModel(
       id: json['placeID']?.toString() ?? json['id']?.toString() ?? '',
       name: json['name'] as String? ?? 'Unknown Place',
       description: json['description'] as String? ?? 'No description available.',
       category: json['placeTypeName'] as String? ?? json['type'] as String? ?? 'Uncategorized',
-      imageUrl: mainImageUrl ?? 'https://picsum.photos/400/300',
+      imageUrl: mainImageUrl ?? '',
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
@@ -47,6 +54,9 @@ class PlaceModel extends Place {
       mainImageUrl: mainImageUrl,
       priceLevel: (json['priceLevel'] as num?)?.toInt(),
       website: json['website'] as String?,
+      googleMapsUrl: json['googleMapsUrl'] as String?,
+      additionalPhotoUrls: additionalPhotos,
+      openingHours: json['openingHoursJSON'] ?? json['openingHours'],
       reviews: reviews,
     );
   }

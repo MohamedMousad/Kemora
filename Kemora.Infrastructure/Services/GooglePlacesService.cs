@@ -23,7 +23,7 @@ namespace Kemora.Infrastructure.Services
             _httpClient = httpClientFactory.CreateClient("GooglePlaces");
             _logger = logger;
             // Support both potential key names
-            _apiKey = configuration["Google:ApiKey"] ?? configuration["GoogleMaps:ApiKey"];
+            _apiKey = configuration["MapsPlatformDemo:ApiKey"] ?? configuration["Google:ApiKey"] ?? configuration["GoogleMaps:ApiKey"];
             
             if (string.IsNullOrEmpty(_apiKey))
                 _logger.LogError("[GooglePlaces] API key is NOT configured! Check user secrets for 'GoogleMaps:ApiKey'.");
@@ -89,7 +89,7 @@ namespace Kemora.Infrastructure.Services
             
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("X-Goog-Api-Key", _apiKey);
-            request.Headers.Add("X-Goog-FieldMask", "id,displayName,formattedAddress,location,rating,priceLevel,nationalPhoneNumber,websiteUri,photos,editorialSummary");
+            request.Headers.Add("X-Goog-FieldMask", "id,displayName,formattedAddress,location,rating,priceLevel,nationalPhoneNumber,websiteUri,photos,editorialSummary,googleMapsUri,currentOpeningHours,reviews");
 
             try
             {
@@ -254,13 +254,56 @@ namespace Kemora.Infrastructure.Services
             if (placeElement.TryGetProperty("editorialSummary", out var editorialElement) && editorialElement.TryGetProperty("text", out var editorialText))
                 dto.Description = editorialText.GetString();
 
+            if (placeElement.TryGetProperty("googleMapsUri", out var mapsUriElement))
+                dto.GoogleMapsUrl = mapsUriElement.GetString();
+
+            if (placeElement.TryGetProperty("currentOpeningHours", out var hoursElement) && hoursElement.TryGetProperty("weekdayDescriptions", out var weekdayElement))
+            {
+                var hoursList = new List<string>();
+                foreach (var day in weekdayElement.EnumerateArray())
+                {
+                    hoursList.Add(day.GetString() ?? "");
+                }
+                dto.OpeningHours = hoursList;
+            }
+
+            if (placeElement.TryGetProperty("reviews", out var reviewsArray))
+            {
+                var reviewsList = new List<FetchedReviewDto>();
+                foreach (var review in reviewsArray.EnumerateArray())
+                {
+                    var fetchedReview = new FetchedReviewDto();
+                    if (review.TryGetProperty("authorAttribution", out var authorElement) && authorElement.TryGetProperty("displayName", out var authorNameElement))
+                        fetchedReview.AuthorName = authorNameElement.GetString() ?? "Google User";
+                    else
+                        fetchedReview.AuthorName = "Google User";
+                    
+                    if (review.TryGetProperty("rating", out var revRatingElement))
+                        fetchedReview.Rating = revRatingElement.GetInt32();
+                    
+                    if (review.TryGetProperty("text", out var textElement) && textElement.TryGetProperty("text", out var revTextContent))
+                        fetchedReview.Text = revTextContent.GetString() ?? "";
+
+                    reviewsList.Add(fetchedReview);
+                }
+                dto.ApiReviews = reviewsList;
+            }
+
             if (placeElement.TryGetProperty("photos", out var photosArray) && photosArray.GetArrayLength() > 0)
             {
-                var photoElement = photosArray[0];
-                if (photoElement.TryGetProperty("name", out var photoName))
+                var namesList = new List<string>();
+                foreach (var photo in photosArray.EnumerateArray())
                 {
-                    var nameStr = photoName.GetString();
-                    dto.ImageUrl = $"https://places.googleapis.com/v1/{nameStr}/media?key={_apiKey}&maxWidthPx=800";
+                    if (photo.TryGetProperty("name", out var photoName))
+                    {
+                        namesList.Add(photoName.GetString() ?? "");
+                    }
+                }
+                dto.AllPhotoNames = namesList;
+
+                if (namesList.Count > 0)
+                {
+                    dto.ImageUrl = $"https://places.googleapis.com/v1/{namesList[0]}/media?key={_apiKey}&maxWidthPx=800";
                 }
             }
 

@@ -58,6 +58,7 @@ namespace Kemora.Application.DTOs
         public int PriceLevel { get; set; }
         public string PlaceTypeName { get; set; } = string.Empty;
         public string? MainImageURL { get; set; }
+        public string? GoogleMapsUrl { get; set; }
     }
 
     public class PlaceDetailPublicDto
@@ -75,6 +76,8 @@ namespace Kemora.Application.DTOs
         public string PlaceTypeName { get; set; } = string.Empty;
         public string? OpeningHoursJSON { get; set; }
         public string? MainImageURL { get; set; }
+        public string? GoogleMapsUrl { get; set; }
+        public List<string> AdditionalPhotoUrls { get; set; } = new();
         public List<PhotoResponseDto> Photos { get; set; } = new();
         public List<ReviewResponseDto> Reviews { get; set; } = new();
         public List<EventResponseDto> ActiveEvents { get; set; } = new();

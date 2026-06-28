@@ -79,6 +79,9 @@ namespace Kemora.Domain.Entities
         [StringLength(100)]
         public string? GoogleDataId { get; set; } // SerpApi Maps data_id
 
+        public string? GoogleMapsUrl { get; set; }
+        public string? AdditionalPhotoUrlsJSON { get; set; }
+
         // Relationships
         public ICollection<Photo> Photos { get; set; }
         public ICollection<Review> Reviews { get; set; }
@@ -100,6 +103,7 @@ namespace Kemora.Domain.Entities
         public string AuthorName { get; set; }
         public int Rating { get; set; }
         public string Text { get; set; }
+        public string? Source { get; set; } // "Google", "Kemora"
         public int PlaceID { get; set; }
         public Place Place { get; set; }
     }

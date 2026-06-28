@@ -9,6 +9,7 @@ class ActivityInfo {
 
 class GovernorateInfo {
   final String id;
+  final int dbId;
   final String name;
   final String region;
   final double latitude; // 0.0 to 1.0 (relative to map image)
@@ -19,6 +20,7 @@ class GovernorateInfo {
 
   const GovernorateInfo({
     required this.id,
+    required this.dbId,
     required this.name,
     required this.region,
     required this.latitude,
@@ -34,6 +36,7 @@ class GovernorateInfo {
 final List<GovernorateInfo> governoratesData = [
   const GovernorateInfo(
     id: 'g1',
+    dbId: 784,
     name: 'Cairo',
     region: 'Greater Cairo',
     latitude: 0.25,
@@ -49,6 +52,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g2',
+    dbId: 785,
     name: 'Giza',
     region: 'Greater Cairo',
     latitude: 0.26,
@@ -64,6 +68,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g3',
+    dbId: 786,
     name: 'Alexandria',
     region: 'North Coast',
     latitude: 0.1,
@@ -79,6 +84,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g4',
+    dbId: 787,
     name: 'Luxor',
     region: 'Upper Egypt',
     latitude: 0.65,
@@ -94,6 +100,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g5',
+    dbId: 788,
     name: 'Aswan',
     region: 'Upper Egypt',
     latitude: 0.8,
@@ -109,6 +116,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g6',
+    dbId: 789,
     name: 'Red Sea',
     region: 'Eastern',
     latitude: 0.5,
@@ -124,6 +132,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g7',
+    dbId: 790,
     name: 'South Sinai',
     region: 'Sinai',
     latitude: 0.4,
@@ -139,6 +148,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g8',
+    dbId: 791,
     name: 'Matrouh',
     region: 'Western',
     latitude: 0.15,
@@ -154,6 +164,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g9',
+    dbId: 810,
     name: 'New Valley',
     region: 'Western',
     latitude: 0.6,
@@ -169,6 +180,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g10',
+    dbId: 809,
     name: 'North Sinai',
     region: 'Sinai',
     latitude: 0.15,
@@ -184,6 +196,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g11',
+    dbId: 806,
     name: 'Port Said',
     region: 'Canal',
     latitude: 0.1,
@@ -199,6 +212,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g12',
+    dbId: 807,
     name: 'Suez',
     region: 'Canal',
     latitude: 0.25,
@@ -214,6 +228,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g13',
+    dbId: 808,
     name: 'Ismailia',
     region: 'Canal',
     latitude: 0.2,
@@ -229,6 +244,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g14',
+    dbId: 793,
     name: 'Dakahlia',
     region: 'Delta',
     latitude: 0.15,
@@ -244,6 +260,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g15',
+    dbId: 794,
     name: 'Sharqia',
     region: 'Delta',
     latitude: 0.2,
@@ -259,6 +276,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g16',
+    dbId: 795,
     name: 'Qalyubiya',
     region: 'Greater Cairo',
     latitude: 0.22,
@@ -274,6 +292,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g17',
+    dbId: 796,
     name: 'Kafr El Sheikh',
     region: 'Delta',
     latitude: 0.1,
@@ -289,6 +308,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g18',
+    dbId: 797,
     name: 'Gharbia',
     region: 'Delta',
     latitude: 0.15,
@@ -304,6 +324,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g19',
+    dbId: 798,
     name: 'Monufia',
     region: 'Delta',
     latitude: 0.2,
@@ -319,6 +340,7 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g20',
+    dbId: 799,
     name: 'Beheira',
     region: 'Delta',
     latitude: 0.15,
@@ -333,7 +355,8 @@ final List<GovernorateInfo> governoratesData = [
     ],
   ),
   const GovernorateInfo(
-    id: 'g21',
+    id: 'g27',
+    dbId: 805,
     name: 'Damietta',
     region: 'Delta',
     latitude: 0.08,
@@ -349,7 +372,8 @@ final List<GovernorateInfo> governoratesData = [
   ),
   const GovernorateInfo(
     id: 'g22',
-    name: 'Faiyum',
+    dbId: 792,
+    name: 'Fayoum',
     region: 'Upper Egypt',
     latitude: 0.35,
     longitude: 0.5,
@@ -363,7 +387,8 @@ final List<GovernorateInfo> governoratesData = [
     ],
   ),
   const GovernorateInfo(
-    id: 'g23',
+    id: 'g21',
+    dbId: 800,
     name: 'Beni Suef',
     region: 'Upper Egypt',
     latitude: 0.4,
@@ -378,7 +403,8 @@ final List<GovernorateInfo> governoratesData = [
     ],
   ),
   const GovernorateInfo(
-    id: 'g24',
+    id: 'g23',
+    dbId: 801,
     name: 'Minya',
     region: 'Upper Egypt',
     latitude: 0.45,
@@ -393,7 +419,8 @@ final List<GovernorateInfo> governoratesData = [
     ],
   ),
   const GovernorateInfo(
-    id: 'g25',
+    id: 'g24',
+    dbId: 802,
     name: 'Asyut',
     region: 'Upper Egypt',
     latitude: 0.5,
@@ -408,7 +435,8 @@ final List<GovernorateInfo> governoratesData = [
     ],
   ),
   const GovernorateInfo(
-    id: 'g26',
+    id: 'g25',
+    dbId: 803,
     name: 'Sohag',
     region: 'Upper Egypt',
     latitude: 0.55,
@@ -423,7 +451,8 @@ final List<GovernorateInfo> governoratesData = [
     ],
   ),
   const GovernorateInfo(
-    id: 'g27',
+    id: 'g26',
+    dbId: 804,
     name: 'Qena',
     region: 'Upper Egypt',
     latitude: 0.6,

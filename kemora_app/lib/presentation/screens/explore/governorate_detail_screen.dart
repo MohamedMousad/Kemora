@@ -3,7 +3,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
 import '../../widgets/editorial_place_card.dart';
-import '../../../data/local/place_data.dart';
+import 'package:provider/provider.dart';
+import '../../viewmodels/places_view_model.dart';
+import '../../../domain/entities/place.dart' as domain;
 import '../../../data/local/governorate_data.dart';
 import 'place_detail_screen.dart';
 import 'places_screen.dart';
@@ -22,15 +24,24 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PlacesViewModel>().loadPlacesByGovernorate(widget.governorate.dbId.toString());
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  List<PlaceInfo> get _govPlaces {
-    return placesData
-        .where((p) => p.governorateId == widget.governorate.id)
-        .where((p) {
+  List<domain.Place> get _govPlaces {
+    final vm = context.watch<PlacesViewModel>();
+    final places = vm.places;
+    
+    return places.where((p) {
       if (_searchController.text.isEmpty) return true;
       return p.name.toLowerCase().contains(_searchController.text.toLowerCase());
     }).toList();
@@ -133,7 +144,17 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
     final sections = <Widget>[];
 
     for (final entry in _sectionMap.entries) {
-      final categoryPlaces = places.where((p) => p.category == entry.key).toList();
+      final categoryPlaces = places.where((p) {
+        final cat = p.category.toLowerCase();
+        switch (entry.key) {
+          case 'Museums': return cat.contains('museum');
+          case 'Hotels': return cat.contains('hotel') || cat.contains('resort');
+          case 'Restaurants': return cat.contains('restaurant') || cat.contains('cafe') || cat.contains('food');
+          case 'Ancient Places': return cat.contains('temple') || cat.contains('pyramid') || cat.contains('historical') || cat.contains('citadel');
+          case 'Others': return cat.contains('park') || cat.contains('beach') || cat.contains('adventure') || cat.contains('shopping') || cat.contains('market') || cat.contains('mosque') || cat.contains('church') || cat == 'uncategorized';
+          default: return false;
+        }
+      }).toList();
       if (categoryPlaces.isEmpty) continue;
 
       sections.add(SliverToBoxAdapter(
@@ -177,17 +198,17 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                   width: 240,
                   child: GestureDetector(
                     onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => PlaceDetailScreen(place: place))),
+                        MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id.toString()))),
                     child: EditorialPlaceCard(
                       title: place.name,
                       category: place.category,
-                      location: place.location,
+                      location: place.address ?? place.governorateName ?? widget.governorate.name,
                       rating: place.rating,
-                      reviewsCount: place.reviewsCount,
-                      price: place.price,
-                      distance: place.distance,
+                      reviewsCount: place.reviews.length,
+                      price: place.priceLevel != null && place.priceLevel! > 0 ? '\$' * place.priceLevel! : 'Free',
+                      distance: null,
                       isFavorite: false,
-                      imageAsset: place.imageAsset,
+                      imageUrl: place.mainImageUrl ?? place.imageUrl,
                       aspectRatio: 1.6,
                     ),
                   ),

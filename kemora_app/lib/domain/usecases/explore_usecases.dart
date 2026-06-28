@@ -20,3 +20,9 @@ class GetPlacesByGovernorateUseCase {
   GetPlacesByGovernorateUseCase(this.repository);
   Future<Either<Failure, List<Place>>> call(String governorateId) async => await repository.getPlacesByGovernorate(governorateId);
 }
+
+class GetPlaceDetailUseCase {
+  final IPlaceRepository repository;
+  GetPlaceDetailUseCase(this.repository);
+  Future<Either<Failure, Place>> call(String id) async => await repository.getPlaceDetails(id);
+}

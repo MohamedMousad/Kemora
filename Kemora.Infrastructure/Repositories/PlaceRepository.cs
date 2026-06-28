@@ -12,7 +12,7 @@ namespace Kemora.Infrastructure.Repositories
     {
         public PlaceRepository(ApplicationDbContext ctx) : base(ctx) { }
 
-        public async Task<IEnumerable<Place>> GetFilteredAsync(string? query, int? governorateId, int? categoryId, string? categoryName, int page, int size)
+        public async Task<IEnumerable<Place>> GetFilteredAsync(string? query, int? governorateId, int? categoryId, string? categoryName, string? sortBy, int page, int size)
         {
             var sq = _dbSet.AsQueryable();
 
@@ -21,10 +21,18 @@ namespace Kemora.Infrastructure.Repositories
             if (!string.IsNullOrWhiteSpace(categoryName)) sq = sq.Where(p => p.PlaceType.Category.Name == categoryName);
             if (!string.IsNullOrWhiteSpace(query)) sq = sq.Where(p => p.Name.Contains(query) || p.Description.Contains(query));
 
+            if (sortBy?.ToLower() == "rating")
+            {
+                sq = sq.OrderByDescending(p => p.Rating);
+            }
+            else
+            {
+                sq = sq.OrderByDescending(p => p.PlaceID);
+            }
+
             return await sq
                 .Include(p => p.Governorate)
                 .Include(p => p.PlaceType).ThenInclude(pt => pt.Category)
-                .OrderByDescending(p => p.PlaceID)
                 .Skip((page - 1) * size).Take(size)
                 .ToListAsync();
         }

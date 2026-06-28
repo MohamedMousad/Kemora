@@ -117,7 +117,8 @@ namespace Kemora.Application.Mapping
             CreateMap<Place, PlacePublicDto>()
                 .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName));
             CreateMap<Place, PlaceDetailPublicDto>()
-                .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName));
+                .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName))
+                .ForMember(d => d.AdditionalPhotoUrls, o => o.MapFrom(s => string.IsNullOrEmpty(s.AdditionalPhotoUrlsJSON) ? new List<string>() : System.Text.Json.JsonSerializer.Deserialize<List<string>>(s.AdditionalPhotoUrlsJSON, (System.Text.Json.JsonSerializerOptions?)null)));
         }
     }
 }

@@ -106,6 +106,7 @@ Future<void> init() async {
         getTopPlacesUseCase: sl(),
         getGovernoratesUseCase: sl(),
         getPlacesByGovernorateUseCase: sl(),
+        getPlaceDetailUseCase: sl(),
       ));
 
   // Use Cases
@@ -114,6 +115,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetTopPlacesUseCase(sl()));
   sl.registerLazySingleton(() => GetGovernoratesUseCase(sl()));
   sl.registerLazySingleton(() => GetPlacesByGovernorateUseCase(sl()));
+  sl.registerLazySingleton(() => GetPlaceDetailUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<IPlaceRepository>(

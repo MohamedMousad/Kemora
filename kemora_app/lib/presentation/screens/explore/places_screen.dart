@@ -4,7 +4,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
 import '../../widgets/filter_chip_row.dart';
 import '../../widgets/editorial_place_card.dart';
-import '../../../data/local/place_data.dart';
+import 'package:provider/provider.dart';
+import '../../viewmodels/places_view_model.dart';
+import '../../../domain/entities/place.dart' as domain;
 import '../../../data/local/governorate_data.dart';
 import 'place_detail_screen.dart';
 
@@ -30,6 +32,23 @@ class _PlacesScreenState extends State<PlacesScreen> {
       _searchController.text = widget.initialSearchQuery!;
     }
     _searchController.addListener(_onSearchChanged);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final placesVM = context.read<PlacesViewModel>();
+      if (placesVM.governorates.isEmpty) {
+        await placesVM.loadGovernorates();
+      }
+      
+      if (widget.governorate != null && placesVM.governorates.isNotEmpty) {
+        final gov = placesVM.governorates.firstWhere(
+          (g) => g.name.toLowerCase() == widget.governorate!.toLowerCase(),
+          orElse: () => placesVM.governorates.first,
+        );
+        placesVM.loadPlacesByGovernorate(gov.id.toString());
+      } else {
+        placesVM.loadPlaces();
+      }
+    });
   }
 
   @override
@@ -42,28 +61,33 @@ class _PlacesScreenState extends State<PlacesScreen> {
     setState(() {});
   }
 
-  List<PlaceInfo> get _filteredPlaces {
-    return placesData.where((place) {
-      // 1. Filter by governorate if provided
-      if (widget.governorate != null) {
-        final govId = governoratesData.firstWhere((g) => g.name == widget.governorate, orElse: () => governoratesData.first).id;
-        if (place.governorateId != govId) {
-          return false;
-        }
-      }
+  List<domain.Place> get _filteredPlaces {
+    final vm = context.watch<PlacesViewModel>();
+    final places = vm.places;
 
-      // 2. Filter by Search Query (Name or Governorate)
+    return places.where((place) {
+      // 1. Filter by Search Query (Name)
       if (_searchController.text.isNotEmpty) {
         final query = _searchController.text.toLowerCase();
-        final govName = governoratesData.firstWhere((g) => g.id == place.governorateId, orElse: () => governoratesData.first).name.toLowerCase();
-        if (!place.name.toLowerCase().contains(query) && !govName.contains(query)) {
+        if (!place.name.toLowerCase().contains(query)) {
           return false;
         }
       }
 
-      // 3. Filter by Category chip
-      if (_selectedFilter != 0 && place.category != _filters[_selectedFilter]) {
-        return false;
+      // 2. Filter by Category chip
+      // Adjust category logic to match your API format. Our API returns "Hotels", "Museums" etc.
+      // Or we can just check if place.category contains it.
+      if (_selectedFilter != 0) {
+        final selectedCat = _filters[_selectedFilter];
+        final cat = place.category.toLowerCase();
+        switch (selectedCat) {
+          case 'Museums': return cat.contains('museum');
+          case 'Hotels': return cat.contains('hotel') || cat.contains('resort');
+          case 'Restaurants': return cat.contains('restaurant') || cat.contains('cafe') || cat.contains('food');
+          case 'Ancient Places': return cat.contains('temple') || cat.contains('pyramid') || cat.contains('historical') || cat.contains('citadel');
+          case 'Others': return cat.contains('park') || cat.contains('beach') || cat.contains('adventure') || cat.contains('shopping') || cat.contains('market') || cat.contains('mosque') || cat.contains('church') || cat == 'uncategorized';
+          default: return false;
+        }
       }
 
       return true;
@@ -151,20 +175,20 @@ class _PlacesScreenState extends State<PlacesScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PlaceDetailScreen(place: place),
+                            builder: (context) => PlaceDetailScreen(placeId: place.id.toString()),
                           ),
                         );
                       },
                       child: EditorialPlaceCard(
                         title: place.name,
                         category: place.category,
-                        location: place.location,
+                        location: place.address ?? place.governorateName ?? 'Egypt',
                         rating: place.rating,
-                        reviewsCount: place.reviewsCount,
-                        price: place.price,
-                        distance: place.distance,
+                        reviewsCount: place.reviews.length,
+                        price: place.priceLevel != null && place.priceLevel! > 0 ? '\$' * place.priceLevel! : 'Free',
+                        distance: null,
                         isFavorite: false,
-                        imageAsset: place.imageAsset,
+                        imageUrl: place.mainImageUrl ?? place.imageUrl,
                       ),
                     ),
                   );

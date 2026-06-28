@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
-import '../../../data/local/place_data.dart';
+import 'package:provider/provider.dart';
+import '../../viewmodels/places_view_model.dart';
 import '../explore/place_detail_screen.dart';
 
 class SavedPlacesScreen extends StatelessWidget {
@@ -10,7 +11,7 @@ class SavedPlacesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final savedPlaces = placesData; // mock data
+    final savedPlaces = context.watch<PlacesViewModel>().topPlaces;
 
     return Scaffold(
       appBar: KemoraAppBar(
@@ -26,7 +27,7 @@ class SavedPlacesScreen extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 16),
             child: GestureDetector(
               onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(place: place)));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id.toString())));
               },
               child: Container(
                 decoration: BoxDecoration(
@@ -52,7 +53,7 @@ class SavedPlacesScreen extends StatelessWidget {
                         children: [
                           Text(place.name, style: AppTypography.titleMedium),
                           const SizedBox(height: 4),
-                          Text(place.location, style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant)),
+                          Text(place.address ?? place.governorateName ?? 'Egypt', style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant)),
                           const SizedBox(height: 8),
                           Row(
                             children: [

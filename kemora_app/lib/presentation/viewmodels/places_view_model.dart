@@ -12,6 +12,7 @@ class PlacesViewModel extends ChangeNotifier {
   final GetTopPlacesUseCase getTopPlacesUseCase;
   final GetGovernoratesUseCase getGovernoratesUseCase;
   final GetPlacesByGovernorateUseCase getPlacesByGovernorateUseCase;
+  final GetPlaceDetailUseCase getPlaceDetailUseCase;
 
   PlacesViewModel({
     required this.getPlacesUseCase,
@@ -19,6 +20,7 @@ class PlacesViewModel extends ChangeNotifier {
     required this.getTopPlacesUseCase,
     required this.getGovernoratesUseCase,
     required this.getPlacesByGovernorateUseCase,
+    required this.getPlaceDetailUseCase,
   });
 
   PlacesState _state = PlacesState.initial;
@@ -101,18 +103,10 @@ class PlacesViewModel extends ChangeNotifier {
 
   /// Looks up a place by ID from local caches first, then fetches from API.
   Future<Place?> getPlaceById(String id) async {
-    // Check in-memory caches first
-    try {
-      return _topPlaces.firstWhere((p) => p.id == id);
-    } catch (_) {}
-    try {
-      return _places.firstWhere((p) => p.id == id);
-    } catch (_) {}
-    // Not cached — load all places and search again
-    await loadTopPlaces();
-    try {
-      return _topPlaces.firstWhere((p) => p.id == id);
-    } catch (_) {}
-    return null;
+    final result = await getPlaceDetailUseCase(id);
+    return result.fold(
+      (failure) => null,
+      (place) => place,
+    );
   }
 }

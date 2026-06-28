@@ -19,7 +19,7 @@ class PlacesRemoteDataSourceImpl implements PlacesRemoteDataSource {
   @override
   Future<List<PlaceModel>> getPlaces() async {
     try {
-      final response = await dio.get('/api/v1/places');
+      final response = await dio.get('/api/v1/places', queryParameters: {'sortBy': 'rating'});
       if (response.statusCode == 200) {
         final data = response.data['items'] ?? response.data;
         if (data is List) {

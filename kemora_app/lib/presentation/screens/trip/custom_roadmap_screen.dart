@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
-import '../../../data/local/place_data.dart';
-
+import 'package:provider/provider.dart';
+import '../../viewmodels/places_view_model.dart';
+import '../../../domain/entities/place.dart' as domain;
 
 class CustomRoadmapScreen extends StatefulWidget {
   const CustomRoadmapScreen({super.key});
@@ -16,8 +17,8 @@ class _CustomRoadmapScreenState extends State<CustomRoadmapScreen> {
   int _selectedDay = 0;
   final TextEditingController _titleController = TextEditingController(text: 'My Egyptian Odyssey');
   
-  // State: list of days, each day has a list of PlaceInfo
-  final List<List<PlaceInfo>> _roadmap = [
+  // State: list of days, each day has a list of domain.Place
+  final List<List<domain.Place>> _roadmap = [
     [], // Day 1
   ];
 
@@ -217,7 +218,7 @@ class _CustomRoadmapScreenState extends State<CustomRoadmapScreen> {
 }
 
 class _AddPlaceSheet extends StatefulWidget {
-  final Function(PlaceInfo) onAddPlace;
+  final Function(domain.Place) onAddPlace;
   const _AddPlaceSheet({required this.onAddPlace});
 
   @override
@@ -229,7 +230,8 @@ class _AddPlaceSheetState extends State<_AddPlaceSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredPlaces = placesData
+    final allPlaces = context.watch<PlacesViewModel>().places;
+    final filteredPlaces = allPlaces
         .where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
 
@@ -287,7 +289,7 @@ class _AddPlaceSheetState extends State<_AddPlaceSheet> {
                     child: const Icon(Icons.image, color: AppColors.outlineVariant),
                   ),
                   title: Text(place.name, style: AppTypography.titleMedium),
-                  subtitle: Text(place.location, style: AppTypography.bodySmall),
+                  subtitle: Text(place.address ?? place.governorateName ?? 'Egypt', style: AppTypography.bodySmall),
                   trailing: ElevatedButton(
                     onPressed: () => widget.onAddPlace(place),
                     style: ElevatedButton.styleFrom(

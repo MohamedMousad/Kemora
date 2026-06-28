@@ -265,10 +265,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       name: place.name,
       time: '',
       icon: categoryIcon,
-      imageUrl: place.imageAsset,
-      isNetworkImage: false,
+      imageUrl: place.imageUrl ?? place.mainImageUrl,
+      isNetworkImage: true,
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(place: place)));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id.toString())));
       },
     );
   }

@@ -130,6 +130,7 @@ builder.Services.AddScoped<Kemora.Application.Interfaces.IUserManagementService,
 builder.Services.AddScoped<Kemora.Domain.Interfaces.IStoryRepository, Kemora.Infrastructure.Repositories.StoryRepository>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IStoryService, Kemora.Application.Services.StoryService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IBadgeAwardService, Kemora.Infrastructure.Services.BadgeAwardService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IPlacesSyncService, Kemora.Infrastructure.Services.GooglePlacesSyncService>();
 
 // SignalR
 builder.Services.AddSignalR();

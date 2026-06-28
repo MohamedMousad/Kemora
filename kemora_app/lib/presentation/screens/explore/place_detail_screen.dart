@@ -3,26 +3,19 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/glassmorphism_container.dart';
-import '../../../data/local/place_data.dart';
 import '../../viewmodels/places_view_model.dart';
 import '../../../domain/entities/place.dart' as domain;
 
 
 class PlaceDetailScreen extends StatefulWidget {
-  // Legacy path: pass a PlaceInfo from local mock data
-  final PlaceInfo? place;
-
-  // New path: pass an API id + name; screen loads from PlacesViewModel
-  final String? placeId;
+  final String placeId;
   final String? placeName;
 
   const PlaceDetailScreen({
     super.key,
-    this.place,
-    this.placeId,
+    required this.placeId,
     this.placeName,
-  }) : assert(place != null || placeId != null,
-            'Either place or placeId must be provided');
+  });
 
   @override
   State<PlaceDetailScreen> createState() => _PlaceDetailScreenState();
@@ -38,13 +31,11 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
 
-    if (widget.placeId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final vm = context.read<PlacesViewModel>();
-        final loaded = await vm.getPlaceById(widget.placeId!);
-        if (mounted) setState(() => _apiPlace = loaded);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final vm = context.read<PlacesViewModel>();
+      final loaded = await vm.getPlaceById(widget.placeId);
+      if (mounted) setState(() => _apiPlace = loaded);
+    });
   }
 
   @override
@@ -55,33 +46,22 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
 
   // ── Getters for unified access ──────────────────────────────────────────────
 
-  String get _title =>
-      _apiPlace?.name ?? widget.place?.name ?? widget.placeName ?? '';
+  String get _title => _apiPlace?.name ?? widget.placeName ?? '';
 
-  String get _category =>
-      _apiPlace?.type ??
-      widget.place?.category ??
-      'Place';
+  String get _category => _apiPlace?.type ?? 'Place';
 
-  String get _location =>
-      _apiPlace?.address ??
-      _apiPlace?.governorateName ??
-      widget.place?.location ??
-      '';
+  String get _location => _apiPlace?.address ?? _apiPlace?.governorateName ?? '';
 
-  String get _description =>
-      _apiPlace?.description ?? widget.place?.description ?? '';
+  String get _description => _apiPlace?.description ?? '';
 
-  double get _rating =>
-      (_apiPlace?.rating ?? widget.place?.rating ?? 0).toDouble();
+  double get _rating => (_apiPlace?.rating ?? 0).toDouble();
 
   String get _price =>
       _apiPlace?.priceLevel != null
           ? '\$' * _apiPlace!.priceLevel!
-          : widget.place?.price ?? '';
+          : '';
 
-  String? get _imageUrl => _apiPlace?.mainImageUrl;
-  String? get _imageAsset => widget.place?.imageAsset;
+  String? get _imageUrl => _apiPlace?.mainImageUrl ?? _apiPlace?.imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -126,20 +106,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Hero image — prefer network, fallback to asset, then placeholder
-                    if (_imageUrl != null)
+                    // Hero image — prefer network, fallback to placeholder
+                    if (_imageUrl != null && _imageUrl!.isNotEmpty)
                       Image.network(
                         _imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceContainerHigh,
-                          child: const Center(
-                              child: Icon(Icons.image, size: 100, color: AppColors.outlineVariant)),
-                        ),
-                      )
-                    else if (_imageAsset != null)
-                      Image.asset(
-                        _imageAsset!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
                           color: AppColors.surfaceContainerHigh,
@@ -354,7 +324,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
   }
 
   Widget _buildReviewsTab() {
-    final reviews = _apiPlace?.reviews ?? [];
+    final allReviews = _apiPlace?.reviews ?? [];
+    final googleReviews = allReviews.where((r) => r.source == 'Google').toList();
+    final kemoraReviews = allReviews.where((r) => r.source != 'Google').toList();
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -366,7 +339,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
               children: [
                 Text(_rating.toStringAsFixed(1), style: AppTypography.displayLarge),
                 Text(
-                    'Based on ${reviews.isNotEmpty ? reviews.length : widget.place?.reviewsCount ?? 0} reviews',
+                    'Based on ${allReviews.length} reviews',
                     style: AppTypography.labelMedium
                         .copyWith(color: AppColors.onSurfaceVariant)),
               ],
@@ -386,18 +359,47 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
           ],
         ),
         const SizedBox(height: 32),
-        if (reviews.isEmpty) ...[
-          _buildReviewItem(
-              'Sarah Jenkins',
-              'Amazing experience. The history here is palpable and beautifully preserved.',
-              5),
-          const Divider(height: 32),
-          _buildReviewItem(
-              'Mark R.',
-              'A must visit! We went early in the morning and avoided the crowds.',
-              4.5),
-        ] else
-          ...reviews.map((r) => Column(
+
+        // Kemora Verified Reviews Section
+        Row(
+          children: [
+            const Icon(Icons.verified, color: Colors.blue, size: 20),
+            const SizedBox(width: 8),
+            Text('Kemora Verified Reviews', style: AppTypography.titleMedium),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (kemoraReviews.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 24),
+            child: Text('No Kemora verified reviews yet. Be the first!', style: TextStyle(color: AppColors.onSurfaceVariant)),
+          )
+        else
+          ...kemoraReviews.map((r) => Column(
+                children: [
+                  _buildReviewItem(r.authorName, r.text, r.rating.toDouble()),
+                  const Divider(height: 32),
+                ],
+              )),
+
+        const SizedBox(height: 16),
+        
+        // Google Reviews Section
+        Row(
+          children: [
+            Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png', width: 20, height: 20),
+            const SizedBox(width: 8),
+            Text('Google Reviews', style: AppTypography.titleMedium),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (googleReviews.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 24),
+            child: Text('No Google reviews available.', style: TextStyle(color: AppColors.onSurfaceVariant)),
+          )
+        else
+          ...googleReviews.map((r) => Column(
                 children: [
                   _buildReviewItem(r.authorName, r.text, r.rating.toDouble()),
                   const Divider(height: 32),

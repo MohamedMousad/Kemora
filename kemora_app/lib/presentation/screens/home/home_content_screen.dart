@@ -41,6 +41,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final placesVM = context.read<PlacesViewModel>();
       if (placesVM.topPlaces.isEmpty) placesVM.loadTopPlaces();
+      if (placesVM.governorates.isEmpty) placesVM.loadGovernorates();
       final storyVM = context.read<StoryViewModel>();
       if (storyVM.state == StoryState.initial) storyVM.loadActiveStories();
     });

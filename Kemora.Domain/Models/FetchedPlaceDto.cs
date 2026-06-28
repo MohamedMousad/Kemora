@@ -24,5 +24,9 @@ namespace Kemora.Domain.Models
         public string? ImageUrl { get; set; }
         public List<string> PhotoUrls { get; set; } = [];
         public int? Popularity { get; set; }
+
+        public string? GoogleMapsUrl { get; set; }
+        public List<string>? AllPhotoNames { get; set; }
+        public List<FetchedReviewDto>? ApiReviews { get; set; }
     }
 }
