@@ -117,16 +117,10 @@
 \pagenumbering{roman}
 \addcontentsline{toc}{part}{1. Front Matter (Preliminary Sections)}
 
-\chapter*{Abstract / Executive Summary}
-\addcontentsline{toc}{chapter}{Abstract / Executive Summary}
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
 
-\textbf{Problem Statement:} The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing.
-
-\textbf{Methodology:} This project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem. The solution integrates a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Google Places API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM).
-
-\textbf{Key Findings:} Empirical benchmarking confirms the backend successfully achieves median latencies of 22ms and sustains robust throughput under load via aggressive \texttt{IMemoryCache} permutations. The transition from sequential API fetching to in-memory Zero-Fetch Image Injection eradicated database concurrency bottlenecks.
-
-\textbf{Recommendations:} Future iterations should transition to a Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and natively fine-tune open-source LLMs using LoRA techniques to completely eliminate third-party dependencies.
+The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing. To solve this, this project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem integrating a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Google Places API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM). Empirical benchmarking confirms the backend successfully achieves median latencies of 22ms and sustains robust throughput under load via aggressive \texttt{IMemoryCache} permutations, while transitioning from sequential API fetching to in-memory Zero-Fetch Image Injection eradicated database concurrency bottlenecks. Future iterations should transition to a Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and natively fine-tune open-source LLMs using LoRA techniques to completely eliminate third-party dependencies.
 
 \newpage
 \input{acknowledgments}
