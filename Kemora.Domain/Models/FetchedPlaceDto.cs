@@ -24,5 +24,16 @@ namespace Kemora.Domain.Models
         public string? ImageUrl { get; set; }
         public List<string> PhotoUrls { get; set; } = [];
         public int? Popularity { get; set; }
+        public List<FetchedReviewDto> Reviews { get; set; } = [];
+    }
+
+    /// <summary>
+    /// Represents a review fetched from the Google Places API.
+    /// </summary>
+    public class FetchedReviewDto
+    {
+        public string? AuthorName { get; set; }
+        public int Rating { get; set; }
+        public string? Text { get; set; }
     }
 }

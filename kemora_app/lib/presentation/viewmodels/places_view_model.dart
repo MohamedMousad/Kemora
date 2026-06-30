@@ -4,6 +4,7 @@ import '../../domain/usecases/explore_usecases.dart';
 import '../../domain/usecases/get_places_usecase.dart';
 import '../../domain/usecases/get_places_by_category_usecase.dart';
 import '../../domain/usecases/get_favorites_usecase.dart';
+import '../../domain/usecases/get_place_details_usecase.dart';
 import '../../core/services/weather_service.dart';
 
 class ActivityInfo {
@@ -22,6 +23,7 @@ class PlacesViewModel extends ChangeNotifier {
   final GetGovernoratesUseCase getGovernoratesUseCase;
   final GetPlacesByGovernorateUseCase getPlacesByGovernorateUseCase;
   final GetFavoritesUseCase getFavoritesUseCase;
+  final GetPlaceDetailsUseCase getPlaceDetailsUseCase;
   
   final WeatherService _weatherService = WeatherService();
 
@@ -32,6 +34,7 @@ class PlacesViewModel extends ChangeNotifier {
     required this.getGovernoratesUseCase,
     required this.getPlacesByGovernorateUseCase,
     required this.getFavoritesUseCase,
+    required this.getPlaceDetailsUseCase,
   });
 
   PlacesState _state = PlacesState.initial;
@@ -182,21 +185,22 @@ class PlacesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Looks up a place by ID from local caches first, then fetches from API.
+  /// Fetches place details from the API to ensure full details (like reviews) are loaded.
   Future<Place?> getPlaceById(String id) async {
-    // Check in-memory caches first
-    try {
-      return _topPlaces.firstWhere((p) => p.id == id);
-    } catch (_) {}
-    try {
-      return _places.firstWhere((p) => p.id == id);
-    } catch (_) {}
-    // Not cached — load all places and search again
-    await loadTopPlaces();
-    try {
-      return _topPlaces.firstWhere((p) => p.id == id);
-    } catch (_) {}
-    return null;
+    final result = await getPlaceDetailsUseCase(id);
+    return result.fold(
+      (failure) {
+        // Fallback to cache if API fails
+        try {
+          return _topPlaces.firstWhere((p) => p.id == id);
+        } catch (_) {}
+        try {
+          return _places.firstWhere((p) => p.id == id);
+        } catch (_) {}
+        return null;
+      },
+      (place) => place,
+    );
   }
 
   /// Helper to get governorate ID by name

@@ -21,6 +21,8 @@ class GovernorateDetailScreen extends StatefulWidget {
 
 class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
+  bool _hasRetried = false;
+  bool _isRetrying = false;
 
   @override
   void initState() {
@@ -32,7 +34,17 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
       }
       final govId = vm.governorateIdByName(widget.governorate.name);
       if (govId != null) {
-        vm.loadPlacesByGovernorate(govId);
+        await vm.loadPlacesByGovernorate(govId);
+        // Retry once if empty — backend hydration may be async
+        if (vm.places.isEmpty && vm.state == PlacesState.loaded && !_hasRetried && mounted) {
+          _hasRetried = true;
+          setState(() => _isRetrying = true);
+          await Future.delayed(const Duration(seconds: 3));
+          if (mounted) {
+            await vm.loadPlacesByGovernorate(govId);
+            setState(() => _isRetrying = false);
+          }
+        }
       }
     });
   }
@@ -50,14 +62,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
     }).toList();
   }
 
-  // Category groupings for the vertically stacked sections
-  static const _sectionMap = {
-    'Ancient Places': {'title': 'Historical & Ancient', 'icon': Icons.account_balance},
-    'Museums': {'title': 'Museums & Cultural', 'icon': Icons.museum},
-    'Hotels': {'title': 'Stay & Relax', 'icon': Icons.hotel},
-    'Restaurants': {'title': 'Dining & Cuisine', 'icon': Icons.restaurant},
-    'Others': {'title': 'Fun & Adventure', 'icon': Icons.explore},
-  };
+
 
   @override
   Widget build(BuildContext context) {
@@ -66,28 +71,51 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
       appBar: const KemoraAppBar(showBack: true),
       body: Consumer<PlacesViewModel>(
         builder: (context, placesViewModel, child) {
-          if (placesViewModel.state == PlacesState.loading) {
-            return const Center(child: CircularProgressIndicator());
+          if (placesViewModel.state == PlacesState.loading || _isRetrying) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  if (_isRetrying) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading places...',
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant),
+                    ),
+                  ],
+                ],
+              ),
+            );
           }
 
           final places = _getGovPlaces(placesViewModel.places);
 
-          return CustomScrollView(
-            slivers: [
-              // Hero header
-              SliverToBoxAdapter(child: _buildHeader()),
-              // Sticky search bar
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _SearchBarDelegate(
-                  controller: _searchController,
-                  onChanged: () => setState(() {}),
+          return RefreshIndicator(
+            onRefresh: () async {
+              final govId = placesViewModel.governorateIdByName(widget.governorate.name);
+              if (govId != null) {
+                await placesViewModel.loadPlacesByGovernorate(govId);
+              }
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Hero header
+                SliverToBoxAdapter(child: _buildHeader()),
+                // Sticky search bar
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SearchBarDelegate(
+                    controller: _searchController,
+                    onChanged: () => setState(() {}),
+                  ),
                 ),
-              ),
-              // Categorized sections
-              ..._buildSections(places),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
+                // Categorized sections
+                ..._buildSections(places),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
           );
         },
       ),
@@ -159,9 +187,54 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
   List<Widget> _buildSections(List<Place> places) {
     final sections = <Widget>[];
 
-    for (final entry in _sectionMap.entries) {
-      final categoryPlaces = places.where((p) => p.type == entry.key).toList();
+    if (places.isEmpty) {
+      sections.add(SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'No places found for ${widget.governorate.name}.',
+                  style: AppTypography.bodyLarge.copyWith(color: AppColors.outline),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final vm = context.read<PlacesViewModel>();
+                    final govId = vm.governorateIdByName(widget.governorate.name);
+                    if (govId != null) {
+                      await vm.loadPlacesByGovernorate(govId);
+                    }
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ));
+      return sections;
+    }
+
+    final categories = places.map((p) => p.category ?? 'Places').toSet().toList();
+    categories.sort();
+
+    for (final categoryName in categories) {
+      final categoryPlaces = places.where((p) => (p.category ?? 'Places') == categoryName).toList();
       if (categoryPlaces.isEmpty) continue;
+
+      IconData sectionIcon = Icons.place;
+      String lowerCat = categoryName.toLowerCase();
+      if (lowerCat.contains('museum') || lowerCat.contains('culture')) sectionIcon = Icons.museum;
+      else if (lowerCat.contains('temple') || lowerCat.contains('pyramid') || lowerCat.contains('historic')) sectionIcon = Icons.account_balance;
+      else if (lowerCat.contains('hotel') || lowerCat.contains('resort')) sectionIcon = Icons.hotel;
+      else if (lowerCat.contains('restaurant') || lowerCat.contains('food')) sectionIcon = Icons.restaurant;
+      else if (lowerCat.contains('park') || lowerCat.contains('nature')) sectionIcon = Icons.park;
 
       sections.add(SliverToBoxAdapter(
         child: Padding(
@@ -171,9 +244,9 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
             children: [
               Row(
                 children: [
-                  Icon(entry.value['icon'] as IconData, size: 20, color: AppColors.primaryContainer),
+                  Icon(sectionIcon, size: 20, color: AppColors.primaryContainer),
                   const SizedBox(width: 8),
-                  Text(entry.value['title'] as String, style: AppTypography.titleLarge),
+                  Text(categoryName, style: AppTypography.titleLarge),
                 ],
               ),
               if (categoryPlaces.length > 2)
@@ -207,7 +280,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                         MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id))),
                     child: EditorialPlaceCard(
                       title: place.name,
-                      category: place.type ?? 'Place',
+                      category: place.category ?? 'Place',
                       location: place.address ?? place.governorateName ?? 'Egypt',
                       rating: place.rating.toDouble(),
                       reviewsCount: place.reviews.length,
@@ -221,21 +294,6 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                 ),
               );
             },
-          ),
-        ),
-      ));
-    }
-
-    if (sections.isEmpty) {
-      sections.add(SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Center(
-            child: Text(
-              'No places found for ${widget.governorate.name}.',
-              style: AppTypography.bodyLarge.copyWith(color: AppColors.outline),
-              textAlign: TextAlign.center,
-            ),
           ),
         ),
       ));

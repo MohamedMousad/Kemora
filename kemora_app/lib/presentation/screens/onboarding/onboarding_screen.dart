@@ -139,20 +139,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildPage2() {
     return Padding(
       padding: const EdgeInsets.all(32).copyWith(top: 100),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('CURATED ARCHIVES', style: AppTypography.headlineSmall.copyWith(color: AppColors.primaryContainer)),
-          const SizedBox(height: 8),
-          Text('Three pillars of the Kemora experience.', style: AppTypography.bodyMedium),
-          const SizedBox(height: 48),
-          
-          _buildFeatureCard(Icons.account_balance, 'Hidden Temples', 'Access exclusive guides to lesser-known archaeological sites across the Valley of the Kings.', AppColors.secondaryFixed),
-          const SizedBox(height: 24),
-          _buildFeatureCard(Icons.article, 'Editorial Stories', 'Deep-dive long-form articles written by leading Egyptologists and local curators.', AppColors.secondaryFixedDim),
-          const SizedBox(height: 24),
-          _buildFeatureCard(Icons.auto_awesome, 'AI-Scribe', 'Translate hieroglyphs in real-time and discover the lore behind every inscription.', AppColors.primaryFixed),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('CURATED ARCHIVES', style: AppTypography.headlineSmall.copyWith(color: AppColors.primaryContainer)),
+            const SizedBox(height: 8),
+            Text('Three pillars of the Kemora experience.', style: AppTypography.bodyMedium),
+            const SizedBox(height: 48),
+            
+            _buildFeatureCard(Icons.account_balance, 'Hidden Temples', 'Access exclusive guides to lesser-known archaeological sites across the Valley of the Kings.', AppColors.secondaryFixed),
+            const SizedBox(height: 24),
+            _buildFeatureCard(Icons.article, 'Editorial Stories', 'Deep-dive long-form articles written by leading Egyptologists and local curators.', AppColors.secondaryFixedDim),
+            const SizedBox(height: 24),
+            _buildFeatureCard(Icons.auto_awesome, 'AI-Scribe', 'Translate hieroglyphs in real-time and discover the lore behind every inscription.', AppColors.primaryFixed),
+          ],
+        ),
       ),
     );
   }

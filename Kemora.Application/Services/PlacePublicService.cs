@@ -137,9 +137,41 @@ namespace Kemora.Application.Services
         {
             var cacheKey = "top_places";
             var cached = _cacheService.Get<List<PlacePublicDto>>(cacheKey);
-            if (cached != null) return cached;
+            if (cached != null && cached.Any()) return cached;
 
             var places = await _placeRepo.GetTopPlacesAsync(20);
+
+            // If the DB has too few places, hydrate key governorates first
+            if (places.Count() < 5)
+            {
+                _logger.LogInformation("[TopPlaces] Only {Count} places found. Triggering hydration for key governorates...", places.Count());
+
+                var governorateNames = new[] { "Cairo", "Alexandria", "Giza" };
+                foreach (var govName in governorateNames)
+                {
+                    try
+                    {
+                        var gov = await _unitOfWork.Repository<Kemora.Domain.Entities.Governorate>()
+                            .FirstOrDefaultAsync(g => g.Name == govName);
+                        if (gov != null)
+                        {
+                            await HydrateGovernoratePlacesAsync(gov.GovernorateID, null, 1);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("[TopPlaces] Governorate '{Name}' not found in DB.", govName);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[TopPlaces] Error hydrating {GovName}", govName);
+                    }
+                }
+
+                // Re-query after hydration
+                places = await _placeRepo.GetTopPlacesAsync(20);
+            }
+
             await EnrichPlacesWithImagesAsync(places);
             var dtos = _mapper.Map<List<PlacePublicDto>>(places);
 
@@ -171,11 +203,19 @@ namespace Kemora.Application.Services
                 var existingPlaces = await _placeRepo.GetFilteredAsync(null, governorateId, null, null, 1, 1000);
                 var existingIds = existingPlaces.Select(p => p.GoogleDataId).Where(id => id != null).ToHashSet();
                 
+                var allPlaceTypes = await _unitOfWork.Repository<PlaceType>().GetAllAsync();
+                
                 int newAddsCount = 0;
                 
                 foreach (var basicPlace in results.Where(r => !existingIds.Contains(r.ExternalId)).Take(20))
                 {
                     if (string.IsNullOrEmpty(basicPlace.ExternalId)) continue;
+
+                    var detailedPlace = await _placesDataService.GetPlaceDetailsAsync(basicPlace.ExternalId);
+                    if (detailedPlace?.Reviews != null && detailedPlace.Reviews.Count > 0)
+                    {
+                        basicPlace.Reviews = detailedPlace.Reviews;
+                    }
                     
                     if (!string.IsNullOrEmpty(basicPlace.Name))
                     {
@@ -185,6 +225,24 @@ namespace Kemora.Application.Services
                             uploadedImageUrl = await _imageService.UploadImageFromUrlAsync(basicPlace.ImageUrl);
                         }
                         
+                        int? matchedPlaceTypeId = null;
+                        var placeTypesList = detailedPlace?.Types != null && detailedPlace.Types.Count > 0 
+                            ? detailedPlace.Types 
+                            : basicPlace.Types;
+
+                        if (placeTypesList != null && placeTypesList.Count > 0)
+                        {
+                            foreach (var googleType in placeTypesList)
+                            {
+                                var matched = allPlaceTypes.FirstOrDefault(pt => string.Equals(pt.GoogleType, googleType, StringComparison.OrdinalIgnoreCase));
+                                if (matched != null)
+                                {
+                                    matchedPlaceTypeId = matched.TypeID;
+                                    break;
+                                }
+                            }
+                        }
+
                         var newPlace = new Place
                         {
                             GoogleDataId = basicPlace.ExternalId,
@@ -199,10 +257,58 @@ namespace Kemora.Application.Services
                             Phone = basicPlace.Phone,
                             Website = basicPlace.Website,
                             GovernorateID = governorateId,
+                            PlaceTypeID = matchedPlaceTypeId,
                             Source = basicPlace.Source,
-                            LastEnrichedAt = System.DateTime.UtcNow
+                            LastEnrichedAt = System.DateTime.UtcNow,
+                            Reviews = new List<Kemora.Domain.Entities.Review>(),
+                            Photos = new List<Kemora.Domain.Entities.Photo>()
                         };
                         await _unitOfWork.Repository<Place>().AddAsync(newPlace);
+
+                        // Save reviews from Google Places API
+                        if (basicPlace.Reviews != null && basicPlace.Reviews.Count > 0)
+                        {
+                            foreach (var fetchedReview in basicPlace.Reviews)
+                            {
+                                var review = new Kemora.Domain.Entities.Review
+                                {
+                                    AuthorName = fetchedReview.AuthorName ?? "Anonymous",
+                                    Rating = fetchedReview.Rating,
+                                    Text = fetchedReview.Text ?? string.Empty
+                                };
+                                newPlace.Reviews.Add(review);
+                            }
+                            _logger.LogInformation("[Hydration] Added {Count} reviews for place '{Name}'", basicPlace.Reviews.Count, basicPlace.Name);
+                        }
+
+                        // Save additional photos beyond the main image
+                        if (basicPlace.PhotoUrls != null && basicPlace.PhotoUrls.Count > 1)
+                        {
+                            // Skip the first photo (already used as MainImageURL)
+                            foreach (var photoUrl in basicPlace.PhotoUrls.Skip(1))
+                            {
+                                string? uploadedPhotoUrl = null;
+                                try
+                                {
+                                    if (!string.IsNullOrEmpty(photoUrl) && photoUrl.StartsWith("http"))
+                                    {
+                                        uploadedPhotoUrl = await _imageService.UploadImageFromUrlAsync(photoUrl);
+                                    }
+                                }
+                                catch (Exception imgEx)
+                                {
+                                    _logger.LogWarning(imgEx, "[Hydration] Failed to upload additional photo to Cloudinary for '{Name}'. Using original URL.", basicPlace.Name);
+                                }
+
+                                var photo = new Kemora.Domain.Entities.Photo
+                                {
+                                    ImageURL = uploadedPhotoUrl ?? photoUrl,
+                                    IsMain = false
+                                };
+                                newPlace.Photos.Add(photo);
+                            }
+                        }
+
                         existingIds.Add(basicPlace.ExternalId); 
                         newAddsCount++;
                     }

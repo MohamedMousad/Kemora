@@ -66,6 +66,17 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Show loading state while the API detail endpoint hasn't returned yet
+    if (_apiPlace == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.placeName ?? 'Loading...'),
+          backgroundColor: AppColors.surfaceContainerLowest,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -155,7 +166,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
                               const Icon(Icons.location_on,
                                   color: AppColors.primaryContainer, size: 20),
                               const SizedBox(width: 8),
-                              Text(_location,
+                              Text(_address,
                                   style: AppTypography.bodyLarge.copyWith(color: Colors.white70)),
                             ],
                           ),
@@ -333,7 +344,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
               children: [
                 Text(_rating.toStringAsFixed(1), style: AppTypography.displayLarge),
                 Text(
-                    'Based on ${reviews.isNotEmpty ? reviews.length : widget.place?.reviewsCount ?? 0} reviews',
+                    'Based on ${reviews.isNotEmpty ? reviews.length : 0} reviews',
                     style: AppTypography.labelMedium
                         .copyWith(color: AppColors.onSurfaceVariant)),
               ],

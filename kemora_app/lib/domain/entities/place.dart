@@ -33,6 +33,7 @@ class Place extends Equatable {
   final int? priceLevel;
   final String? website;
   final List<ReviewSummary> reviews;
+  final List<String> photos;
 
   const Place({
     required this.id,
@@ -50,6 +51,7 @@ class Place extends Equatable {
     this.priceLevel,
     this.website,
     this.reviews = const [],
+    this.photos = const [],
   });
 
   @override
@@ -69,6 +71,7 @@ class Place extends Equatable {
         priceLevel,
         website,
         reviews,
+        photos,
       ];
 }
 

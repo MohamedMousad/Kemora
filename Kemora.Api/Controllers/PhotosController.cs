@@ -74,5 +74,33 @@ namespace Kemora.Api.Controllers
             if (await _photoService.DeletePhotoAsync(placeId, photoId)) return NoContent();
             return NotFound();
         }
+        /// <summary>
+        /// Proxies a photo from Google Places API to avoid exposing the API key.
+        /// </summary>
+        [HttpGet("proxy")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+        public async Task<IActionResult> ProxyPhoto(
+            [FromQuery] string name, 
+            [FromServices] Microsoft.Extensions.Configuration.IConfiguration config, 
+            [FromServices] System.Net.Http.IHttpClientFactory httpClientFactory)
+        {
+            if (string.IsNullOrEmpty(name)) return BadRequest("Photo name is required.");
+
+            var apiKey = config["Google:ApiKey"] ?? config["GoogleMaps:ApiKey"];
+            if (string.IsNullOrEmpty(apiKey)) return StatusCode(500, "Google API Key is missing.");
+
+            var url = $"https://places.googleapis.com/v1/{name}/media?key={apiKey}&maxWidthPx=800";
+
+            var client = httpClientFactory.CreateClient("GooglePlacesProxy");
+            var response = await client.GetAsync(url, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+
+            if (!response.IsSuccessStatusCode) return StatusCode((int)response.StatusCode, "Failed to fetch image from Google.");
+
+            var contentType = response.Content.Headers.ContentType?.ToString() ?? "image/jpeg";
+            var stream = await response.Content.ReadAsStreamAsync();
+
+            return File(stream, contentType);
+        }
     }
 }

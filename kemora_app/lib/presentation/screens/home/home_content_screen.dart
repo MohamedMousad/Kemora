@@ -28,6 +28,7 @@ class HomeContentScreen extends StatefulWidget {
 
 class _HomeContentScreenState extends State<HomeContentScreen> {
   int _selectedFilterIndex = 0;
+  bool _hasRetriedTopPlaces = false;
   final List<String> _filters = [
     'All Odyssey',
     'Ancient Ruins',
@@ -38,9 +39,19 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final placesVM = context.read<PlacesViewModel>();
-      if (placesVM.topPlaces.isEmpty) placesVM.loadTopPlaces();
+      if (placesVM.topPlaces.isEmpty) {
+        await placesVM.loadTopPlaces();
+        // Retry once if empty — backend hydration may not be done yet
+        if (placesVM.topPlaces.isEmpty && !_hasRetriedTopPlaces && mounted) {
+          _hasRetriedTopPlaces = true;
+          await Future.delayed(const Duration(seconds: 3));
+          if (mounted) {
+            await placesVM.loadTopPlaces();
+          }
+        }
+      }
       final storyVM = context.read<StoryViewModel>();
       if (storyVM.state == StoryState.initial) storyVM.loadActiveStories();
     });
@@ -210,7 +221,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                     price: '\$' * (place.priceLevel ?? 0),
                                     distance: '',
                                     isFavorite: false,
-                                    imageUrl: place.mainImageUrl,
+                                    imageUrl: place.mainImageUrl ?? place.imageUrl,
                                     aspectRatio: 1.15,
                                   ),
                                 ),

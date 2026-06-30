@@ -17,20 +17,33 @@ class PlaceModel extends Place {
     super.priceLevel,
     super.website,
     super.reviews,
+    super.photos,
   });
 
   factory PlaceModel.fromJson(Map<String, dynamic> json) {
-    // Parse reviews if present
+    // Parse reviews if present — handles both camelCase variants from
+    // ReviewResponseDto (reviewID, authorName, rating, text, placeID)
     final rawReviews = json['reviews'] as List<dynamic>? ?? [];
     final reviews = rawReviews
         .map((r) => ReviewSummary(
-              authorName: r['authorName'] as String? ?? r['author_name'] as String? ?? 'Anonymous',
+              authorName: r['authorName'] as String? ??
+                  r['author_name'] as String? ??
+                  'Anonymous',
               text: r['text'] as String? ?? '',
               rating: (r['rating'] as num?)?.toInt() ?? 5,
             ))
         .toList();
 
-    final mainImageUrl = json['mainImageURL'] as String? ?? json['mainImageUrl'] as String?;
+    final mainImageUrl =
+        json['mainImageURL'] as String? ?? json['mainImageUrl'] as String?;
+
+    // Parse photos array from PlaceDetailPublicDto
+    // Each element: {photoID, imageURL, isMain, placeID}
+    final rawPhotos = json['photos'] as List<dynamic>? ?? [];
+    final photos = rawPhotos
+        .map((p) => (p['imageURL'] as String? ?? p['imageUrl'] as String? ?? ''))
+        .where((url) => url.isNotEmpty)
+        .toList();
 
     return PlaceModel(
       id: json['placeID']?.toString() ?? json['id']?.toString() ?? '',
@@ -48,6 +61,7 @@ class PlaceModel extends Place {
       priceLevel: (json['priceLevel'] as num?)?.toInt(),
       website: json['website'] as String?,
       reviews: reviews,
+      photos: photos,
     );
   }
 

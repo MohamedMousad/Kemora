@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../domain/entities/ai_itinerary.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_colors.dart';
 
 class DayHeader extends StatelessWidget {
   final TripDay day;
