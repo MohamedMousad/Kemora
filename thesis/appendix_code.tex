@@ -5,7 +5,7 @@ This appendix provides the core implementation of the \texttt{OpenRouterAiServic
 
 \section{OpenRouterAiService.cs Implementation}
 
-\begin{lstlisting}[language=Java]
+\begin{lstlisting}
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
@@ -356,7 +356,7 @@ namespace Kemora.Infrastructure.Services
 \section{TripPlannerService.cs Implementation}
 This class is responsible for the core trip generation algorithm. It integrates geographic radius-based fetching, database caching mechanisms, and constructs dynamic itineraries by classifying places (e.g., hotels, restaurants, attractions) before dispatching contextually rich prompts to the AI service. The integration of local memory, Redis, and relational database persistence emphasizes the high-performance constraints detailed in the thesis.
 
-\begin{lstlisting}[language=Java]
+\begin{lstlisting}
 using Kemora.Application.DTOs;
 using Kemora.Application.Interfaces;
 using Kemora.Domain.Entities;
@@ -713,7 +713,7 @@ Ensure the JSON is clean and valid.";
 \section{Program.cs (Backend Configuration)}
 The central entry point of the Kemora backend API. This setup demonstrates the extensive middleware pipeline employed, including rate limiting, JWT authentication, identity management, Serilog-based structural logging, and the dependency injection bindings required to cleanly orchestrate the Domain and Application layers.
 
-\begin{lstlisting}[language=Java]
+\begin{lstlisting}
 using Kemora.Domain.Entities;
 using Kemora.Domain.Interfaces;
 using Kemora.Infrastructure.Data;

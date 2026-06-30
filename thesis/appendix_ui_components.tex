@@ -22,7 +22,7 @@ The \texttt{lib/presentation/widgets} directory contains all globally shared UI 
 \subsection{EditorialPlaceCard}
 The \texttt{EditorialPlaceCard} is a visually striking component used to display points of interest, accommodations, and tours. It features a large cover image, a soft gradient overlay for text legibility, and an integrated \texttt{GlassmorphismContainer} for the favorite action.
 
-\begin{lstlisting}[language=Java, caption={EditorialPlaceCard Build Method Excerpt}]
+\begin{lstlisting}[caption={EditorialPlaceCard Build Method Excerpt}]
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -74,7 +74,7 @@ The itinerary timeline is composed of several modular widgets defined in \texttt
 
 The \texttt{ActivityTimelineTile} constructs the vertical timeline layout, seamlessly connecting adjacent activities using custom-drawn lines and circular nodes.
 
-\begin{lstlisting}[language=Java, caption={ActivityTimelineTile Layout Structure}]
+\begin{lstlisting}[caption={ActivityTimelineTile Layout Structure}]
 class ActivityTimelineTile extends StatelessWidget {
   final ItineraryItem activity;
   final bool isLast;
@@ -148,7 +148,7 @@ Kemora incorporates subtle micro-interactions to enhance the user experience.
 \subsection{GlassmorphismContainer}
 A reusable wrapper that applies a blur effect (\texttt{ImageFilter.blur}) to its background, providing a frosted glass appearance.
 
-\begin{lstlisting}[language=Java, caption={GlassmorphismContainer BackdropFilter}]
+\begin{lstlisting}[caption={GlassmorphismContainer BackdropFilter}]
 Container(
   decoration: BoxDecoration(
     color: color.withValues(alpha: opacity),
