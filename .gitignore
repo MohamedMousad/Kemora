@@ -82,3 +82,25 @@ kemora_app/android/app/src/main/res/values/secrets.xml
 scratch/
 *.html
 *.py
+
+# LaTeX Build Artifacts
+*.aux
+*.bbl
+*.blg
+*.brf
+*.fls
+*.fdb_latexmk
+*.idx
+*.ilg
+*.ind
+*.lof
+*.lot
+*.out
+*.toc
+*.synctex.gz
+*.log
+
+# Temp & Scratch files
+scratch_*.md
+*.zip
+benchmark_results.json

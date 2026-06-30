@@ -1,0 +1,173 @@
+\chapter{Implementation \& AI Evolution}
+
+\section{Introduction}
+This chapter delves into the practical execution of the Kemora project, tracking its evolution through the version control history (Git). It provides a detailed examination of how abstract designs were translated into concrete code, with a special emphasis on the iterative refinement of the AI prompt engineering pipeline.
+
+\section{Development Lifecycle and Phases}
+An analysis of the full commit history reveals that the project was developed iteratively over six distinct phases spanning approximately seven months.
+
+\subsection{Phase 1: Initial Setup \& MVP (December 2025)}
+The project commenced with repository initialization, establishing the `.gitignore`, and outlining the skeletal structure of the .NET Clean Architecture. Early commits focused on scaffolding the Entity Framework models, primarily the `ApplicationUser` and base geospatial entities like `Place` and `Governorate`.
+
+\subsection{Phase 2: Database, Auth \& Core API (February 2026)}
+The backend architecture matured significantly during this period. The core API controllers were implemented alongside their respective Data Transfer Objects (DTOs) and application services. Security was a primary focus: JWT Authentication was integrated, and secure secret management was established. Initial data seeding mechanisms were implemented utilizing basic Overpass API queries.
+
+\subsection{Phase 3: Frontend Architecture (March 2026)}
+The Flutter application (`kemora_app`) was initialized. The frontend team established the state management architecture and began wiring up the authentication screens to the live backend. By mid-March, the preliminary interfaces for the AI Trip Planning feature were merged into the main branch.
+
+\subsection{Phase 4: Advanced AI Pipeline \& Infrastructure (April - May 2026)}
+This phase marked the most significant architectural shift in the backend. On May 2, 2026, the entire AI infrastructure was overhauled. The `OpenRouterAiService` was introduced to dynamically orchestrate multiple Large Language Models. To improve performance and reduce API costs, a dual-layer `PrecomputedTripPlan` cache was implemented, storing successful generations in memory and persisting them to the database for future identical queries.
+
+\subsection{Phase 5: Testing, Assets \& UI/UX Polish (June 2026)}
+Mid-June saw massive refactoring on the client side. A comprehensive End-to-End (E2E) integration test suite was introduced to ensure application stability. Cloudinary was integrated for robust, CDN-backed image hosting. Concurrently, the frontend received a major visual overhaul—dubbed the "Modern Heritage" design system—which refined typography, spatial layouts, and color theory.
+
+\subsection{Phase 6: Optimization \& API Sync (Late June 2026)}
+The final weeks were dedicated to significant performance optimization. Legacy static data was purged in favor of dynamic synchronization with the Foursquare API. The AI pipeline's major bottleneck—fetching images sequentially—was resolved by completely removing external image requests during generation, instead re-injecting image URLs from the pre-loaded local dataset into the AI's final selections.
+
+\section{The Evolution of the AI Pipeline}
+The Kemora AI Trip Planner is not a simple passthrough proxy to an LLM. It is a highly orchestrated, multi-stage pipeline designed to enforce geographic constraints and output deterministic data structures.
+
+\subsection{Dynamic Model Selection and Resiliency}
+The \texttt{OpenRouterAiService} diverges from traditional AI implementations by eschewing hardcoded models (e.g., \texttt{gpt-4}). Instead, it leverages a dynamic model rotation architecture to utilize free open-source models while maintaining high availability.
+
+\textbf{Model Discovery and Filtering:}
+Upon initialization, a thread-safe \texttt{SemaphoreSlim} ensures the service fetches the model directory from the OpenRouter API exactly once. The models are rigorously filtered:
+\begin{lstlisting}[language=csharp]
+if (model.Pricing != null && 
+    double.TryParse(model.Pricing.Prompt, out var promptPrice) && promptPrice == 0 &&
+    double.TryParse(model.Pricing.Completion, out var compPrice) && compPrice == 0)
+{
+    var blocklist = new[] { "lyria", "imagen", "owl-alpha", "ocr-fast", "music" };
+    if (model.ContextLength >= 8192 && 
+        !blocklist.Any(b => model.Id.Contains(b, StringComparison.OrdinalIgnoreCase)))
+    {
+        _models[model.Id] = new ModelInfo { ... };
+    }
+}
+\end{lstlisting}
+This explicitly isolates text-generation models capable of handling the extensive RAG context window (minimum 8192 tokens) while actively blacklisting unreliable or specialized models.
+
+\textbf{Intelligent Rotation Strategy:}
+The \texttt{SelectBestModel} method employs a Least-Recently-Used (LRU) style selection. It estimates the required tokens based on character count (\texttt{Length / 4}), buffers it by 1.5x, and filters available models to ensure they have sufficient context limits. Models are then sorted primarily by their daily \texttt{RequestCount} (to distribute the load evenly) and secondarily by \texttt{ContextLength}.
+
+\textbf{Resilient Rate-Limit Handling:}
+When a model responds with \texttt{429 Too Many Requests}, the service does not fail; it parses the specific \texttt{x-ratelimit-reset} header. Because OpenRouter proxies various providers, the service handles multiple time formats:
+\begin{itemize}
+    \item \textbf{Suffixes:} e.g., \texttt{10s} (seconds), \texttt{5m} (minutes), \texttt{24h} (hours).
+    \item \textbf{UNIX Timestamps:} Intelligently distinguishing between seconds and milliseconds based on magnitude (\texttt{> 2000000000000} indicates milliseconds).
+\end{itemize}
+The exhausted model's \texttt{ResetTime} is updated, and the while-loop automatically pivots to the next best model. Furthermore, if a model returns \texttt{402 Payment Required}, indicating a bait-and-switch on "free" pricing, it is permanently excised from the local \texttt{\_models} dictionary.
+
+\subsection{Context-Construction Logic (RAG)}
+To prevent hallucinations and guarantee determinism, \texttt{TripPlannerService.cs} implements a sophisticated Retrieval-Augmented Generation (RAG) pipeline that tightly bounds the AI's search space.
+
+\textbf{Dual-Layer Caching Architecture:}
+Before executing complex geographical queries, the service utilizes a dual-layer cache structure to intercept identical requests:
+\begin{enumerate}
+    \item \textbf{Level 1 (Memory/Redis):} Extremely fast lookup via \texttt{ICacheService} using a complex composite key combining coordinates, location name, duration, and user preferences.
+    \item \textbf{Level 2 (DB Persistence):} If the ephemeral cache is purged, the \texttt{PrecomputedTripPlan} table in the database acts as a durable fallback. A cache hit here repopulates the L1 cache dynamically.
+\end{enumerate}
+
+\textbf{Spatial Filtering \& The 30km Constraint:}
+If a cache miss occurs, the service queries the local database utilizing the Haversine formula to compute point-to-point distances. To ensure the AI doesn't cross city borders (e.g., suggesting an attraction in Alexandria when the user is in Cairo), a hard-coded strict radius constraint is enforced, clipping the maximum allowed radius:
+\begin{lstlisting}[language=csharp]
+var strictRadiusKm = Math.Min(request.MaxRadiusKm, 30.0);
+var localPlaces = allDbPlaces
+    .Select(p => new FetchedPlaceDto
+    {
+        // Property mapping...
+        DistanceKm = Math.Round(HaversineKm(request.Latitude, request.Longitude, (double)p.Latitude, (double)p.Longitude), 2)
+    })
+    .Where(p => p.DistanceKm <= strictRadiusKm && (p.Latitude != 0 || p.Longitude != 0))
+    .OrderBy(p => p.DistanceKm)
+    .ToList();
+\end{lstlisting}
+
+\textbf{Dynamic API Fallback:}
+The service evaluates the richness of the local DB cache. If \texttt{localPlaces.Count < 15}, it recognizes a data deficiency and dynamically triggers \texttt{IPlacesDataService.FetchNearbyPlacesAsync} (interfacing with the Foursquare API). These external results are merged, deduplicated, and asynchronously persisted to the local DB for future queries.
+
+\textbf{Categorical Injection and Token Compression:}
+To optimize the prompt injected into the LLM, the candidate places are bucketed by type using substring matches on the \texttt{Categories} or \texttt{Types} fields. The context is then carefully curated to ensure a balanced itinerary, injecting exactly the top 3 hotels, 20 attractions, 8 restaurants, and 4 cafes:
+\begin{lstlisting}[language=csharp]
+var orderedPlaces = hotels.Take(3)
+    .Concat(attractions.OrderByDescending(p => p.Rating).Take(20))
+    .Concat(restaurants.OrderByDescending(p => p.Rating).Take(8))
+    .Concat(cafes.OrderByDescending(p => p.Rating).Take(4))
+    .DistinctBy(p => p.Name)
+    .Take(35)
+    .ToList();
+\end{lstlisting}
+This \texttt{orderedPlaces} collection is subsequently compressed into a dense string array. Each place is formatted as \texttt{[TYPE] Name | Rating: X.X | Categories | Address}, significantly reducing the token footprint while providing the AI with sufficient context to reason about scheduling and proximity.
+
+\subsection{System and User Prompt Definitions}
+The final prompts merged in May 2026 enforce strict behavioral rules on the LLM.
+
+\textbf{System Prompt (Trip Generation):}
+\begin{lstlisting}[language=json]
+You are Kemora, an expert Egyptian travel planner building premium itineraries.
+You MUST output ONLY valid JSON, exactly matching this structure:
+{
+  "itinerary": [
+    {
+      "day": 1,
+      "theme": "Theme for the day",
+      "activities": [
+        { "time": "08:00", "time_slot": "Morning", "place": "Exact Name From List", "description": "2-3 sentence vivid description." }
+      ]
+    }
+  ]
+}
+
+RULES:
+- Use EXACT place names from the provided list only.
+- Assign realistic times: Morning (07:00-12:00), Afternoon (12:00-18:00), Evening (18:00-23:00).
+- Each day MUST include: 1 hotel check-in (day 1 only), 1-2 restaurants for meals, 3-5 sightseeing attractions, 1 cafe break.
+\end{lstlisting}
+
+\textbf{User Prompt (Trip Generation):}
+\begin{lstlisting}[language=json]
+Generate a {DurationDays}-day itinerary for {Location}, Egypt.
+Budget: {Budget}. Interests: {TourismTypes}. User preferences: {Preferences}.
+Ensure each day has Morning + Afternoon + Evening activities.
+Select ONLY from this curated list:
+{placesListText}
+\end{lstlisting}
+
+\subsection{The Swapping Mechanism}
+Kemora allows users to reject a specific activity and ask the AI for an alternative. This utilizes a separate, highly targeted prompt:
+
+\textbf{Swapping Prompt:}
+\begin{lstlisting}[language=json]
+The current place is: '{currentPlaceName}'. 
+User preferences/reason for swapping: '{preferences}'.
+Please suggest a HIGH-QUALITY alternative in the same city/area that matches these preferences. 
+You MUST return valid JSON only: { "newActivity": { "time": "HH:mm", "place": "...", "description": "..." } }
+\end{lstlisting}
+
+\section{Caching and Performance Optimizations}
+In late June 2026, profiling revealed a critical bottleneck: the backend was attempting to enrich all 35 candidate places sequentially \textit{before} feeding them to the AI, which caused unacceptable latency. Because Entity Framework Core's \texttt{DbContext} is not thread-safe, concurrent fetching and saving in a loop led to frequent \texttt{InvalidOperationException} crashes.
+
+\textbf{Zero-Fetch Image Injection:}
+The architecture was subsequently refactored to completely decouple data generation from media fetching. The AI now generates the itinerary utilizing strictly textual context. Once the JSON is parsed, the backend avoids external image API calls entirely. Instead, it iterates through the generated itinerary, cross-references the AI's exact choices against the pre-loaded local dataset, and directly re-injects existing image URLs:
+
+\begin{lstlisting}[language=csharp]
+foreach (var day in itinerary)
+{
+    foreach (var act in day["activities"].AsArray())
+    {
+        var placeName = act["place"]?.ToString();
+        var match = finalPlaces.FirstOrDefault(p =>
+            p.Name.Equals(placeName, StringComparison.OrdinalIgnoreCase));
+            
+        if (match != null && !string.IsNullOrEmpty(match.ImageUrl) && !match.ImageUrl.Contains("placeholder"))
+        {
+            act["image_url"] = match.ImageUrl;
+        }
+    }
+}
+\end{lstlisting}
+
+This transition from sequential bulk fetching to local, in-memory image injection eradicated the API bottleneck, massively improving response time and eliminating the database concurrency exceptions that plagued earlier iterations.
+
+\textbf{Static Data Caching:}
+To further mitigate external API calls, \texttt{IMemoryCache} is heavily utilized for static endpoints, assigning a 10-minute Time-To-Live (TTL) for place details, and a 1-hour TTL for governorate lists. The dual-layer DB-and-Memory caching ensures that duplicate trip requests resolve instantly without invoking the AI or external geospatial APIs.

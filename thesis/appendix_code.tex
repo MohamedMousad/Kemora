@@ -1,0 +1,1419 @@
+\chapter{Critical Source Code Implementations}
+
+\section{Overview}
+This appendix provides the core implementation of the \texttt{OpenRouterAiService}, which is responsible for the dynamic orchestration of Large Language Models within the Kemora backend. This service highlights the robust error handling, rate-limit parsing, and dynamic model selection mechanisms discussed in Chapter 4.
+
+\section{OpenRouterAiService.cs Implementation}
+
+\begin{lstlisting}[language={[Sharp]C}]
+using System.Collections.Concurrent;
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
+using Kemora.Domain.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
+namespace Kemora.Infrastructure.Services
+{
+    public class OpenRouterAiService : IAiService
+    {
+        private readonly IHttpClientFactory _httpFactory;
+        private readonly IConfiguration _config;
+        private readonly ILogger<OpenRouterAiService> _logger;
+
+        private class ModelInfo
+        {
+            public string Id { get; set; } = string.Empty;
+            public long ContextLength { get; set; }
+            public int RequestCount { get; set; }
+            public DateTime WindowStart { get; set; }
+            public bool IsExhausted { get; set; }
+            public DateTime? ResetTime { get; set; }
+        }
+
+        private readonly ConcurrentDictionary<string, ModelInfo> _models = new();
+        private readonly SemaphoreSlim _initSemaphore = new(1, 1);
+        private bool _isInitialized = false;
+
+        public OpenRouterAiService(
+            IHttpClientFactory httpFactory,
+            IConfiguration config,
+            ILogger<OpenRouterAiService> logger)
+        {
+            _httpFactory = httpFactory;
+            _config = config;
+            _logger = logger;
+        }
+
+        private string GetApiKey() => _config["OpenRouter:ApiKey"] ?? string.Empty;
+        private int MaxRequestsPerModel() => _config.GetValue<int>("OpenRouter:MaxRequestsPerModelPerDay", 40);
+
+        private async Task EnsureInitializedAsync()
+        {
+            if (_isInitialized) return;
+
+            await _initSemaphore.WaitAsync();
+            try
+            {
+                if (_isInitialized) return;
+
+                var client = _httpFactory.CreateClient("OpenRouter");
+                var response = await client.GetAsync("https://openrouter.ai/api/v1/models");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<OpenRouterModelsResponse>();
+                    if (result?.Data != null)
+                    {
+                        var now = DateTime.UtcNow;
+                        foreach (var model in result.Data)
+                        {
+                            // Filter free models with 0 prompt and 0 completion pricing
+                            if (model.Pricing != null && 
+                                double.TryParse(model.Pricing.Prompt, out var promptPrice) && promptPrice == 0 &&
+                                double.TryParse(model.Pricing.Completion, out var compPrice) && compPrice == 0)
+                            {
+                                // Exclude known paid/broken models that falsely report $0 pricing
+                                var blocklist = new[] { "lyria", "imagen", "owl-alpha", "ocr-fast", "music" };
+                                if (model.ContextLength >= 8192 && 
+                                    !blocklist.Any(b => model.Id.Contains(b, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    _models[model.Id] = new ModelInfo 
+                                    { 
+                                        Id = model.Id, 
+                                        ContextLength = model.ContextLength,
+                                        RequestCount = 0,
+                                        WindowStart = now,
+                                        IsExhausted = false
+                                    };
+                                }
+                            }
+                        }
+                        _logger.LogInformation("Loaded {Count} free models from OpenRouter", _models.Count);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to fetch OpenRouter models. Code: {StatusCode}", response.StatusCode);
+                }
+
+                _isInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception while initializing OpenRouter models.");
+            }
+            finally
+            {
+                _initSemaphore.Release();
+            }
+        }
+
+        private string SelectBestModel(int estimatedTokens, IEnumerable<string>? excludeModels = null)
+        {
+            var now = DateTime.UtcNow;
+            var maxReqs = MaxRequestsPerModel();
+            var excludeSet = excludeModels?.ToHashSet() ?? new HashSet<string>();
+
+            foreach (var prop in _models.Values)
+            {
+                // Reset exhausted status if ResetTime has passed
+                if (prop.IsExhausted && prop.ResetTime.HasValue && now >= prop.ResetTime.Value)
+                {
+                    prop.IsExhausted = false;
+                    prop.ResetTime = null;
+                    prop.RequestCount = 0;
+                    prop.WindowStart = now;
+                }
+                else if (!prop.IsExhausted && now.Subtract(prop.WindowStart).TotalHours >= 24)
+                {
+                    prop.RequestCount = 0;
+                    prop.WindowStart = now;
+                }
+            }
+
+            var availableModels = _models.Values
+                .Where(m => !m.IsExhausted && m.RequestCount < maxReqs && !excludeSet.Contains(m.Id))
+                .Where(m => m.ContextLength >= estimatedTokens * 1.5) // Buffer for output and system prompts
+                .OrderBy(m => m.RequestCount)
+                .ThenByDescending(m => m.ContextLength)
+                .ToList();
+
+            if (availableModels.Any())
+            {
+                var selected = availableModels.First();
+                selected.RequestCount++;
+                return selected.Id;
+            }
+
+            return "openrouter/free";
+        }
+
+        private void HandleRateLimitHeaders(System.Net.Http.HttpResponseMessage response, string modelId)
+        {
+            if (!_models.TryGetValue(modelId, out var modelInfo)) return;
+
+            var headers = response.Headers;
+            DateTime? resetTime = null;
+
+            // Try standard rate limit headers
+            if (headers.TryGetValues("x-ratelimit-reset", out var resetValues) || headers.TryGetValues("x-ratelimit-reset-requests", out resetValues))
+            {
+                var resetStr = resetValues.FirstOrDefault();
+                if (!string.IsNullOrEmpty(resetStr))
+                {
+                    // OpenRouter might send a string like "10s", "1m", "24h" or a unix timestamp
+                    if (resetStr.EndsWith("s") && double.TryParse(resetStr.TrimEnd('s'), out var secs))
+                    {
+                        resetTime = DateTime.UtcNow.AddSeconds(secs);
+                    }
+                    else if (resetStr.EndsWith("m") && double.TryParse(resetStr.TrimEnd('m'), out var mins))
+                    {
+                        resetTime = DateTime.UtcNow.AddMinutes(mins);
+                    }
+                    else if (resetStr.EndsWith("h") && double.TryParse(resetStr.TrimEnd('h'), out var hrs))
+                    {
+                        resetTime = DateTime.UtcNow.AddHours(hrs);
+                    }
+                    else if (long.TryParse(resetStr, out var timestamp))
+                    {
+                        // Could be seconds or milliseconds
+                        if (timestamp > 2000000000000) // Milliseconds
+                        {
+                            resetTime = DateTimeOffset.FromUnixTimeMilliseconds(timestamp).UtcDateTime;
+                        }
+                        else
+                        {
+                            resetTime = DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
+                        }
+                    }
+                }
+            }
+            
+            if (resetTime.HasValue)
+            {
+                modelInfo.ResetTime = resetTime;
+                modelInfo.IsExhausted = true;
+                _logger.LogWarning("Model {Model} rate limited. Reset time set to {ResetTime} UTC.", modelId, resetTime);
+            }
+            else
+            {
+                // Fallback to 1 hour if no header
+                modelInfo.ResetTime = DateTime.UtcNow.AddHours(1);
+                modelInfo.IsExhausted = true;
+            }
+        }
+
+        public async Task<string> GenerateCompletionAsync(string systemPrompt, string userPrompt, double temperature = 0.3, bool jsonMode = true)
+        {
+            var apiKey = GetApiKey();
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                _logger.LogError("OpenRouter:ApiKey is missing.");
+                return "AI Error: Missing API Key.";
+            }
+
+            await EnsureInitializedAsync();
+            
+            // Very rough token estimation (1 token approx 4 chars)
+            int estimatedTokens = (systemPrompt.Length + userPrompt.Length) / 4;
+
+            int attempts = 0;
+            int maxAttempts = Math.Max(3, _models.Count > 0 ? _models.Count : 3);
+            var triedModels = new HashSet<string>();
+
+            while (attempts < maxAttempts)
+            {
+                attempts++;
+                var selectedModel = SelectBestModel(estimatedTokens, triedModels);
+                triedModels.Add(selectedModel);
+
+                var fallbackModels = _models.Values.Where(m => m.Id != selectedModel && !triedModels.Contains(m.Id)).Select(m => m.Id).Take(2).ToList();
+
+                var requestBody = new
+                {
+                    model = selectedModel,
+                    messages = new[]
+                    {
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user", content = userPrompt }
+                    },
+                    temperature = temperature,
+                    response_format = jsonMode ? new { type = "json_object" } : null,
+                    models = fallbackModels,
+                    route = "fallback"
+                };
+
+                var client = _httpFactory.CreateClient("OpenRouter");
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+                client.DefaultRequestHeaders.Add("HTTP-Referer", "https://kemora.app"); // Good practice for OpenRouter
+                client.DefaultRequestHeaders.Add("X-Title", "Kemora AI Planner");
+
+                try
+                {
+                    var response = await client.PostAsJsonAsync("https://openrouter.ai/api/v1/chat/completions", requestBody);
+                    
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var statusCode = response.StatusCode;
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        _logger.LogWarning("OpenRouter API error for model {Model} ({Code}): {Error}", selectedModel, statusCode, errorContent);
+
+                        // If rate limited or not found
+                        if (statusCode == System.Net.HttpStatusCode.TooManyRequests)
+                        {
+                            HandleRateLimitHeaders(response, selectedModel);
+                            continue;
+                        }
+                        
+                        if (statusCode == System.Net.HttpStatusCode.NotFound)
+                        {
+                            if (_models.TryGetValue(selectedModel, out var info))
+                            {
+                                info.IsExhausted = true;
+                                info.ResetTime = DateTime.UtcNow.AddDays(1); // 404 means model is likely gone
+                            }
+                            continue;
+                        }
+
+                        // 402 Payment Required — model is NOT actually free, remove permanently
+                        if (statusCode == System.Net.HttpStatusCode.PaymentRequired)
+                        {
+                            _logger.LogWarning("Model {Model} requires payment — removing from free pool permanently.", selectedModel);
+                            _models.TryRemove(selectedModel, out _);
+                            continue;
+                        }
+
+                        if ((int)statusCode >= 500)
+                        {
+                            // Transient server error, try next
+                            continue;
+                        }
+
+                        // For 400 Bad Request (e.g. context too big), we can also try next if there are models with larger context
+                        if (statusCode == System.Net.HttpStatusCode.BadRequest)
+                        {
+                             continue;
+                        }
+                        
+                        return $"AI Error: {statusCode}";
+                    }
+
+                    var result = await response.Content.ReadFromJsonAsync<OpenRouterResponse>();
+                    var content = result?.Choices?.FirstOrDefault()?.Message?.Content;
+
+                    if (string.IsNullOrEmpty(content))
+                    {
+                        _logger.LogWarning("AI returned empty response for model {Model}. Marking as exhausted and retrying...", selectedModel);
+                        if (_models.TryGetValue(selectedModel, out var info))
+                        {
+                            info.IsExhausted = true;
+                            info.ResetTime = DateTime.UtcNow.AddMinutes(5);
+                        }
+                        continue;
+                    }
+
+                    if (jsonMode)
+                    {
+                        var trimmed = content.Trim();
+                        if (!(trimmed.StartsWith("{") || trimmed.StartsWith("[")))
+                        {
+                            _logger.LogWarning("AI returned non-JSON content in JSON mode for model {Model}. Attempt {Attempt}", selectedModel, attempts);
+                            continue;
+                        }
+                    }
+
+                    return content;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to call OpenRouter API for model {Model}", selectedModel);
+                    if (attempts >= maxAttempts) return $"AI Error: {ex.Message}";
+                }
+            }
+
+            return "AI Error: All free models are currently rate-limited or unavailable. Please try again later.";
+        }
+
+        private class OpenRouterModelsResponse { [JsonPropertyName("data")] public List<OpenRouterModel>? Data { get; set; } }
+        private class OpenRouterModel { 
+            [JsonPropertyName("id")] public string Id { get; set; } = string.Empty; 
+            [JsonPropertyName("context_length")] public long ContextLength { get; set; } 
+            [JsonPropertyName("pricing")] public OpenRouterPricing? Pricing { get; set; } 
+        }
+        private class OpenRouterPricing { 
+            [JsonPropertyName("prompt")] public string Prompt { get; set; } = string.Empty; 
+            [JsonPropertyName("completion")] public string Completion { get; set; } = string.Empty; 
+        }
+        private class OpenRouterResponse { [JsonPropertyName("choices")] public List<OpenRouterChoice>? Choices { get; set; } }
+        private class OpenRouterChoice { [JsonPropertyName("message")] public OpenRouterMessage? Message { get; set; } }
+        private class OpenRouterMessage { [JsonPropertyName("content")] public string? Content { get; set; } }
+    }
+}
+\end{lstlisting}
+
+
+\section{TripPlannerService.cs Implementation}
+This class is responsible for the core trip generation algorithm. It integrates geographic radius-based fetching, database caching mechanisms, and constructs dynamic itineraries by classifying places (e.g., hotels, restaurants, attractions) before dispatching contextually rich prompts to the AI service. The integration of local memory, Redis, and relational database persistence emphasizes the high-performance constraints detailed in the thesis.
+
+\begin{lstlisting}[language={[Sharp]C}]
+using Kemora.Application.DTOs;
+using Kemora.Application.Interfaces;
+using Kemora.Domain.Entities;
+using Kemora.Domain.Interfaces;
+using Kemora.Domain.Models;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+
+namespace Kemora.Application.Services
+{
+    public class TripPlannerService : ITripPlannerService
+    {
+        private readonly IPlacesDataService _placesDataService;
+        private readonly IAiService _aiService;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly ICacheService _cache;
+        private readonly ILogger<TripPlannerService> _logger;
+
+        public TripPlannerService(
+            IPlacesDataService placesDataService, 
+            IAiService aiService, 
+            IUnitOfWork unitOfWork, 
+            ICacheService cache, 
+            ILogger<TripPlannerService> logger)
+        {
+            _placesDataService = placesDataService;
+            _aiService = aiService;
+            _unitOfWork = unitOfWork;
+            _cache = cache;
+            _logger = logger;
+        }
+
+        public async Task<TripPlanResponseDto> GenerateTripPlanAsync(TripPlanRequestDto request)
+        {
+            if (request.MinRadiusKm >= request.MaxRadiusKm)
+                throw new ArgumentException("MinRadiusKm must be less than MaxRadiusKm.");
+
+            // 1. Redis / Memory Cache handling
+            string prefs = request.Preferences ?? "none";
+            string cacheKey = $"plan_{request.CenterPlaceId}_{request.Latitude}_{request.Longitude}_{request.DurationDays}_{request.Location}_{prefs}_{request.AlternativeIndex}";
+
+            var cachedPlan = _cache.Get<TripPlanResponseDto>(cacheKey);
+            if (cachedPlan != null)
+                return cachedPlan;
+
+            // 1.5. DB Persistence Cache
+            var dbCachedPlan = await _unitOfWork.Repository<PrecomputedTripPlan>()
+                .FirstOrDefaultAsync(p => p.CacheKey == cacheKey);
+            
+            if (dbCachedPlan != null)
+            {
+                var responseFromDb = new TripPlanResponseDto
+                {
+                    TripPlan = dbCachedPlan.ItineraryJson,
+                    Places = System.Text.Json.JsonSerializer.Deserialize<List<FetchedPlaceDto>>(dbCachedPlan.PlacesJson) ?? [],
+                    TotalPlacesFound = System.Text.Json.JsonSerializer.Deserialize<List<FetchedPlaceDto>>(dbCachedPlan.PlacesJson)?.Count ?? 0
+                };
+                
+                // Repopulate memory cache
+                _cache.Set(cacheKey, responseFromDb, TimeSpan.FromHours(24));
+                return responseFromDb;
+            }
+
+            // 2. Center around specific landmark if provided
+            if (request.CenterPlaceId.HasValue && request.CenterPlaceId > 0)
+            {
+                var centerPlace = await _unitOfWork.Repository<Place>().GetByIdAsync(request.CenterPlaceId.Value);
+                if (centerPlace != null)
+                {
+                    request.Latitude = (double)centerPlace.Latitude;
+                    request.Longitude = (double)centerPlace.Longitude;
+                }
+            }
+
+            // 3. Smart Fetching Strategy: Local DB first — strict proximity to avoid cross-city results
+            // Cap at 30km regardless of requested radius to ensure city-accurate results
+            var strictRadiusKm = Math.Min(request.MaxRadiusKm, 30.0);
+            var allDbPlaces = await _unitOfWork.Repository<Place>().GetAllAsync();
+            var localPlaces = allDbPlaces
+                .Select(p => new FetchedPlaceDto
+                {
+                    ExternalId = p.FoursquareId,
+                    Name = p.Name,
+                    Latitude = (double)p.Latitude,
+                    Longitude = (double)p.Longitude,
+                    Address = p.Address ?? "",
+                    ImageUrl = p.MainImageURL ?? "",
+                    Rating = (double)p.Rating,
+                    PriceLevel = p.PriceLevel.ToString(),
+                    Types = new List<string> { p.Source ?? "db" },
+                    DistanceKm = Math.Round(HaversineKm(request.Latitude, request.Longitude, (double)p.Latitude, (double)p.Longitude), 2)
+                })
+                // Only include places within strict radius AND that have valid coordinates (non-zero)
+                .Where(p => p.DistanceKm <= strictRadiusKm && (p.Latitude != 0 || p.Longitude != 0))
+                .OrderBy(p => p.DistanceKm)
+                .ToList();
+
+            _logger.LogInformation("[TripPlanner] Found {Count} local DB places within {Radius}km of {Location}",
+                localPlaces.Count, strictRadiusKm, request.Location);
+
+            List<FetchedPlaceDto> finalPlaces = new List<FetchedPlaceDto>(localPlaces);
+
+            if (finalPlaces.Count < 15)
+            {
+                // Trigger Foursquare API to fill gaps
+                var fsPlaces = await _placesDataService.FetchNearbyPlacesAsync(
+                    request.Latitude, request.Longitude,
+                    request.MinRadiusKm, request.MaxRadiusKm);
+
+                // Merge Foursquare results, avoiding duplicates with DB places
+                foreach (var fsp in fsPlaces)
+                {
+                    if (!finalPlaces.Any(lp => lp.Name.Equals(fsp.Name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        finalPlaces.Add(fsp);
+
+                        // Async persist to DB with RICH ATTRIBUTES
+                        var newPlace = new Place
+                        {
+                            FoursquareId = fsp.ExternalId,
+                            Name = fsp.Name,
+                            Address = fsp.Address,
+                            Latitude = (decimal)fsp.Latitude,
+                            Longitude = (decimal)fsp.Longitude,
+                            Rating = (decimal)(fsp.Rating ?? 0),
+                            PriceLevel = int.TryParse(fsp.PriceLevel, out int pl) ? pl : 0,
+                            MainImageURL = fsp.ImageUrl,
+                            Source = "foursquare",
+                            LastEnrichedAt = DateTime.UtcNow
+                        };
+                        await _unitOfWork.Repository<Place>().AddAsync(newPlace);
+                    }
+                }
+                await _unitOfWork.CommitAsync();
+            }
+
+            // Sequential image fetching removed to massively improve API response time.
+            // Images are now fetched concurrently only for places the AI actually selected.
+
+            if (finalPlaces.Count == 0)
+            {
+                return new TripPlanResponseDto
+                {
+                    TotalPlacesFound = 0,
+                    Places = [],
+                    TripPlan = "No places found in the specified area. Try enlarging the radius."
+                };
+            }
+
+            // Build a rich place list grouping by type for better AI context
+            var hotels = finalPlaces.Where(p => (p.Categories ?? p.Types).Any(t => 
+                t.Contains("hotel", StringComparison.OrdinalIgnoreCase) || 
+                t.Contains("hostel", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("accommodation", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("resort", StringComparison.OrdinalIgnoreCase))).ToList();
+
+            var restaurants = finalPlaces.Where(p => (p.Categories ?? p.Types).Any(t => 
+                t.Contains("restaurant", StringComparison.OrdinalIgnoreCase) || 
+                t.Contains("food", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("dining", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("bistro", StringComparison.OrdinalIgnoreCase))).ToList();
+
+            var cafes = finalPlaces.Where(p => (p.Categories ?? p.Types).Any(t => 
+                t.Contains("cafe", StringComparison.OrdinalIgnoreCase) || 
+                t.Contains("café", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("coffee", StringComparison.OrdinalIgnoreCase) ||
+                t.Contains("bakery", StringComparison.OrdinalIgnoreCase))).ToList();
+
+            var attractions = finalPlaces.Except(hotels).Except(restaurants).Except(cafes).ToList();
+
+            // Combine: put hotels first, then top attractions, then dining
+            var orderedPlaces = hotels.Take(3)
+                .Concat(attractions.OrderByDescending(p => p.Rating).Take(20))
+                .Concat(restaurants.OrderByDescending(p => p.Rating).Take(8))
+                .Concat(cafes.OrderByDescending(p => p.Rating).Take(4))
+                .DistinctBy(p => p.Name)
+                .Take(35)
+                .ToList();
+
+            if (orderedPlaces.Count == 0) orderedPlaces = finalPlaces.Take(35).ToList();
+
+            var placesListText = string.Join("\n", orderedPlaces.Select((p, idx) =>
+            {
+                var typeLabel = hotels.Any(h => h.Name == p.Name) ? "[HOTEL]" :
+                                restaurants.Any(r => r.Name == p.Name) ? "[RESTAURANT]" :
+                                cafes.Any(c => c.Name == p.Name) ? "[CAFÉ]" : "[ATTRACTION]";
+                var cats = string.Join(", ", (p.Categories ?? p.Types).Take(2));
+                return $"{idx + 1}. {typeLabel} {p.Name} | Rating: {p.Rating:F1} | {cats} | {p.Address}";
+            }));
+
+            var sysPrompt = @"You are Kemora, an expert Egyptian travel planner building premium itineraries.
+You MUST output ONLY valid JSON, exactly matching this structure:
+{
+  ""itinerary"": [
+    {
+      ""day"": 1,
+      ""theme"": ""Theme for the day e.g. Historic Cairo & Culture"",
+      ""activities"": [
+        { ""time"": ""08:00"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""description"": ""2-3 sentence vivid description of what to do there and why it is special."" },
+        { ""time"": ""10:30"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""description"": ""..."" },
+        { ""time"": ""13:00"", ""time_slot"": ""Afternoon"", ""place"": ""Restaurant Name"", ""description"": ""Lunch stop description."" },
+        { ""time"": ""15:00"", ""time_slot"": ""Afternoon"", ""place"": ""Exact Name From List"", ""description"": ""..."" },
+        { ""time"": ""17:30"", ""time_slot"": ""Afternoon"", ""place"": ""Cafe Name"", ""description"": ""Afternoon coffee break."" },
+        { ""time"": ""19:30"", ""time_slot"": ""Evening"", ""place"": ""Restaurant Name"", ""description"": ""Dinner description."" }
+      ]
+    }
+  ]
+}
+
+RULES:
+- Use EXACT place names from the provided list only
+- Assign realistic times: Morning (07:00-12:00), Afternoon (12:00-18:00), Evening (18:00-23:00)
+- time_slot MUST be one of: Morning, Afternoon, Evening
+- Each day MUST include: 1 hotel check-in (day 1 only), 1-2 restaurants for meals, 3-5 sightseeing attractions, 1 cafe break
+- Write rich engaging 2-3 sentence descriptions for each activity
+- Spread activities logically across the full day";
+
+            var userPrompt = $@"Generate a {request.DurationDays}-day itinerary for {request.Location}, Egypt.
+Budget: {request.Budget}. Interests: {request.TourismTypes}. User preferences: {prefs}.
+Ensure each day has Morning + Afternoon + Evening activities with realistic times.
+Select ONLY from this curated list:
+
+{placesListText}";
+
+
+            var tripPlanContent = await _aiService.GenerateCompletionAsync(sysPrompt, userPrompt, jsonMode: true);
+
+            if (string.IsNullOrEmpty(tripPlanContent) || tripPlanContent.StartsWith("AI Error:"))
+            {
+                _logger.LogError("AI Trip Planning failed: {Error}", tripPlanContent);
+                return new TripPlanResponseDto
+                {
+                    TotalPlacesFound = finalPlaces.Count,
+                    Places = finalPlaces,
+                    TripPlan = "Sorry, our AI travel planner is currently busy or rate-limited. Please try again in a few moments."
+                };
+            }
+
+            // Clean response content (OpenRouter models usually return clean JSON, but strip markdown blocks just in case)
+            tripPlanContent = tripPlanContent.Trim();
+            if (tripPlanContent.StartsWith("```"))
+            {
+                var startIdx = tripPlanContent.IndexOf('\n') + 1;
+                var endIdx = tripPlanContent.LastIndexOf("```");
+                if (endIdx > startIdx)
+                {
+                    tripPlanContent = tripPlanContent.Substring(startIdx, endIdx - startIdx).Trim();
+                }
+            }
+
+            // Re-inject image URLs into the itinerary from the local loaded places
+            try
+            {
+                var jObject = System.Text.Json.Nodes.JsonObject.Parse(tripPlanContent);
+                var itinerary = jObject?["itinerary"]?.AsArray();
+                if (itinerary != null)
+                {
+                    foreach (var day in itinerary)
+                    {
+                        var activities = day?["activities"]?.AsArray();
+                        if (activities != null)
+                        {
+                            foreach (var act in activities)
+                            {
+                                var placeName = act?["place"]?.ToString();
+                                if (!string.IsNullOrEmpty(placeName))
+                                {
+                                    var match = finalPlaces.FirstOrDefault(p =>
+                                        p.Name.Equals(placeName, StringComparison.OrdinalIgnoreCase));
+                                    if (match != null && !string.IsNullOrEmpty(match.ImageUrl) && !match.ImageUrl.Contains("placeholder"))
+                                    {
+                                        act["image_url"] = match.ImageUrl;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                tripPlanContent = jObject?.ToJsonString() ?? tripPlanContent;
+            }
+            catch { /* Ignore image injection errors — the clean JSON is still valid */ }
+
+            var response = new TripPlanResponseDto
+            {
+                TotalPlacesFound = finalPlaces.Count,
+                Places = finalPlaces,
+                TripPlan = tripPlanContent
+            };
+
+            // 5. Save the generated alternative to DB (Level 2)
+            var newDbCache = new PrecomputedTripPlan
+            {
+                CacheKey = cacheKey,
+                ItineraryJson = tripPlanContent,
+                PlacesJson = System.Text.Json.JsonSerializer.Serialize(finalPlaces),
+                CreatedAt = DateTime.UtcNow
+            };
+            await _unitOfWork.Repository<PrecomputedTripPlan>().AddAsync(newDbCache);
+            await _unitOfWork.CommitAsync();
+
+            // 6. Save the generated alternative in Redis/Memory Cache (Level 1)
+            _cache.Set(cacheKey, response, TimeSpan.FromHours(24));
+
+            return response;
+        }
+
+        public async Task<string> SwapPlaceAsync(string currentPlaceName, string preferences)
+        {
+            var sysPrompt = @"You are a professional Egyptian travel assistant. 
+Your task is to swap a specific place in a trip itinerary with a better alternative.
+You MUST return valid JSON only, exactly matching this structure:
+{
+  ""newActivity"": {
+    ""time"": ""HH:mm"",
+    ""place"": ""New Place Name"",
+    ""description"": ""Detailed description of why this is a good alternative.""
+  }
+}";
+            var userPrompt = $@"The current place/activity is: '{currentPlaceName}'. 
+User preferences/reason for swapping: '{preferences ?? "looking for something better"}'.
+Please suggest a HIGH-QUALITY alternative in the same city/area that matches these preferences. 
+Ensure the JSON is clean and valid.";
+            
+            var result = await _aiService.GenerateCompletionAsync(sysPrompt, userPrompt, jsonMode: true);
+            
+            // Basic fallback if AI fails or returns non-JSON
+            if (string.IsNullOrEmpty(result) || result.StartsWith("AI Error:"))
+            {
+                return "{\"newActivity\": {\"time\": \"09:00\", \"place\": \"Alternative Suggestion\", \"description\": \"Sorry, I could not generate a specific alternative at this moment. Please try again or select another place manually.\"}}";
+            }
+
+            return result;
+        }
+
+        private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
+        {
+            const double R = 6371;
+            var dLat = ToRad(lat2 - lat1);
+            var dLng = ToRad(lng2 - lng1);
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+                  + Math.Cos(ToRad(lat1)) * Math.Cos(ToRad(lat2))
+                  * Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+            return R * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        }
+
+        private static double ToRad(double deg) => deg * Math.PI / 180;
+    }
+}
+\end{lstlisting}
+
+\section{Program.cs (Backend Configuration)}
+The central entry point of the Kemora backend API. This setup demonstrates the extensive middleware pipeline employed, including rate limiting, JWT authentication, identity management, Serilog-based structural logging, and the dependency injection bindings required to cleanly orchestrate the Domain and Application layers.
+
+\begin{lstlisting}[language={[Sharp]C}]
+using Kemora.Domain.Entities;
+using Kemora.Domain.Interfaces;
+using Kemora.Infrastructure.Data;
+using Kemora.Infrastructure.Services;
+using Microsoft.AspNetCore.Mvc;
+using System.Linq;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
+using System.Text;
+using System.Net.Http.Headers;
+using System.Threading.RateLimiting;
+using Serilog;
+using dotenv.net;
+
+DotEnv.Load();
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", Serilog.Events.LogEventLevel.Warning)
+    .WriteTo.Console()
+    .WriteTo.File("logs/kemora-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+
+try
+{
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog();
+
+// 1. Database Configuration
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.Configure<Kemora.Application.DTOs.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
+// 2. Identity (User Management) Config
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    // Production password settings
+    options.User.RequireUniqueEmail = true;
+    options.Password.RequireDigit = true;
+    options.Password.RequiredLength = 8;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireLowercase = true;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
+
+// 3. JWT Authentication Config
+var tokenKey = builder.Configuration["TokenKey"] ?? "super_secret_key_must_be_long_enough_for_security";
+var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = key,
+        ValidateIssuer = false,   // Set to true in production
+        ValidateAudience = false  // Set to true in production
+    };
+});
+
+// 4. Register Services (Dependency Injection)
+
+// Domain / Infrastructure Repositories
+builder.Services.AddScoped(typeof(Kemora.Domain.Interfaces.IRepository<>), typeof(Kemora.Infrastructure.Repositories.Repository<>));
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IPostRepository, Kemora.Infrastructure.Repositories.PostRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.ICommentRepository, Kemora.Infrastructure.Repositories.CommentRepository>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<Kemora.Application.Interfaces.ICacheService, Kemora.Infrastructure.Services.MemoryCacheService>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IReactionRepository, Kemora.Infrastructure.Repositories.ReactionRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IUnitOfWork, Kemora.Infrastructure.Repositories.UnitOfWork>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.ITripRepository, Kemora.Infrastructure.Repositories.TripRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlaceRepository, Kemora.Infrastructure.Repositories.PlaceRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IReviewRepository, Kemora.Infrastructure.Repositories.ReviewRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IPhotoRepository, Kemora.Infrastructure.Repositories.PhotoRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IEventRepository, Kemora.Infrastructure.Repositories.EventRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IFavoriteRepository, Kemora.Infrastructure.Repositories.FavoriteRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IBadgeRepository, Kemora.Infrastructure.Repositories.BadgeRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.INotificationRepository, Kemora.Infrastructure.Repositories.NotificationRepository>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IUserRepository, Kemora.Infrastructure.Repositories.UserRepository>();
+
+// Application Services
+builder.Services.AddScoped<Kemora.Domain.Interfaces.ITokenService, Kemora.Infrastructure.Services.TokenService>();
+
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlacesDataService, Kemora.Infrastructure.Services.GooglePlacesService>();
+builder.Services.AddSingleton<Kemora.Domain.Interfaces.IAiService, Kemora.Infrastructure.Services.OpenRouterAiService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IAuthService, Kemora.Infrastructure.Services.AuthService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IBadgeService, Kemora.Application.Services.BadgeService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IChatService, Kemora.Application.Services.ChatService>();
+// builder.Services.AddScoped<Kemora.Domain.Interfaces.IWikipediaService, Kemora.Infrastructure.Services.WikipediaService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IEmailService, Kemora.Infrastructure.Services.SmtpEmailService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IImageService, Kemora.Infrastructure.Services.CloudinaryImageService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.ICommentService, Kemora.Application.Services.CommentService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IEventService, Kemora.Application.Services.EventService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IFavoriteService, Kemora.Application.Services.FavoriteService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.INotificationService, Kemora.Application.Services.NotificationService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IPhotoService, Kemora.Application.Services.PhotoService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IPlaceManagementService, Kemora.Application.Services.PlaceManagementService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IPlacePublicService, Kemora.Application.Services.PlacePublicService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IPostService, Kemora.Application.Services.PostService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IProfileService, Kemora.Infrastructure.Services.ProfileService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IReactionService, Kemora.Application.Services.ReactionService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IReviewService, Kemora.Application.Services.ReviewService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.ITripService, Kemora.Application.Services.TripService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.ITripPlannerService, Kemora.Application.Services.TripPlannerService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IUserManagementService, Kemora.Infrastructure.Services.UserManagementService>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IStoryRepository, Kemora.Infrastructure.Repositories.StoryRepository>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IStoryService, Kemora.Application.Services.StoryService>();
+builder.Services.AddScoped<Kemora.Application.Interfaces.IBadgeAwardService, Kemora.Infrastructure.Services.BadgeAwardService>();
+
+// SignalR
+builder.Services.AddSignalR();
+builder.Services.AddScoped<Kemora.Application.Interfaces.INotificationPusher, Kemora.Api.Services.SignalRNotificationPusher>();
+
+// Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+    options.AddPolicy("fixed", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
+
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!);
+
+// Response Caching
+builder.Services.AddResponseCaching();
+
+// AutoMapper
+builder.Services.AddAutoMapper(cfg => {
+    cfg.AddProfile<Kemora.Application.Mapping.MappingProfile>();
+});
+
+builder.Services.AddHttpClient("GooglePlaces", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+
+
+builder.Services.AddHttpClient("OpenRouter", client =>
+{
+    client.BaseAddress = new Uri("https://openrouter.ai/api/v1/");
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    client.DefaultRequestHeaders.Add("X-OpenRouter-Title", "Kemora Travel Planner");
+    client.Timeout = TimeSpan.FromMinutes(3);
+});
+
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value!.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                );
+
+            return new BadRequestObjectResult(new
+            {
+                Message = "One or more validation errors occurred.",
+                Errors = errors
+            });
+        };
+    }); // We use Controllers, not Minimal APIs
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new Asp.Versioning.ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+}).AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
+// 5. Swagger / OpenAPI Config (With Auth Support)
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Kemora Tourism API",
+        Version = "v1",
+        Description = "RESTful API for the Kemora tourism platform — explore Egyptian destinations, plan trips, engage with the community, and earn gamification badges.",
+        Contact = new OpenApiContact
+        {
+            Name = "Kemora Team",
+            Email = "support@kemora.app"
+        },
+        License = new OpenApiLicense
+        {
+            Name = "MIT License"
+        }
+    });
+
+    // Include XML comments from API project
+    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath)) c.IncludeXmlComments(xmlPath);
+
+    // Enable the "Authorize" button in Swagger UI
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Enter 'Bearer' [space] and then your token in the text input below.\r\n\r\nExample: 'Bearer 12345abcdef'",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement()
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                },
+                Scheme = "oauth2",
+                Name = "Bearer",
+                In = ParameterLocation.Header,
+            },
+            new List<string>()
+        }
+    });
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true) // Allows Flutter Web's random localhost ports
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
+var app = builder.Build();
+
+app.UseMiddleware<Kemora.Api.Middlewares.ExceptionHandlingMiddleware>();
+app.UseSerilogRequestLogging();
+
+// 6. Middleware Pipeline
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Skip HTTPS redirection in development so Flutter Web (Chrome) can call HTTP port 5299
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors("AllowFrontend");
+
+// Serve uploaded images from wwwroot/uploads as static files
+app.UseStaticFiles();
+
+// IMPORTANT: Authentication must come BEFORE Authorization
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseResponseCaching();
+
+app.MapControllers();
+app.MapHub<Kemora.Api.Hubs.NotificationHub>("/hubs/notifications");
+app.MapHealthChecks("/health");
+app.UseRateLimiter();
+
+using (var scope = app.Services.CreateScope())
+{
+    await RoleSeeder.SeedRolesAsync(scope.ServiceProvider);
+
+    if (app.Environment.IsDevelopment())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        
+        try 
+        {
+            Log.Information("DATABASE STARTUP: Ensuring base data is seeded...");
+            await DataSeeder.SeedAsync(scope.ServiceProvider);
+            
+            var placeCount = await context.Places.CountAsync();
+            Log.Information("DATABASE STARTUP: Ready. Current Place count: {Count}", placeCount);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "DATABASE STARTUP: Error during seeding check");
+        }
+    }
+}
+
+app.Run();
+
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
+
+public partial class Program { }
+\end{lstlisting}
+
+\section{TripViewModel.dart (Flutter State Management)}
+The primary state management ViewModel in the Flutter frontend for orchestrating trip planning. It handles fetching user trips, deleting or renaming plans, and deeply interacts with the AI itinerary generation use-cases. Through Flutter's \texttt{ChangeNotifier} pattern, it achieves reactive UI updates when items are reordered, deleted, or their visited status is toggled.
+
+\begin{lstlisting}[language=Dart]
+import 'package:flutter/material.dart';
+
+import '../../domain/entities/trip.dart';
+import '../../domain/usecases/trip_usecases.dart';
+import '../../domain/usecases/generate_ai_itinerary_usecase.dart';
+import '../../domain/usecases/swap_place_usecase.dart';
+import '../../domain/usecases/save_ai_plan_usecase.dart';
+import '../../domain/usecases/update_place_visited_status_usecase.dart';
+import '../../domain/entities/ai_itinerary.dart';
+import '../../domain/entities/trip_plan_request.dart';
+
+enum TripState { initial, loading, loaded, error }
+
+class TripViewModel extends ChangeNotifier {
+  final GetUserTripsUseCase getUserTripsUseCase;
+  final CreateTripPlanUseCase createTripPlanUseCase;
+  final GenerateAiItineraryUseCase generateAiItineraryUseCase;
+  final SwapPlaceUseCase swapPlaceUseCase;
+  final SaveAiPlanUseCase saveAiPlanUseCase;
+  final UpdatePlaceVisitedStatusUseCase updatePlaceVisitedStatusUseCase;
+  final GetTripDetailsUseCase getTripDetailsUseCase;
+  final DeleteTripUseCase deleteTripUseCase;
+  final RenameTripUseCase renameTripUseCase;
+
+  TripViewModel({
+    required this.getUserTripsUseCase,
+    required this.createTripPlanUseCase,
+    required this.generateAiItineraryUseCase,
+    required this.swapPlaceUseCase,
+    required this.saveAiPlanUseCase,
+    required this.updatePlaceVisitedStatusUseCase,
+    required this.getTripDetailsUseCase,
+    required this.deleteTripUseCase,
+    required this.renameTripUseCase,
+  });
+
+  TripState _state = TripState.initial;
+  TripState get state => _state;
+
+  List<Trip> _trips = [];
+  List<Trip> get trips => _trips;
+
+  AIItinerary? _currentPlan;
+  AIItinerary? get currentPlan => _currentPlan;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  void setCurrentPlan(AIItinerary? plan) {
+    _currentPlan = plan;
+    notifyListeners();
+  }
+
+  Future<void> loadTrips() async {
+    _state = TripState.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    print('=== LOAD_TRIPS: Calling getUserTripsUseCase ===');
+    final result = await getUserTripsUseCase();
+
+    result.fold(
+      (failure) {
+        print('=== LOAD_TRIPS ERROR: ${failure.message} ===');
+        _state = TripState.error;
+        _errorMessage = failure.message;
+        notifyListeners();
+      },
+      (tripsList) {
+        print('=== LOAD_TRIPS SUCCESS: Got ${tripsList.length} trips ===');
+        for (final t in tripsList) {
+          print('  Trip: id="${t.id}" title="${t.title}"');
+        }
+        _trips = tripsList;
+        _state = TripState.loaded;
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<Trip?> loadTripDetails(String id) async {
+    final result = await getTripDetailsUseCase(id);
+    return result.fold(
+      (failure) {
+        _errorMessage = failure.message;
+        notifyListeners();
+        return null;
+      },
+      (trip) {
+        final index = _trips.indexWhere((t) => t.id == id);
+        if (index != -1) {
+          _trips[index] = trip;
+          notifyListeners();
+        }
+        return trip;
+      },
+    );
+  }
+
+  Future<bool> deleteTrip(String id) async {
+    print('=== VM.deleteTrip: id="$id" ===');
+    final result = await deleteTripUseCase(id);
+    return result.fold(
+      (failure) {
+        print('=== VM.deleteTrip ERROR: ${failure.message} ===');
+        _errorMessage = failure.message;
+        notifyListeners();
+        return false;
+      },
+      (_) {
+        print('=== VM.deleteTrip SUCCESS ===');
+        _trips.removeWhere((t) => t.id == id);
+        notifyListeners();
+        return true;
+      },
+    );
+  }
+
+  Future<bool> renameTrip(String id, String newName) async {
+    print('=== VM.renameTrip: id="$id" newName="$newName" ===');
+    final result = await renameTripUseCase(id, newName);
+    return result.fold(
+      (failure) {
+        print('=== VM.renameTrip ERROR: ${failure.message} ===');
+        _errorMessage = failure.message;
+        notifyListeners();
+        return false;
+      },
+      (_) {
+        print('=== VM.renameTrip SUCCESS ===');
+        final index = _trips.indexWhere((t) => t.id == id);
+        if (index != -1) {
+          final oldTrip = _trips[index];
+          _trips[index] = Trip(
+            id: oldTrip.id,
+            title: newName,
+            startDate: oldTrip.startDate,
+            endDate: oldTrip.endDate,
+            plannedPlaces: oldTrip.plannedPlaces,
+            savedItinerary: oldTrip.savedItinerary,
+            location: oldTrip.location,
+          );
+          notifyListeners();
+        }
+        return true;
+      },
+    );
+  }
+
+  Future<void> generateAiItinerary(TripPlanRequest request) async {
+    _state = TripState.loading;
+    _errorMessage = null;
+    _currentPlan = null;
+    notifyListeners();
+
+    final result = await generateAiItineraryUseCase(request);
+
+    result.fold(
+      (failure) {
+        _state = TripState.error;
+        _errorMessage = failure.message;
+        notifyListeners();
+      },
+      (itinerary) {
+        final locationTitle = (request.location?.isNotEmpty == true) ? 'Trip to ${request.location}' : 'AI Trip Plan';
+        _currentPlan = AIItinerary(
+          title: itinerary.title == 'AI Trip Plan' || itinerary.title.isEmpty ? locationTitle : itinerary.title,
+          duration: itinerary.duration,
+          days: itinerary.days,
+        );
+        _state = TripState.loaded;
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<void> swapPlace(String currentPlaceName, String preferences) async {
+    if (_currentPlan == null) return;
+    
+    final result = await swapPlaceUseCase(currentPlaceName, preferences);
+
+    result.fold(
+      (failure) {
+        _errorMessage = failure.message;
+        notifyListeners();
+      },
+      (newItem) {
+        final updatedDays = _currentPlan!.days.map((day) {
+          final updatedActivities = day.activities.map((activity) {
+            if (activity.name == currentPlaceName) {
+              return newItem;
+            }
+            return activity;
+          }).toList();
+          return TripDay(dayNumber: day.dayNumber, activities: updatedActivities);
+        }).toList();
+        
+        _currentPlan = AIItinerary(
+          title: _currentPlan!.title,
+          duration: _currentPlan!.duration,
+          days: updatedDays,
+        );
+        notifyListeners();
+      },
+    );
+  }
+
+  void removePlace(int dayIndex, int activityIndex) {
+    if (_currentPlan == null) return;
+
+    final updatedDays = List<TripDay>.from(_currentPlan!.days);
+    if (dayIndex >= 0 && dayIndex < updatedDays.length) {
+      final updatedActivities = List<ItineraryItem>.from(updatedDays[dayIndex].activities);
+      if (activityIndex >= 0 && activityIndex < updatedActivities.length) {
+        updatedActivities.removeAt(activityIndex);
+        updatedDays[dayIndex] = TripDay(
+          dayNumber: updatedDays[dayIndex].dayNumber,
+          activities: updatedActivities,
+          dailySummary: updatedDays[dayIndex].dailySummary,
+          transportTips: updatedDays[dayIndex].transportTips,
+        );
+
+        _currentPlan = AIItinerary(
+          title: _currentPlan!.title,
+          duration: _currentPlan!.duration,
+          days: updatedDays,
+        );
+        notifyListeners();
+      }
+    }
+  }
+
+  void reorderPlace(int dayIndex, int oldIndex, int newIndex) {
+    if (_currentPlan == null) return;
+
+    final updatedDays = List<TripDay>.from(_currentPlan!.days);
+    if (dayIndex >= 0 && dayIndex < updatedDays.length) {
+      final updatedActivities = List<ItineraryItem>.from(updatedDays[dayIndex].activities);
+      if (oldIndex >= 0 && oldIndex < updatedActivities.length) {
+        if (newIndex > oldIndex) {
+          newIndex -= 1;
+        }
+        final item = updatedActivities.removeAt(oldIndex);
+        updatedActivities.insert(newIndex, item);
+
+        updatedDays[dayIndex] = TripDay(
+          dayNumber: updatedDays[dayIndex].dayNumber,
+          activities: updatedActivities,
+          dailySummary: updatedDays[dayIndex].dailySummary,
+          transportTips: updatedDays[dayIndex].transportTips,
+        );
+
+        _currentPlan = AIItinerary(
+          title: _currentPlan!.title,
+          duration: _currentPlan!.duration,
+          days: updatedDays,
+        );
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> savePlan(DateTime startDate, DateTime endDate) async {
+    if (_currentPlan == null) return false;
+
+    _state = TripState.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    print('=== VM.savePlan: title="${_currentPlan!.title}" ===');
+    final result = await saveAiPlanUseCase(_currentPlan!, startDate, endDate);
+
+    return result.fold(
+      (failure) {
+        print('=== VM.savePlan ERROR: ${failure.message} ===');
+        _state = TripState.error;
+        _errorMessage = failure.message;
+        notifyListeners();
+        return false;
+      },
+      (trip) {
+        print('=== VM.savePlan SUCCESS: tripId="${trip.id}" title="${trip.title}" ===');
+        _trips.add(trip);
+        _state = TripState.loaded;
+        notifyListeners();
+        return true;
+      },
+    );
+  }
+
+  Future<bool> createTrip(
+      String title, DateTime start, DateTime end, List<String> places) async {
+    _state = TripState.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await createTripPlanUseCase(title, start, end, places);
+
+    return result.fold(
+      (failure) {
+        _state = TripState.error;
+        _errorMessage = failure.message;
+        notifyListeners();
+        return false;
+      },
+      (trip) {
+        _trips.add(trip);
+        _state = TripState.loaded;
+        notifyListeners();
+        return true;
+      },
+    );
+  }
+
+  Future<void> toggleVisitedStatus(String tripId, int dayIndex, int activityIndex) async {
+    if (_currentPlan == null) return;
+
+    final updatedDays = List<TripDay>.from(_currentPlan!.days);
+    final day = updatedDays[dayIndex];
+    final activities = List<ItineraryItem>.from(day.activities);
+    final activity = activities[activityIndex];
+
+    final newVisitedStatus = !activity.isVisited;
+
+    // Optimistic UI update
+    activities[activityIndex] = activity.copyWith(isVisited: newVisitedStatus);
+    updatedDays[dayIndex] = TripDay(
+      dayNumber: day.dayNumber,
+      activities: activities,
+      dailySummary: day.dailySummary,
+      transportTips: day.transportTips,
+    );
+
+    _currentPlan = AIItinerary(
+      title: _currentPlan!.title,
+      duration: _currentPlan!.duration,
+      days: updatedDays,
+    );
+    notifyListeners();
+
+    // Call backend if tripPlaceId is available
+    if (activity.tripPlaceId != null) {
+      final parsedTripId = int.tryParse(tripId);
+      if (parsedTripId != null) {
+        await updatePlaceVisitedStatusUseCase(parsedTripId, activity.tripPlaceId!, newVisitedStatus);
+        // Note: we don't rollback on error for now to keep it simple, but we could handle it.
+      }
+    }
+  }
+}
+\end{lstlisting}

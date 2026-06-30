@@ -1,0 +1,131 @@
+\documentclass[12pt, a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[demo]{graphicx} % [demo] allows compilation without actual image files
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+\usepackage{titlesec}
+\usepackage[nottoc]{tocbibind}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{setspace}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+
+\setspace{1.5}
+
+% Code Listing Style
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\usepackage[font=small,labelfont=bf]{caption} % Strict technical report formatting for figures and tables
+\usepackage{pdflscape} % For landscape orientation of large tables if necessary
+
+% --- USER PLACEHOLDERS ---
+\newcommand{\universityName}{[UNIVERSITY NAME]}
+\newcommand{\facultyName}{[FACULTY/DEPARTMENT NAME]}
+\newcommand{\projectTitle}{Kemora: An AI-Powered Travel Discovery Platform for Egypt}
+\newcommand{\academicYear}{[ACADEMIC YEAR e.g. 2025/2026]}
+\newcommand{\supervisorName}{[SUPERVISOR NAME]}
+\newcommand{\teamMembers}{
+    [Student 1 Name \& ID] \\
+    [Student 2 Name \& ID] \\
+    [Student 3 Name \& ID] \\
+    [Student 4 Name \& ID]
+}
+
+\begin{document}
+
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1cm}
+        \Large \textbf{\universityName}\\
+        \textbf{\facultyName}\\
+        \vspace{1.5cm}
+        \Huge \textbf{\projectTitle}
+        \vspace{1.5cm}\\
+        \Large A Graduation Project Report submitted in partial fulfillment \\
+        of the requirements for the Bachelor's Degree.
+        \vspace{2cm}\\
+        \textbf{Prepared By:}\\ \teamMembers
+        \vspace{1.5cm}\\
+        \textbf{Supervised By:}\\ \supervisorName
+        \vfill
+        \Large \textbf{Academic Year \academicYear}
+    \end{center}
+\end{titlepage}
+
+\pagenumbering{roman}
+\addcontentsline{toc}{part}{1. Front Matter (Preliminary Sections)}
+
+\chapter*{Abstract / Executive Summary}
+\addcontentsline{toc}{chapter}{Abstract / Executive Summary}
+
+\textbf{Problem Statement:} The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing.
+
+\textbf{Methodology:} This project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem. The solution integrates a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Foursquare API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM).
+
+\textbf{Key Findings:} Empirical benchmarking confirms the backend successfully achieves median latencies of 22ms and sustains robust throughput under load via aggressive \texttt{IMemoryCache} permutations. The transition from sequential API fetching to in-memory Zero-Fetch Image Injection eradicated database concurrency bottlenecks.
+
+\textbf{Recommendations:} Future iterations should transition to a Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and natively fine-tune open-source LLMs using LoRA techniques to completely eliminate third-party dependencies.
+
+\newpage
+\tableofcontents
+\newpage
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\newpage
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\newpage
+
+\pagenumbering{arabic}
+\part{Body of the Report}
+
+\input{chapter1_intro}
+\input{chapter2_lit_review}
+\input{chapter3_analysis_design}
+\input{chapter4_implementation}
+\input{chapter5_testing}
+\input{chapter7_benchmarks}
+\input{chapter8_business_model}
+\input{chapter6_conclusion}
+
+\part{Back Matter (Supporting Materials)}
+
+\input{references}
+
+\appendix
+\input{appendix_api}
+\input{appendix_code}
+\input{appendix_use_cases}
+\input{appendix_data_dictionary}
+\input{appendix_ui_components}
+
+\input{glossary}
+
+\end{document}
