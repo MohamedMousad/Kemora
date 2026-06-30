@@ -17,16 +17,14 @@ void main() {
     app.main();
     // Splash screen uses Future.delayed for 2.5 seconds, so we need to pump time
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
     // 1. Handle Onboarding Screen (if first time launch)
-    await tester.pumpAndSettle();
-    
-    final skipButton = find.text('SKIP');
-    if (skipButton.evaluate().isNotEmpty) {
+    final skipFinder = find.text('SKIP');
+    if (skipFinder.evaluate().isNotEmpty) {
       print('Found SKIP button, tapping...');
-      await tester.tap(skipButton);
+      await tester.tap(skipFinder);
       await tester.pumpAndSettle();
     } else {
       print('SKIP button not found. Assuming we are already on Login screen.');
@@ -48,16 +46,33 @@ void main() {
     final testEmail = 'testuser_$timestamp@example.com';
     final testPassword = 'Password123!';
 
+    // Find TextFields by hint text since the UI uses uppercase text above it and hint text inside
     await tester.enterText(
-        find.widgetWithText(TextField, 'Full Name'), 'E2E Test User');
+        find.widgetWithText(TextField, 'Enter your full name'), 'E2E Test User');
     await tester.enterText(
-        find.widgetWithText(TextField, 'Email Address'), testEmail);
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Password'), testPassword);
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Confirm Password'), testPassword);
+        find.widgetWithText(TextField, 'name@luxury-travel.com'), testEmail);
+    // Find the password fields by their hint text, which is '••••••••'
+    final passwordFields = find.widgetWithText(TextField, '••••••••');
+    await tester.enterText(passwordFields.first, testPassword);
+    await tester.enterText(passwordFields.last, testPassword);
 
-    final createAccountBtn = find.widgetWithText(ElevatedButton, 'CREATE ACCOUNT');
+    // Check the Terms & Conditions checkbox
+    final checkbox = find.byType(Checkbox);
+    await tester.tap(checkbox);
+    await tester.pumpAndSettle();
+
+    // Select a country
+    final countryDropdown = find.widgetWithText(DropdownButtonFormField<String>, 'Select your country');
+    await tester.ensureVisible(countryDropdown);
+    await tester.tap(countryDropdown);
+    await tester.pumpAndSettle();
+    
+    final countryItem = find.text('Egypt').last;
+    await tester.ensureVisible(countryItem);
+    await tester.tap(countryItem);
+    await tester.pumpAndSettle();
+
+    final createAccountBtn = find.widgetWithText(ElevatedButton, 'Create Account');
     await tester.ensureVisible(createAccountBtn);
     await tester.tap(createAccountBtn);
     
@@ -65,10 +80,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 10));
 
     // 4. Verify we are on the Home Screen (Explore Tab)
-    // Looking for some known elements like the Kemora title or the FloatingNavBar
     expect(find.byType(PageView), findsOneWidget);
-    
-    // Check if the greeting shows up
     expect(find.textContaining('Hello, E2E Test User'), findsWidgets);
 
     // Let places load

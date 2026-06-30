@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
 import '../../widgets/editorial_place_card.dart';
-import '../../../data/local/place_data.dart';
 import '../../../data/local/governorate_data.dart';
+import '../../viewmodels/places_view_model.dart';
+import '../../../domain/entities/place.dart';
 import 'place_detail_screen.dart';
 import 'places_screen.dart';
 
@@ -22,15 +24,28 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final vm = context.read<PlacesViewModel>();
+      if (vm.governorates.isEmpty) {
+        await vm.loadGovernorates();
+      }
+      final govId = vm.governorateIdByName(widget.governorate.name);
+      if (govId != null) {
+        vm.loadPlacesByGovernorate(govId);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-  List<PlaceInfo> get _govPlaces {
-    return placesData
-        .where((p) => p.governorateId == widget.governorate.id)
-        .where((p) {
+  List<Place> _getGovPlaces(List<Place> places) {
+    return places.where((p) {
       if (_searchController.text.isEmpty) return true;
       return p.name.toLowerCase().contains(_searchController.text.toLowerCase());
     }).toList();
@@ -49,22 +64,32 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const KemoraAppBar(showBack: true),
-      body: CustomScrollView(
-        slivers: [
-          // Hero header
-          SliverToBoxAdapter(child: _buildHeader()),
-          // Sticky search bar
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SearchBarDelegate(
-              controller: _searchController,
-              onChanged: () => setState(() {}),
-            ),
-          ),
-          // Categorized sections
-          ..._buildSections(),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
+      body: Consumer<PlacesViewModel>(
+        builder: (context, placesViewModel, child) {
+          if (placesViewModel.state == PlacesState.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final places = _getGovPlaces(placesViewModel.places);
+
+          return CustomScrollView(
+            slivers: [
+              // Hero header
+              SliverToBoxAdapter(child: _buildHeader()),
+              // Sticky search bar
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _SearchBarDelegate(
+                  controller: _searchController,
+                  onChanged: () => setState(() {}),
+                ),
+              ),
+              // Categorized sections
+              ..._buildSections(places),
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            ],
+          );
+        },
       ),
     );
   }
@@ -128,12 +153,11 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
     );
   }
 
-  List<Widget> _buildSections() {
-    final places = _govPlaces;
+  List<Widget> _buildSections(List<Place> places) {
     final sections = <Widget>[];
 
     for (final entry in _sectionMap.entries) {
-      final categoryPlaces = places.where((p) => p.category == entry.key).toList();
+      final categoryPlaces = places.where((p) => p.type == entry.key).toList();
       if (categoryPlaces.isEmpty) continue;
 
       sections.add(SliverToBoxAdapter(
@@ -177,17 +201,17 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                   width: 240,
                   child: GestureDetector(
                     onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => PlaceDetailScreen(place: place))),
+                        MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id))),
                     child: EditorialPlaceCard(
                       title: place.name,
-                      category: place.category,
-                      location: place.location,
-                      rating: place.rating,
+                      category: place.type ?? 'Place',
+                      location: place.address ?? place.governorateName ?? 'Egypt',
+                      rating: place.rating.toDouble(),
                       reviewsCount: place.reviewsCount,
-                      price: place.price,
-                      distance: place.distance,
+                      price: place.priceLevel != null ? '\$' * place.priceLevel! : 'Free',
+                      distance: 'N/A', // Distance needs location services
                       isFavorite: false,
-                      imageAsset: place.imageAsset,
+                      imageAsset: place.mainImageUrl ?? '',
                       aspectRatio: 1.6,
                     ),
                   ),

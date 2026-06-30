@@ -4,6 +4,7 @@ using Kemora.Application.Interfaces;
 using Kemora.Domain.Entities;
 using Kemora.Domain.Interfaces;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Kemora.Application.Services
@@ -44,10 +45,11 @@ namespace Kemora.Application.Services
             return true;
         }
 
-        public async Task<List<FavoriteResponseDto>> GetMyFavoritesAsync(string userId)
+        public async Task<List<PlacePublicDto>> GetMyFavoritesAsync(string userId)
         {
             var favs = await _favoriteRepo.GetByUserIdAsync(userId);
-            return _mapper.Map<List<FavoriteResponseDto>>(favs);
+            var places = favs.Select(f => f.Place).ToList();
+            return _mapper.Map<List<PlacePublicDto>>(places);
         }
 
         public async Task<FavoriteCheckDto> CheckFavoriteAsync(string userId, int placeId)

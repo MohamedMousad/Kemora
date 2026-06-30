@@ -34,6 +34,7 @@ import '../../domain/usecases/swap_place_usecase.dart';
 import '../../domain/usecases/save_ai_plan_usecase.dart';
 import '../../domain/usecases/update_place_visited_status_usecase.dart';
 import '../../domain/usecases/get_places_by_category_usecase.dart';
+import '../../domain/usecases/get_favorites_usecase.dart';
 import '../../domain/usecases/post_usecases.dart';
 import '../../domain/usecases/badge_usecases.dart';
 import '../../presentation/viewmodels/auth_view_model.dart';
@@ -106,6 +107,7 @@ Future<void> init() async {
         getTopPlacesUseCase: sl(),
         getGovernoratesUseCase: sl(),
         getPlacesByGovernorateUseCase: sl(),
+        getFavoritesUseCase: sl(),
       ));
 
   // Use Cases
@@ -114,6 +116,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetTopPlacesUseCase(sl()));
   sl.registerLazySingleton(() => GetGovernoratesUseCase(sl()));
   sl.registerLazySingleton(() => GetPlacesByGovernorateUseCase(sl()));
+  sl.registerLazySingleton(() => GetFavoritesUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<IPlaceRepository>(

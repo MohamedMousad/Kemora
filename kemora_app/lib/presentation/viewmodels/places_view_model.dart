@@ -3,6 +3,7 @@ import '../../domain/entities/place.dart';
 import '../../domain/usecases/explore_usecases.dart';
 import '../../domain/usecases/get_places_usecase.dart';
 import '../../domain/usecases/get_places_by_category_usecase.dart';
+import '../../domain/usecases/get_favorites_usecase.dart';
 
 enum PlacesState { initial, loading, loaded, error }
 
@@ -12,6 +13,7 @@ class PlacesViewModel extends ChangeNotifier {
   final GetTopPlacesUseCase getTopPlacesUseCase;
   final GetGovernoratesUseCase getGovernoratesUseCase;
   final GetPlacesByGovernorateUseCase getPlacesByGovernorateUseCase;
+  final GetFavoritesUseCase getFavoritesUseCase;
 
   PlacesViewModel({
     required this.getPlacesUseCase,
@@ -19,6 +21,7 @@ class PlacesViewModel extends ChangeNotifier {
     required this.getTopPlacesUseCase,
     required this.getGovernoratesUseCase,
     required this.getPlacesByGovernorateUseCase,
+    required this.getFavoritesUseCase,
   });
 
   PlacesState _state = PlacesState.initial;
@@ -99,6 +102,27 @@ class PlacesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<Place> _favorites = [];
+  List<Place> get favorites => _favorites;
+
+  Future<void> loadFavorites() async {
+    _state = PlacesState.loading;
+    notifyListeners();
+    
+    final result = await getFavoritesUseCase();
+    result.fold(
+      (failure) {
+        _state = PlacesState.error;
+        _errorMessage = failure.message;
+      },
+      (list) {
+        _favorites = list;
+        _state = PlacesState.loaded;
+      },
+    );
+    notifyListeners();
+  }
+
   /// Looks up a place by ID from local caches first, then fetches from API.
   Future<Place?> getPlaceById(String id) async {
     // Check in-memory caches first
@@ -114,5 +138,14 @@ class PlacesViewModel extends ChangeNotifier {
       return _topPlaces.firstWhere((p) => p.id == id);
     } catch (_) {}
     return null;
+  }
+
+  /// Helper to get governorate ID by name
+  String? governorateIdByName(String name) {
+    try {
+      return _governorates.firstWhere((g) => g.name.toLowerCase() == name.toLowerCase()).id;
+    } catch (_) {
+      return null;
+    }
   }
 }

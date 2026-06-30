@@ -9,6 +9,7 @@ abstract class PlacesRemoteDataSource {
   Future<List<GovernorateModel>> getGovernorates();
   Future<List<PlaceModel>> getPlacesByGovernorate(String governorateId);
   Future<PlaceModel> getPlaceDetails(String id);
+  Future<List<PlaceModel>> getFavorites();
 }
 
 class PlacesRemoteDataSourceImpl implements PlacesRemoteDataSource {
@@ -108,6 +109,24 @@ class PlacesRemoteDataSourceImpl implements PlacesRemoteDataSource {
         return PlaceModel.fromJson(response.data);
       } else {
         throw const ServerFailure('Failed to load place details');
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.response?.data['message'] ?? 'Server Error');
+    }
+  }
+
+  @override
+  Future<List<PlaceModel>> getFavorites() async {
+    try {
+      final response = await dio.get('/api/v1/favorites');
+      if (response.statusCode == 200) {
+        final data = response.data['items'] ?? response.data;
+        if (data is List) {
+          return data.map((json) => PlaceModel.fromJson(json)).toList();
+        }
+        return [];
+      } else {
+        throw const ServerFailure('Failed to load favorites');
       }
     } on DioException catch (e) {
       throw ServerFailure(e.response?.data['message'] ?? 'Server Error');
