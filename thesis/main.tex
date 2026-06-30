@@ -15,7 +15,7 @@
 \usepackage{tabularx}
 \usepackage{array}
 
-\setstretch{1.5}
+% Standard document spacing
 
 % Code Listing Style
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -121,7 +121,7 @@
 
 \textbf{Problem Statement:} The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing.
 
-\textbf{Methodology:} This project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem. The solution integrates a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Foursquare API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM).
+\textbf{Methodology:} This project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem. The solution integrates a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Google Places API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM).
 
 \textbf{Key Findings:} Empirical benchmarking confirms the backend successfully achieves median latencies of 22ms and sustains robust throughput under load via aggressive \texttt{IMemoryCache} permutations. The transition from sequential API fetching to in-memory Zero-Fetch Image Injection eradicated database concurrency bottlenecks.
 

@@ -134,42 +134,4 @@ class ActivityTimelineTile extends StatelessWidget {
 }
 \end{lstlisting}
 
-\subsection{FloatingNavBar}
-The \texttt{FloatingNavBar} is an animated, glassmorphic bottom navigation bar. It utilizes \texttt{FadeSlideIn} to animate onto the screen and \texttt{BackdropFilter} for a blurred background effect.
-
-\subsection{KemoraAppBar}
-A globally used \texttt{PreferredSizeWidget} that implements a translucent, frosted-glass header with the \texttt{KEMORA} brand text using wide tracking (letter spacing).
-
-\section{Animation and Visual Effect Utilities}
-\label{sec:animation-and-visual-effect-utilities}
-
-Kemora incorporates subtle micro-interactions to enhance the user experience.
-
-\subsection{GlassmorphismContainer}
-A reusable wrapper that applies a blur effect (\texttt{ImageFilter.blur}) to its background, providing a frosted glass appearance.
-
-\begin{lstlisting}[language=Java, caption={GlassmorphismContainer BackdropFilter}]
-Container(
-  decoration: BoxDecoration(
-    color: color.withValues(alpha: opacity),
-    borderRadius: effectiveRadius,
-    border: border,
-  ),
-  child: ClipRRect(
-    borderRadius: effectiveRadius,
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: blurRadius, sigmaY: blurRadius),
-      child: Padding(
-        padding: padding ?? EdgeInsets.zero,
-        child: child,
-      ),
-    ),
-  ),
-)
-\end{lstlisting}
-
-\subsection{FadeSlideIn \& TapScale}
-\begin{itemize}
-    \item \textbf{\texttt{FadeSlideIn}:} A \texttt{StatefulWidget} utilizing an \texttt{AnimationController} and \texttt{CurvedAnimation} to smoothly fade and slide children into view when the widget mounts.
-    \item \textbf{\texttt{TapScale}:} A wrapper that listens to \texttt{TapDown} and \texttt{TapUp} events to slightly scale down (e.g., \texttt{0.96}) the wrapped widget while pressed, creating a tactile button response.
-\end{itemize}
+For the full component dictionary, please refer to the GitHub repository.

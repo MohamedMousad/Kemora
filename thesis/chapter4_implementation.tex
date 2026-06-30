@@ -22,7 +22,10 @@ This phase marked the most significant architectural shift in the backend. On Ma
 Mid-June saw massive refactoring on the client side. A comprehensive End-to-End (E2E) integration test suite was introduced to ensure application stability. Cloudinary was integrated for robust, CDN-backed image hosting. Concurrently, the frontend received a major visual overhaul—dubbed the "Modern Heritage" design system—which refined typography, spatial layouts, and color theory.
 
 \subsection{Phase 6: Optimization \& API Sync (Late June 2026)}
-The final weeks were dedicated to significant performance optimization. Legacy static data was purged in favor of dynamic synchronization with the Foursquare API. The AI pipeline's major bottleneck—fetching images sequentially—was resolved by completely removing external image requests during generation, instead re-injecting image URLs from the pre-loaded local dataset into the AI's final selections.
+The final weeks were dedicated to significant performance optimization. Legacy static data was purged in favor of dynamic synchronization with the Google Places API, providing massive scale and support for discovering various places in Egypt. The AI pipeline's major bottleneck—fetching images sequentially—was resolved by completely removing external image requests during generation, instead re-injecting image URLs from the pre-loaded local dataset into the AI's final selections.
+
+\subsection{Phase 7: Real-time Messaging Integration (Late June 2026)}
+To enhance user engagement and facilitate social travel planning, a real-time messaging system was developed. Utilizing ASP.NET Core SignalR and \texttt{IChatService}, the backend provides robust persistent connections for instant messaging between users. On the frontend, this translates into fluid, real-time chat interfaces seamlessly integrated into the Kemora application.
 
 \section{The Evolution of the AI Pipeline}
 The Kemora AI Trip Planner is not a simple passthrough proxy to an LLM. It is a highly orchestrated, multi-stage pipeline designed to enforce geographic constraints and output deterministic data structures.
@@ -84,7 +87,7 @@ var localPlaces = allDbPlaces
 \end{lstlisting}
 
 \textbf{Dynamic API Fallback:}
-The service evaluates the richness of the local DB cache. If \texttt{localPlaces.Count < 15}, it recognizes a data deficiency and dynamically triggers \texttt{IPlacesDataService.FetchNearbyPlacesAsync} (interfacing with the Foursquare API). These external results are merged, deduplicated, and asynchronously persisted to the local DB for future queries.
+The service evaluates the richness of the local DB cache. If \texttt{localPlaces.Count < 15}, it recognizes a data deficiency and dynamically triggers \texttt{IPlacesDataService.FetchNearbyPlacesAsync} (interfacing with the Google Places API). These external results are merged, deduplicated, and asynchronously persisted to the local DB for future queries.
 
 \textbf{Categorical Injection and Token Compression:}
 To optimize the prompt injected into the LLM, the candidate places are bucketed by type using substring matches on the \texttt{Categories} or \texttt{Types} fields. The context is then carefully curated to ensure a balanced itinerary, injecting exactly the top 3 hotels, 20 attractions, 8 restaurants, and 4 cafes:
