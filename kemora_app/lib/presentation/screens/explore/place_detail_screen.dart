@@ -3,26 +3,19 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/glassmorphism_container.dart';
-import '../../../data/local/place_data.dart';
 import '../../viewmodels/places_view_model.dart';
 import '../../../domain/entities/place.dart' as domain;
 
-
 class PlaceDetailScreen extends StatefulWidget {
-  // Legacy path: pass a PlaceInfo from local mock data
-  final PlaceInfo? place;
-
   // New path: pass an API id + name; screen loads from PlacesViewModel
   final String? placeId;
   final String? placeName;
 
   const PlaceDetailScreen({
     super.key,
-    this.place,
     this.placeId,
     this.placeName,
-  }) : assert(place != null || placeId != null,
-            'Either place or placeId must be provided');
+  }) : assert(placeId != null, 'placeId must be provided');
 
   @override
   State<PlaceDetailScreen> createState() => _PlaceDetailScreenState();
@@ -55,33 +48,21 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
 
   // ── Getters for unified access ──────────────────────────────────────────────
 
-  String get _title =>
-      _apiPlace?.name ?? widget.place?.name ?? widget.placeName ?? '';
+  String get _title => _apiPlace?.name ?? widget.placeName ?? '';
 
-  String get _category =>
-      _apiPlace?.type ??
-      widget.place?.category ??
-      'Place';
+  String get _category => _apiPlace?.type ?? 'Place';
 
-  String get _location =>
-      _apiPlace?.address ??
-      _apiPlace?.governorateName ??
-      widget.place?.location ??
-      '';
+  String get _address => _apiPlace?.address ?? '';
 
-  String get _description =>
-      _apiPlace?.description ?? widget.place?.description ?? '';
+  String get _description => _apiPlace?.description ?? '';
 
-  double get _rating =>
-      (_apiPlace?.rating ?? widget.place?.rating ?? 0).toDouble();
+  double get _rating => (_apiPlace?.rating ?? 0).toDouble();
 
-  String get _price =>
-      _apiPlace?.priceLevel != null
+  String get _price => _apiPlace?.priceLevel != null
           ? '\$' * _apiPlace!.priceLevel!
-          : widget.place?.price ?? '';
+          : '';
 
   String? get _imageUrl => _apiPlace?.mainImageUrl;
-  String? get _imageAsset => widget.place?.imageAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -126,26 +107,12 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Hero image — prefer network, fallback to asset, then placeholder
-                    if (_imageUrl != null)
+                    if (_imageUrl != null && _imageUrl!.isNotEmpty)
                       Image.network(
                         _imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceContainerHigh,
-                          child: const Center(
-                              child: Icon(Icons.image, size: 100, color: AppColors.outlineVariant)),
-                        ),
-                      )
-                    else if (_imageAsset != null)
-                      Image.asset(
-                        _imageAsset!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceContainerHigh,
-                          child: const Center(
-                              child: Icon(Icons.image, size: 100, color: AppColors.outlineVariant)),
-                        ),
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(color: Colors.grey[800]),
                       )
                     else
                       Container(
