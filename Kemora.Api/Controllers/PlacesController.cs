@@ -38,7 +38,7 @@ namespace Kemora.Api.Controllers
         /// <param name="pageSize">Items per page (default: 20).</param>
         [HttpGet]
         [AllowAnonymous]
-        [ResponseCache(Duration = 60)]
+        [ResponseCache(Duration = 60, VaryByQueryKeys = new[] { "governorateId", "categoryId", "categoryName", "search", "page", "pageSize" })]
         [ProducesResponseType(typeof(PagedResult<PlacePublicDto>), StatusCodes.Status200OK)]
         public async Task<ActionResult<PagedResult<PlacePublicDto>>> GetPlaces(
             [FromQuery] int? governorateId,

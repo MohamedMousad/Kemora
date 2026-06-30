@@ -167,6 +167,13 @@ builder.Services.AddHttpClient("GooglePlaces", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// Named client used by PhotosController.ProxyPhoto to stream photo media from the
+// Google Places API (longer timeout for image downloads).
+builder.Services.AddHttpClient("GooglePlacesProxy", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
 
 
 builder.Services.AddHttpClient("OpenRouter", client =>

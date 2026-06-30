@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../domain/entities/place.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/di/injection_container.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/filter_chip_row.dart';
 import '../../widgets/editorial_place_card.dart';
@@ -29,12 +31,19 @@ class HomeContentScreen extends StatefulWidget {
 class _HomeContentScreenState extends State<HomeContentScreen> {
   int _selectedFilterIndex = 0;
   bool _hasRetriedTopPlaces = false;
-  final List<String> _filters = [
-    'All Odyssey',
-    'Ancient Ruins',
-    'Nile Cruises',
-    'Desert Safari'
+
+  // (display label, real DB category name). null category = top places.
+  static const List<({String label, String? category})> _filters = [
+    (label: 'All Odyssey', category: null),
+    (label: 'Ancient Wonders', category: 'Historical'),
+    (label: 'Red Sea', category: 'Beach'),
+    (label: 'Culture', category: 'Cultural'),
+    (label: 'Adventure', category: 'Adventure'),
+    (label: 'Spiritual', category: 'Religious'),
+    (label: 'Nature', category: 'Nature'),
   ];
+
+  List<String> get _filterLabels => _filters.map((f) => f.label).toList();
 
   @override
   void initState() {
@@ -52,6 +61,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           }
         }
       }
+      if (placesVM.favorites.isEmpty && mounted) {
+        await placesVM.loadFavorites();
+      }
       final storyVM = context.read<StoryViewModel>();
       if (storyVM.state == StoryState.initial) storyVM.loadActiveStories();
     });
@@ -61,8 +73,11 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     switch (_selectedFilterIndex) {
       case 0: return 'The Modern Archivist';
       case 1: return 'Ancient Wonders';
-      case 2: return 'Nile Experiences';
-      case 3: return 'Desert Adventures';
+      case 2: return 'Red Sea Escapes';
+      case 3: return 'Cultural Gems';
+      case 4: return 'Desert Adventures';
+      case 5: return 'Sacred Sites';
+      case 6: return 'Natural Wonders';
       default: return 'The Modern Archivist';
     }
   }
@@ -72,7 +87,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     final placesVM = context.watch<PlacesViewModel>();
     final storyVM = context.watch<StoryViewModel>();
     final authVM = context.watch<AuthViewModel>();
-    final topPlaces = placesVM.topPlaces;
+    
+    final displayPlaces = _selectedFilterIndex == 0 ? placesVM.topPlaces : placesVM.places;
     final userName = authVM.user?.fullName?.split(' ').first ?? 'Traveller';
     return CustomScrollView(
       slivers: [
@@ -129,12 +145,19 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           child: FadeSlideIn(
             delayMs: 240,
             child: FilterChipRow(
-              chips: _filters,
+              chips: _filterLabels,
               selectedIndex: _selectedFilterIndex,
               onSelected: (index) {
                 setState(() {
                   _selectedFilterIndex = index;
                 });
+                final vm = context.read<PlacesViewModel>();
+                final category = _filters[index].category;
+                if (category == null) {
+                  vm.loadTopPlaces();
+                } else {
+                  vm.loadPlaces(category: category);
+                }
               },
             ),
           ),
@@ -185,7 +208,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
               height: 380,
               child: placesVM.state == PlacesState.loading
                   ? const Center(child: CircularProgressIndicator())
-                  : topPlaces.isEmpty
+                  : displayPlaces.isEmpty
                       ? const Center(
                           child: Text('No places loaded yet.',
                               style: TextStyle(color: AppColors.onSurfaceVariant)))
@@ -193,9 +216,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                           scrollDirection: Axis.horizontal,
                           physics: const BouncingScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 24),
-                          itemCount: topPlaces.length > 8 ? 8 : topPlaces.length,
+                          itemCount: displayPlaces.length > 8 ? 8 : displayPlaces.length,
                           itemBuilder: (context, index) {
-                            final place = topPlaces[index];
+                            final place = displayPlaces[index];
                             return Padding(
                               padding: const EdgeInsets.only(right: 16),
                               child: SizedBox(
@@ -217,10 +240,11 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                     category: place.type ?? 'Place',
                                     location: place.address ?? place.governorateName ?? '',
                                     rating: place.rating,
-                                    reviewsCount: 0,
+                                    reviewsCount: place.reviewCount,
                                     price: '\$' * (place.priceLevel ?? 0),
                                     distance: '',
-                                    isFavorite: false,
+                                    isFavorite: placesVM.isFavorite(place.id),
+                                    onFavoriteTap: () => placesVM.toggleFavorite(place),
                                     imageUrl: place.mainImageUrl ?? place.imageUrl,
                                     aspectRatio: 1.15,
                                   ),
@@ -435,8 +459,15 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     UserStoriesGroup? userGroup,
   }) {
     Widget imageWidget;
-    if (imageUrl != null && imageUrl.startsWith('http')) {
-      imageWidget = Image.network(imageUrl, fit: BoxFit.cover,
+    String finalUrl = imageUrl ?? '';
+    if (finalUrl.isNotEmpty && !finalUrl.startsWith('http') && finalUrl.startsWith('/')) {
+      finalUrl = '${resolveApiBaseUrl()}$finalUrl';
+    } else if (finalUrl.isNotEmpty && !finalUrl.startsWith('http')) {
+      finalUrl = '${resolveApiBaseUrl()}/$finalUrl';
+    }
+
+    if (finalUrl.isNotEmpty && finalUrl.startsWith('http')) {
+      imageWidget = Image.network(finalUrl, fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Container(
           color: AppColors.surfaceContainerHigh,
           child: const Icon(Icons.person, color: AppColors.outlineVariant, size: 40),

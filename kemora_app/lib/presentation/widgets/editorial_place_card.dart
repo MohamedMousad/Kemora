@@ -4,6 +4,8 @@ import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_shadows.dart';
 import 'glassmorphism_container.dart';
 
+import '../../core/di/injection_container.dart';
+
 class EditorialPlaceCard extends StatelessWidget {
   final String title;
   final String category;
@@ -36,6 +38,16 @@ class EditorialPlaceCard extends StatelessWidget {
     this.imageUrl,
   });
 
+  String get _fullImageUrl {
+    if (imageUrl == null || imageUrl!.isEmpty) return '';
+    if (imageUrl!.startsWith('http')) return imageUrl!;
+    final baseUrl = resolveApiBaseUrl();
+    if (imageUrl!.startsWith('/')) {
+      return '$baseUrl$imageUrl';
+    }
+    return '$baseUrl/$imageUrl';
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -53,15 +65,9 @@ class EditorialPlaceCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 // Image or Placeholder
-                if (imageUrl != null && imageUrl!.startsWith('http'))
+                if (_fullImageUrl.isNotEmpty && _fullImageUrl.startsWith('http'))
                   Image.network(
-                    imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                  )
-                else if (imageUrl != null && imageUrl!.isNotEmpty)
-                  Image.asset(
-                    imageUrl!,
+                    _fullImageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => _buildPlaceholder(),
                   )
@@ -162,7 +168,7 @@ class EditorialPlaceCard extends StatelessWidget {
                               style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.onPrimary),
                             ),
                             Text(
-                              ' (${reviewsCount ~/ 1000}k)',
+                              ' (${_formatCount(reviewsCount)})',
                               style: AppTypography.labelMedium.copyWith(color: AppColors.onPrimary.withOpacity(0.7)),
                             ),
                             const Spacer(),
@@ -221,8 +227,15 @@ class EditorialPlaceCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder() {
-    return Container(
+  String _formatCount(int count) {
+    if (count >= 1000) {
+      final k = count / 1000;
+      return '${k.toStringAsFixed(k >= 10 ? 0 : 1)}k';
+    }
+    return '$count';
+  }
+
+  Widget _buildPlaceholder() {    return Container(
       color: AppColors.surfaceContainer,
       child: const Center(
         child: Icon(Icons.image_outlined, color: AppColors.outline, size: 48),

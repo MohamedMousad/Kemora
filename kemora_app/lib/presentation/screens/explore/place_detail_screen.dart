@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/di/injection_container.dart';
 import '../../widgets/glassmorphism_container.dart';
 import '../../viewmodels/places_view_model.dart';
 import '../../../domain/entities/place.dart' as domain;
@@ -62,7 +63,12 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
           ? '\$' * _apiPlace!.priceLevel!
           : '';
 
-  String? get _imageUrl => _apiPlace?.mainImageUrl;
+  String? get _imageUrl {
+    var url = _apiPlace?.mainImageUrl;
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http')) return url;
+    return url.startsWith('/') ? '${resolveApiBaseUrl()}$url' : '${resolveApiBaseUrl()}/$url';
+  }
 
   @override
   Widget build(BuildContext context) {

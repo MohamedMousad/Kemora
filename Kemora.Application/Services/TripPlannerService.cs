@@ -82,7 +82,7 @@ namespace Kemora.Application.Services
             var localPlaces = allDbPlaces
                 .Select(p => new FetchedPlaceDto
                 {
-                    ExternalId = p.FoursquareId,
+                    ExternalId = p.GoogleDataId,
                     Name = p.Name,
                     Latitude = (double)p.Latitude,
                     Longitude = (double)p.Longitude,
@@ -103,39 +103,8 @@ namespace Kemora.Application.Services
 
             List<FetchedPlaceDto> finalPlaces = new List<FetchedPlaceDto>(localPlaces);
 
-            if (finalPlaces.Count < 15)
-            {
-                // Trigger Foursquare API to fill gaps
-                var fsPlaces = await _placesDataService.FetchNearbyPlacesAsync(
-                    request.Latitude, request.Longitude,
-                    request.MinRadiusKm, request.MaxRadiusKm);
-
-                // Merge Foursquare results, avoiding duplicates with DB places
-                foreach (var fsp in fsPlaces)
-                {
-                    if (!finalPlaces.Any(lp => lp.Name.Equals(fsp.Name, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        finalPlaces.Add(fsp);
-
-                        // Async persist to DB with RICH ATTRIBUTES
-                        var newPlace = new Place
-                        {
-                            FoursquareId = fsp.ExternalId,
-                            Name = fsp.Name,
-                            Address = fsp.Address,
-                            Latitude = (decimal)fsp.Latitude,
-                            Longitude = (decimal)fsp.Longitude,
-                            Rating = (decimal)(fsp.Rating ?? 0),
-                            PriceLevel = int.TryParse(fsp.PriceLevel, out int pl) ? pl : 0,
-                            MainImageURL = fsp.ImageUrl,
-                            Source = "foursquare",
-                            LastEnrichedAt = DateTime.UtcNow
-                        };
-                        await _unitOfWork.Repository<Place>().AddAsync(newPlace);
-                    }
-                }
-                await _unitOfWork.CommitAsync();
-            }
+            // Removed Foursquare API fallback to strictly use DB places
+            // if (finalPlaces.Count < 15) { ... }
 
             // Sequential image fetching removed to massively improve API response time.
             // Images are now fetched concurrently only for places the AI actually selected.

@@ -116,7 +116,8 @@ namespace Kemora.Application.Mapping
                 .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName));
             CreateMap<Place, PlacePublicDto>()
                 .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName))
-                .ForMember(d => d.GovernorateName, o => o.MapFrom(s => s.Governorate.Name));
+                .ForMember(d => d.GovernorateName, o => o.MapFrom(s => s.Governorate.Name))
+                .ForMember(d => d.ReviewCount, o => o.MapFrom(s => s.Reviews.Count));
             CreateMap<Place, PlaceDetailPublicDto>()
                 .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName));
         }

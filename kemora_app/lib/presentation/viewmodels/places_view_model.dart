@@ -4,6 +4,8 @@ import '../../domain/usecases/explore_usecases.dart';
 import '../../domain/usecases/get_places_usecase.dart';
 import '../../domain/usecases/get_places_by_category_usecase.dart';
 import '../../domain/usecases/get_favorites_usecase.dart';
+import '../../domain/usecases/add_favorite_usecase.dart';
+import '../../domain/usecases/remove_favorite_usecase.dart';
 import '../../domain/usecases/get_place_details_usecase.dart';
 import '../../core/services/weather_service.dart';
 
@@ -23,6 +25,8 @@ class PlacesViewModel extends ChangeNotifier {
   final GetGovernoratesUseCase getGovernoratesUseCase;
   final GetPlacesByGovernorateUseCase getPlacesByGovernorateUseCase;
   final GetFavoritesUseCase getFavoritesUseCase;
+  final AddFavoriteUseCase addFavoriteUseCase;
+  final RemoveFavoriteUseCase removeFavoriteUseCase;
   final GetPlaceDetailsUseCase getPlaceDetailsUseCase;
   
   final WeatherService _weatherService = WeatherService();
@@ -34,6 +38,8 @@ class PlacesViewModel extends ChangeNotifier {
     required this.getGovernoratesUseCase,
     required this.getPlacesByGovernorateUseCase,
     required this.getFavoritesUseCase,
+    required this.addFavoriteUseCase,
+    required this.removeFavoriteUseCase,
     required this.getPlaceDetailsUseCase,
   });
 
@@ -89,15 +95,20 @@ class PlacesViewModel extends ChangeNotifier {
     return activities;
   }
 
-  Future<void> loadPlaces([String category = 'All']) async {
+  Future<void> loadPlaces({String category = 'All', String? search, String? governorateId}) async {
     _state = PlacesState.loading;
     _currentCategory = category;
     _errorMessage = null;
     notifyListeners();
 
+    // When scoped to a governorate, send both the governorateId and the category
+    // to the backend (GET /api/v1/places) so it returns places in that governorate
+    // for that category, hydrating from Google on demand if the DB is empty.
     final result = category == 'All'
-        ? await getPlacesUseCase()
-        : await getPlacesByCategoryUseCase(category);
+        ? await getPlacesUseCase(search: search, governorateId: governorateId)
+        : (governorateId != null
+            ? await getPlacesUseCase(search: search, governorateId: governorateId, categoryName: category)
+            : await getPlacesByCategoryUseCase(category));
 
     result.fold(
       (failure) {
@@ -183,6 +194,45 @@ class PlacesViewModel extends ChangeNotifier {
       },
     );
     notifyListeners();
+  }
+
+  bool isFavorite(String placeId) {
+    return _favorites.any((p) => p.id == placeId);
+  }
+
+  Future<void> toggleFavorite(Place place) async {
+    final currentlyFavorite = isFavorite(place.id);
+    if (currentlyFavorite) {
+      // Optimistic update
+      _favorites.removeWhere((p) => p.id == place.id);
+      notifyListeners();
+      
+      final result = await removeFavoriteUseCase(place.id);
+      result.fold(
+        (failure) {
+          // Revert on failure
+          _favorites.add(place);
+          _errorMessage = failure.message;
+          notifyListeners();
+        },
+        (_) {},
+      );
+    } else {
+      // Optimistic update
+      _favorites.add(place);
+      notifyListeners();
+
+      final result = await addFavoriteUseCase(place.id);
+      result.fold(
+        (failure) {
+          // Revert on failure
+          _favorites.removeWhere((p) => p.id == place.id);
+          _errorMessage = failure.message;
+          notifyListeners();
+        },
+        (_) {},
+      );
+    }
   }
 
   /// Fetches place details from the API to ensure full details (like reviews) are loaded.

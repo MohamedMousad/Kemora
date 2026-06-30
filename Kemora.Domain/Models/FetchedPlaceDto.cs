@@ -23,6 +23,12 @@ namespace Kemora.Domain.Models
         public double DistanceKm { get; set; }
         public string? ImageUrl { get; set; }
         public List<string> PhotoUrls { get; set; } = [];
+        /// <summary>
+        /// Raw Google photo resource names (e.g. "places/{id}/photos/{ref}"), in the
+        /// same order as <see cref="PhotoUrls"/>. Used to build authenticated media
+        /// URLs for uploading to Cloudinary during hydration.
+        /// </summary>
+        public List<string> PhotoResourceNames { get; set; } = [];
         public int? Popularity { get; set; }
         public List<FetchedReviewDto> Reviews { get; set; } = [];
     }

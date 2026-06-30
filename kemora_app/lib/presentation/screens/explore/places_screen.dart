@@ -21,8 +21,26 @@ class PlacesScreen extends StatefulWidget {
 
 class _PlacesScreenState extends State<PlacesScreen> {
   int _selectedFilter = 0;
-  final List<String> _filters = ['All', 'Ancient Places', 'Museums', 'Hotels', 'Restaurants', 'Others'];
+
+  // (display label, real DB category name). Mirrors the Home screen filters so the
+  // categories here match what the backend knows how to hydrate. null = All.
+  static const List<({String label, String? category})> _filters = [
+    (label: 'All', category: null),
+    (label: 'Historical', category: 'Historical'),
+    (label: 'Beach', category: 'Beach'),
+    (label: 'Cultural', category: 'Cultural'),
+    (label: 'Adventure', category: 'Adventure'),
+    (label: 'Religious', category: 'Religious'),
+    (label: 'Nature', category: 'Nature'),
+  ];
+
+  List<String> get _filterLabels => _filters.map((f) => f.label).toList();
   final TextEditingController _searchController = TextEditingController();
+
+  // Resolved governorate id for the active screen (from widget.governorate or a
+  // search query that matches a governorate name). When non-null, category chips
+  // and searches are scoped to this governorate.
+  String? _activeGovernorateId;
 
   @override
   void initState() {
@@ -37,16 +55,18 @@ class _PlacesScreenState extends State<PlacesScreen> {
       if (vm.governorates.isEmpty) {
         await vm.loadGovernorates();
       }
-      if (widget.governorate != null) {
-        // Find governorate ID
-        final govId = vm.governorateIdByName(widget.governorate!);
-        if (govId != null) {
-          vm.loadPlacesByGovernorate(govId);
-        } else {
-          vm.loadPlaces();
-        }
+
+      // Prefer an explicit governorate, then try to resolve the search query to a
+      // governorate name — the governorateId path hydrates from Google when the DB
+      // has no places yet, whereas free-text search does not.
+      final candidate = widget.governorate ?? widget.initialSearchQuery;
+      final govId = candidate != null ? vm.governorateIdByName(candidate.trim()) : null;
+
+      _activeGovernorateId = govId;
+      if (govId != null) {
+        vm.loadPlacesByGovernorate(govId);
       } else {
-        vm.loadPlaces();
+        vm.loadPlaces(search: widget.initialSearchQuery);
       }
     });
   }
@@ -61,9 +81,45 @@ class _PlacesScreenState extends State<PlacesScreen> {
     setState(() {});
   }
 
+  /// Runs a search, routing recognised governorate names through the
+  /// governorateId path (which hydrates from Google when the DB is empty).
+  void _runSearch(String query) {
+    final vm = context.read<PlacesViewModel>();
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      _activeGovernorateId = null;
+      _applyCurrentFilter(vm);
+      return;
+    }
+    final govId = vm.governorateIdByName(trimmed);
+    _activeGovernorateId = govId;
+    if (govId != null) {
+      _applyCurrentFilter(vm);
+    } else {
+      vm.loadPlaces(search: trimmed);
+    }
+  }
+
+  /// Reloads places for the active category, scoped to the active governorate when
+  /// one is set. Keeps the home-style category semantics (null category = All).
+  void _applyCurrentFilter(PlacesViewModel vm) {
+    final category = _filters[_selectedFilter].category;
+    if (_activeGovernorateId != null) {
+      vm.loadPlaces(
+        category: category ?? 'All',
+        governorateId: _activeGovernorateId,
+      );
+    } else if (category == null) {
+      vm.loadPlaces();
+    } else {
+      vm.loadPlaces(category: category);
+    }
+  }
+
   List<Place> _getFilteredPlaces(List<Place> places) {
+    // Category filtering is handled server-side (governorateId + categoryName), so
+    // here we only apply the in-memory search query as the user types.
     return places.where((place) {
-      // 1. Filter by Search Query
       if (_searchController.text.isNotEmpty) {
         final query = _searchController.text.toLowerCase();
         final govName = place.governorateName?.toLowerCase() ?? '';
@@ -71,12 +127,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
           return false;
         }
       }
-
-      // 2. Filter by Category chip
-      if (_selectedFilter != 0 && place.type != _filters[_selectedFilter]) {
-        return false; // Assuming place.type is the category name for now
-      }
-
       return true;
     }).toList();
   }
@@ -124,6 +174,10 @@ class _PlacesScreenState extends State<PlacesScreen> {
                         ),
                         child: TextField(
                           controller: _searchController,
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (query) {
+                            _runSearch(query);
+                          },
                           decoration: InputDecoration(
                             hintText: 'Search places...',
                             prefixIcon: const Icon(Icons.search),
@@ -131,8 +185,15 @@ class _PlacesScreenState extends State<PlacesScreen> {
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             fillColor: Colors.transparent,
-                            suffixIcon: _searchController.text.isNotEmpty 
-                              ? IconButton(icon: const Icon(Icons.close), onPressed: () => _searchController.clear())
+                            suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _activeGovernorateId = null;
+                                    _applyCurrentFilter(context.read<PlacesViewModel>());
+                                  }
+                                )
                               : null,
                           ),
                         ),
@@ -144,9 +205,12 @@ class _PlacesScreenState extends State<PlacesScreen> {
               
               SliverToBoxAdapter(
                 child: FilterChipRow(
-                  chips: _filters,
+                  chips: _filterLabels,
                   selectedIndex: _selectedFilter,
-                  onSelected: (i) => setState(() => _selectedFilter = i),
+                  onSelected: (i) {
+                    setState(() => _selectedFilter = i);
+                    _applyCurrentFilter(context.read<PlacesViewModel>());
+                  },
                 ),
               ),
               
@@ -189,8 +253,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
                             reviewsCount: place.reviews.length,
                             price: place.priceLevel != null ? '\$' * place.priceLevel! : 'Free',
                             distance: 'N/A', // Distance needs location services
-                            isFavorite: false,
-                            imageAsset: place.mainImageUrl ?? '',
+                            isFavorite: placesViewModel.isFavorite(place.id),
+                            onFavoriteTap: () => placesViewModel.toggleFavorite(place),
+                            imageUrl: place.mainImageUrl ?? place.imageUrl,
                           ),
                         ),
                       );
