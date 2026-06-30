@@ -32,7 +32,7 @@ The \texttt{OpenRouterAiService} diverges from traditional AI implementations by
 
 \textbf{Model Discovery and Filtering:}
 Upon initialization, a thread-safe \texttt{SemaphoreSlim} ensures the service fetches the model directory from the OpenRouter API exactly once. The models are rigorously filtered:
-\begin{lstlisting}[language=csharp]
+\begin{lstlisting}[language={[Sharp]C}]
 if (model.Pricing != null && 
     double.TryParse(model.Pricing.Prompt, out var promptPrice) && promptPrice == 0 &&
     double.TryParse(model.Pricing.Completion, out var compPrice) && compPrice == 0)
@@ -70,7 +70,7 @@ Before executing complex geographical queries, the service utilizes a dual-layer
 
 \textbf{Spatial Filtering \& The 30km Constraint:}
 If a cache miss occurs, the service queries the local database utilizing the Haversine formula to compute point-to-point distances. To ensure the AI doesn't cross city borders (e.g., suggesting an attraction in Alexandria when the user is in Cairo), a hard-coded strict radius constraint is enforced, clipping the maximum allowed radius:
-\begin{lstlisting}[language=csharp]
+\begin{lstlisting}[language={[Sharp]C}]
 var strictRadiusKm = Math.Min(request.MaxRadiusKm, 30.0);
 var localPlaces = allDbPlaces
     .Select(p => new FetchedPlaceDto
@@ -88,7 +88,7 @@ The service evaluates the richness of the local DB cache. If \texttt{localPlaces
 
 \textbf{Categorical Injection and Token Compression:}
 To optimize the prompt injected into the LLM, the candidate places are bucketed by type using substring matches on the \texttt{Categories} or \texttt{Types} fields. The context is then carefully curated to ensure a balanced itinerary, injecting exactly the top 3 hotels, 20 attractions, 8 restaurants, and 4 cafes:
-\begin{lstlisting}[language=csharp]
+\begin{lstlisting}[language={[Sharp]C}]
 var orderedPlaces = hotels.Take(3)
     .Concat(attractions.OrderByDescending(p => p.Rating).Take(20))
     .Concat(restaurants.OrderByDescending(p => p.Rating).Take(8))
@@ -150,7 +150,7 @@ In late June 2026, profiling revealed a critical bottleneck: the backend was att
 \textbf{Zero-Fetch Image Injection:}
 The architecture was subsequently refactored to completely decouple data generation from media fetching. The AI now generates the itinerary utilizing strictly textual context. Once the JSON is parsed, the backend avoids external image API calls entirely. Instead, it iterates through the generated itinerary, cross-references the AI's exact choices against the pre-loaded local dataset, and directly re-injects existing image URLs:
 
-\begin{lstlisting}[language=csharp]
+\begin{lstlisting}[language={[Sharp]C}]
 foreach (var day in itinerary)
 {
     foreach (var act in day["activities"].AsArray())

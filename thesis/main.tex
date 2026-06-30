@@ -45,37 +45,69 @@
 \usepackage[font=small,labelfont=bf]{caption} % Strict technical report formatting for figures and tables
 \usepackage{pdflscape} % For landscape orientation of large tables if necessary
 
-% --- USER PLACEHOLDERS ---
-\newcommand{\universityName}{[UNIVERSITY NAME]}
-\newcommand{\facultyName}{[FACULTY/DEPARTMENT NAME]}
-\newcommand{\projectTitle}{Kemora: An AI-Powered Travel Discovery Platform for Egypt}
-\newcommand{\academicYear}{[ACADEMIC YEAR e.g. 2025/2026]}
-\newcommand{\supervisorName}{[SUPERVISOR NAME]}
-\newcommand{\teamMembers}{
-    [Student 1 Name \& ID] \\
-    [Student 2 Name \& ID] \\
-    [Student 3 Name \& ID] \\
-    [Student 4 Name \& ID]
-}
-
-\begin{document}
+% Reduce heading sizes to match technical report standards
+\titleformat{\chapter}[display]
+  {\normalfont\LARGE\bfseries}{\chaptertitlename\ \thechapter}{10pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+\titleformat{\section}
+  {\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
 
 \begin{titlepage}
     \begin{center}
-        \vspace*{1cm}
-        \Large \textbf{\universityName}\\
-        \textbf{\facultyName}\\
-        \vspace{1.5cm}
-        \Huge \textbf{\projectTitle}
-        \vspace{1.5cm}\\
-        \Large A Graduation Project Report submitted in partial fulfillment \\
-        of the requirements for the Bachelor's Degree.
-        \vspace{2cm}\\
-        \textbf{Prepared By:}\\ \teamMembers
-        \vspace{1.5cm}\\
-        \textbf{Supervised By:}\\ \supervisorName
+        
+        % Header with Logos
+        \begin{minipage}{0.2\textwidth}
+            \includegraphics[width=\linewidth, height=3cm, keepaspectratio]{figures/eng.png}
+        \end{minipage}
+        \hfill
+        \begin{minipage}{0.55\textwidth}
+            \centering
+            \textbf{Port Said University}\\
+            \textbf{Faculty of Engineering}\\
+            \textbf{Department of Computer and Control Engineering}
+        \end{minipage}
+        \hfill
+        \begin{minipage}{0.2\textwidth}
+            \includegraphics[width=\linewidth, height=3cm, keepaspectratio]{figures/eng.png}
+        \end{minipage}
+
+        \vspace{2cm}
+
+        % Title
+        {\LARGE \textbf{Kemora: An AI-Powered Travel Discovery Platform for Egypt}\par}
+        \vspace{1cm}
+        {\Large \textbf{Graduation Project 2026}\par}
+        \vspace{1cm}
+        
+        % Project Logo Placeholder
+        \includegraphics[width=5cm, height=5cm, keepaspectratio]{figures/project_logo.png}
+        
         \vfill
-        \Large \textbf{Academic Year \academicYear}
+
+        % Details Table
+        \begin{table}[H]
+            \centering
+            \renewcommand{\arraystretch}{1.8}
+            \begin{tabular}{|>{\raggedright\arraybackslash}p{4.5cm}|>{\raggedright\arraybackslash}p{8cm}|}
+                \hline
+                \textbf{Supervisor} & Dr. Rabab Farouk \\
+                \hline
+                \textbf{Team Members} & 
+                Mohamed Ahmed Mousad \newline
+                Mohamed Khaled Elsayed \newline
+                Zeyad Khaled Elsayed \newline
+                Mohamed Eltabey Elshenawy \newline
+                Ahmed Bassem Elshafey \\
+                \hline
+                \textbf{Department Name} & Department of Computer and Control Engineering \\
+                \hline
+                \textbf{Date of Submission} & July 2026 \\
+                \hline
+            \end{tabular}
+        \end{table}
+
     \end{center}
 \end{titlepage}
 
@@ -94,6 +126,9 @@
 \textbf{Recommendations:} Future iterations should transition to a Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and natively fine-tune open-source LLMs using LoRA techniques to completely eliminate third-party dependencies.
 
 \newpage
+\input{acknowledgments}
+
+\newpage
 \tableofcontents
 \newpage
 \listoffigures
@@ -104,7 +139,7 @@
 \newpage
 
 \pagenumbering{arabic}
-\part{Body of the Report}
+\addcontentsline{toc}{part}{Body of the Report}
 
 \input{chapter1_intro}
 \input{chapter2_lit_review}
@@ -115,7 +150,7 @@
 \input{chapter8_business_model}
 \input{chapter6_conclusion}
 
-\part{Back Matter (Supporting Materials)}
+\addcontentsline{toc}{part}{Back Matter (Supporting Materials)}
 
 \input{references}
 
