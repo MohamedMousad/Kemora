@@ -96,16 +96,7 @@ builder.Services.AddScoped<Kemora.Domain.Interfaces.IUserRepository, Kemora.Infr
 // Application Services
 builder.Services.AddScoped<Kemora.Domain.Interfaces.ITokenService, Kemora.Infrastructure.Services.TokenService>();
 
-var placesProvider = builder.Configuration["Places:Provider"] ?? "Foursquare";
-if (placesProvider.Equals("Google", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlacesDataService, Kemora.Infrastructure.Services.GooglePlacesService>();
-}
-else
-{
-    builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlacesDataService, Kemora.Infrastructure.Services.FoursquarePlacesService>();
-}
-builder.Services.AddScoped<Kemora.Domain.Interfaces.ISerpApiService, Kemora.Infrastructure.Services.SerpApiService>();
+builder.Services.AddScoped<Kemora.Domain.Interfaces.IPlacesDataService, Kemora.Infrastructure.Services.GooglePlacesService>();
 builder.Services.AddSingleton<Kemora.Domain.Interfaces.IAiService, Kemora.Infrastructure.Services.OpenRouterAiService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IAuthService, Kemora.Infrastructure.Services.AuthService>();
 builder.Services.AddScoped<Kemora.Application.Interfaces.IBadgeService, Kemora.Application.Services.BadgeService>();
@@ -176,11 +167,7 @@ builder.Services.AddHttpClient("GooglePlaces", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-builder.Services.AddHttpClient("SerpApi", client =>
-{
-    client.BaseAddress = new Uri("https://serpapi.com/search.json");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
+
 
 builder.Services.AddHttpClient("OpenRouter", client =>
 {

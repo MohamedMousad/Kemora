@@ -20,7 +20,6 @@ namespace Kemora.Application.Services
         private readonly ICacheService _cacheService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPlacesDataService _placesDataService;
-        private readonly ISerpApiService _serpApiService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<PlacePublicService> _logger;
 
@@ -30,7 +29,6 @@ namespace Kemora.Application.Services
             ICacheService cacheService, 
             IUnitOfWork unitOfWork, 
             IPlacesDataService placesDataService, 
-            ISerpApiService serpApiService,
             IServiceScopeFactory scopeFactory,
             ILogger<PlacePublicService> logger)
         {
@@ -39,7 +37,6 @@ namespace Kemora.Application.Services
             _cacheService = cacheService;
             _unitOfWork = unitOfWork;
             _placesDataService = placesDataService;
-            _serpApiService = serpApiService;
             _scopeFactory = scopeFactory;
             _logger = logger;
         }
@@ -220,50 +217,17 @@ namespace Kemora.Application.Services
 
         private async Task EnrichPlacesWithImagesAsync(IEnumerable<Place> places)
         {
+            // With Google Places API, images and ratings are already enriched during hydration.
+            // We just clear any mock IDs if they exist.
             bool hasUpdates = false;
             foreach (var place in places)
             {
-                // Clear stale mock IDs from old seeding — they don't work with SerpApi
+                // Clear stale mock IDs from old seeding
                 if (place.GoogleDataId != null && place.GoogleDataId.StartsWith("mock_"))
                 {
                     place.GoogleDataId = null;
                     _unitOfWork.Repository<Place>().Update(place);
                     hasUpdates = true;
-                }
-
-                // Try to enrich via SerpApi first if rating is 0 or image is missing
-                if (place.Rating == 0 || string.IsNullOrEmpty(place.MainImageURL) || place.MainImageURL.Contains("placeholder"))
-                {
-                    // If we haven't resolved the local DB to the true Google Maps ID yet
-                    if (string.IsNullOrEmpty(place.GoogleDataId))
-                    {
-                        var match = await _serpApiService.SearchPlaceAsync(place.Name, (double)place.Latitude, (double)place.Longitude);
-                        if (match != null && !string.IsNullOrEmpty(match.DataId))
-                        {
-                            place.GoogleDataId = match.DataId;
-                            if (place.Rating == 0 && match.Rating.HasValue) place.Rating = (decimal)match.Rating.Value;
-                            if (string.IsNullOrEmpty(place.Address) && !string.IsNullOrEmpty(match.Address)) place.Address = match.Address;
-                            
-                            // Immediately harvest the thumbnail if available
-                            if (string.IsNullOrEmpty(place.MainImageURL) && !string.IsNullOrEmpty(match.Thumbnail))
-                                place.MainImageURL = match.Thumbnail;
-
-                            _unitOfWork.Repository<Place>().Update(place);
-                            hasUpdates = true;
-                        }
-                    }
-
-                    // Then upgrade to maximum quality Photos if we have a valid GoogleDataId
-                    if (!string.IsNullOrEmpty(place.GoogleDataId) && (string.IsNullOrEmpty(place.MainImageURL) || place.MainImageURL.Contains("placeholder")))
-                    {
-                        var photos = await _serpApiService.GetPlacePhotosAsync(place.GoogleDataId, 1);
-                        if (photos != null && photos.Count > 0)
-                        {
-                            place.MainImageURL = photos.First();
-                            _unitOfWork.Repository<Place>().Update(place);
-                            hasUpdates = true;
-                        }
-                    }
                 }
             }
             if (hasUpdates)

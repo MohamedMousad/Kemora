@@ -21,19 +21,25 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Handle Onboarding Screen (if first time launch)
+    await tester.pumpAndSettle();
+    
     final skipButton = find.text('SKIP');
     if (skipButton.evaluate().isNotEmpty) {
+      print('Found SKIP button, tapping...');
       await tester.tap(skipButton);
       await tester.pumpAndSettle();
+    } else {
+      print('SKIP button not found. Assuming we are already on Login screen.');
     }
 
     // Now we should be on the Login screen
-    expect(find.text('KEMORA'), findsWidgets);
-    expect(find.text('Welcome Back'), findsWidgets);
+    expect(find.text('KEMORA'), findsWidgets, reason: 'Expected KEMORA logo on login screen');
+    expect(find.text('Welcome Back'), findsWidgets, reason: 'Expected Welcome Back on login screen');
 
     // 2. Go to Register Screen
-    final createAccountText = find.text('Create an account');
-    expect(createAccountText, findsOneWidget);
+    final createAccountText = find.textContaining('Create an account', findRichText: true);
+    expect(createAccountText, findsOneWidget, reason: 'Expected "Create an account" link');
+    await tester.ensureVisible(createAccountText);
     await tester.tap(createAccountText);
     await tester.pumpAndSettle();
 
@@ -51,14 +57,16 @@ void main() {
     await tester.enterText(
         find.widgetWithText(TextField, 'Confirm Password'), testPassword);
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'CREATE ACCOUNT'));
+    final createAccountBtn = find.widgetWithText(ElevatedButton, 'CREATE ACCOUNT');
+    await tester.ensureVisible(createAccountBtn);
+    await tester.tap(createAccountBtn);
     
     // Wait for the API call and navigation
-    await tester.pumpAndSettle(const Duration(seconds: 5));
+    await tester.pumpAndSettle(const Duration(seconds: 10));
 
     // 4. Verify we are on the Home Screen (Explore Tab)
-    // Looking for some known elements like the Kemora title or the BottomNavigationBar
-    expect(find.byType(BottomNavigationBar), findsOneWidget);
+    // Looking for some known elements like the Kemora title or the FloatingNavBar
+    expect(find.byType(PageView), findsOneWidget);
     
     // Check if the greeting shows up
     expect(find.textContaining('Hello, E2E Test User'), findsWidgets);
@@ -67,7 +75,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
     // 5. Navigate to Social Tab
-    final socialTab = find.text('Social');
+    final socialTab = find.byIcon(Icons.groups_rounded);
     await tester.tap(socialTab);
     await tester.pumpAndSettle(const Duration(seconds: 2));
 
@@ -86,7 +94,7 @@ void main() {
     }
 
     // 6. Navigate to Trip Tab
-    final tripTab = find.text('Trip');
+    final tripTab = find.byIcon(Icons.auto_awesome);
     await tester.tap(tripTab);
     await tester.pumpAndSettle();
 
@@ -132,7 +140,7 @@ void main() {
     }
 
     // 7. Navigate to Profile Tab
-    final profileTab = find.text('Profile');
+    final profileTab = find.byIcon(Icons.person_rounded);
     await tester.tap(profileTab);
     await tester.pumpAndSettle();
 

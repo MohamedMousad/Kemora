@@ -187,324 +187,37 @@ namespace Kemora.Infrastructure.Data
 
         private static async Task SeedPlacesAsync(ApplicationDbContext context)
         {
-            System.Console.WriteLine("SEED: Seeding Places...");
-            if (await context.Places.AnyAsync()) {
-                System.Console.WriteLine("SEED: Places already exist. Skipping.");
-                return;
-            }
+            System.Console.WriteLine("SEED: Checking for old Foursquare and mock Places...");
+            
+            var oldPlaces = await context.Places
+                .Where(p => p.Source == "seed" || p.Source == "foursquare")
+                .ToListAsync();
 
-            var templeType   = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "temple");
-            var pyramidType  = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "pyramid");
-            var museumType   = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "museum");
-            var marketType   = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "market");
-            var hotelType    = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "hotel");
-            var beachType    = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "beach_resort");
-            var parkType     = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "national_park");
-            var oasisType    = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "oasis");
-            var citadelType  = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "citadel");
-            var restaurantType = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "restaurant");
-            var divingType   = await context.PlaceTypes.FirstOrDefaultAsync(t => t.GoogleType == "diving_spot");
-
-            var govs = await context.Governorates.ToDictionaryAsync(g => g.Name, g => g.GovernorateID);
-
-            int? GovId(string name) => govs.TryGetValue(name, out var id) ? id : null;
-
-            var places = new List<Place>
+            if (oldPlaces.Any())
             {
-                // ── CAIRO ──────────────────────────────────────────────────────────
-                new() {
-                    Name = "Egyptian Museum", Description = "Home to the world's largest collection of ancient Egyptian antiquities — over 120,000 items including Tutankhamun's treasures.",
-                    Address = "Tahrir Square, Cairo", Latitude = 30.0476m, Longitude = 31.2336m,
-                    Website = "https://maps.app.goo.gl/Rb3xd3bPuDzZqBJJ6", Rating = 4.7m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Cairo"), PlaceTypeID = museumType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Ahmed Hassan", Rating = 5, Text = "Absolutely mind-blowing collection. Tutankhamun's mask alone is worth the trip." },
-                        new() { AuthorName = "Sophie Miller", Rating = 4, Text = "Incredible history, but the building itself is quite old. Worth visiting before the Grand Museum opens fully." },
-                        new() { AuthorName = "Omar Farouq", Rating = 5, Text = "You need at least 4 hours here. Every single room is full of wonders." }
-                    }
-                },
-                new() {
-                    Name = "Khan el-Khalili", Description = "Cairo's most famous bazaar in the heart of Islamic Cairo, dating back to 1382. Shop for spices, gold, textiles and souvenirs.",
-                    Address = "El-Hussein Square, Al-Azhar, Cairo", Latitude = 30.0477m, Longitude = 31.2623m,
-                    Website = "https://maps.app.goo.gl/6pUZq7jzSrZWRPBh7", Rating = 4.6m, PriceLevel = 1,
-                    MainImageURL = "https://images.unsplash.com/photo-1553913861-c0fddf2619ee?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Cairo"), PlaceTypeID = marketType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Layla Nasser", Rating = 5, Text = "The atmosphere at night is magical. The tea at El Fishawi cafe is a must." },
-                        new() { AuthorName = "Carlos Ruiz", Rating = 4, Text = "Vibrant and chaotic in the best way. Bargaining is expected — don't pay the first price." },
-                        new() { AuthorName = "Yasmine Ali", Rating = 5, Text = "The spice market lane is incredible. Perfect souvenirs for everyone." }
-                    }
-                },
-                new() {
-                    Name = "Cairo Tower", Description = "A 187-metre concrete tower on Gezira Island offering panoramic 360° views of Cairo and the Nile.",
-                    Address = "Gezira Island, Cairo", Latitude = 30.0459m, Longitude = 31.2242m,
-                    Website = "https://maps.app.goo.gl/VE3oujk9Bj3bTHVCA", Rating = 4.5m, PriceLevel = 1,
-                    MainImageURL = "https://images.unsplash.com/photo-1572252009286-268acec5ca0a?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Cairo"), PlaceTypeID = museumType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Fatima Saad", Rating = 5, Text = "Stunning sunset views of Cairo from the top. The revolving restaurant is great." },
-                        new() { AuthorName = "James White", Rating = 4, Text = "Great panorama. Best at golden hour. Queue can be long on weekends." }
-                    }
-                },
-                new() {
-                    Name = "Al-Azhar Park", Description = "A beautiful 30-hectare park on a reclaimed hilltop offering lush gardens and panoramic views of Islamic Cairo.",
-                    Address = "Salah Salem St, Cairo", Latitude = 30.0456m, Longitude = 31.2686m,
-                    Website = "https://maps.app.goo.gl/kNBMGpqXAJxiJKXR7", Rating = 4.7m, PriceLevel = 0,
-                    MainImageURL = "https://images.unsplash.com/photo-1568322445389-f64ac2515020?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Cairo"), PlaceTypeID = parkType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Rania Mostafa", Rating = 5, Text = "The best escape from Cairo's chaos. The views of the minarets are gorgeous." },
-                        new() { AuthorName = "Khalid Ibrahim", Rating = 5, Text = "Beautifully maintained with a great cafe. Visit in spring for perfect weather." }
-                    }
-                },
+                System.Console.WriteLine($"SEED: Found {oldPlaces.Count} old places. Deleting dependencies...");
+                var oldPlaceIds = oldPlaces.Select(p => p.PlaceID).ToList();
 
-                // ── GIZA ───────────────────────────────────────────────────────────
-                new() {
-                    Name = "Great Pyramid of Giza", Description = "The last of the Seven Wonders of the Ancient World. Built for Pharaoh Khufu around 2560 BC, it stands 138 metres tall.",
-                    Address = "Al Haram, Giza", Latitude = 29.9792m, Longitude = 31.1342m,
-                    Website = "https://maps.app.goo.gl/iWBK9B6ZaJcKUgLx5", Rating = 4.9m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Giza"), PlaceTypeID = pyramidType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Sara Mahmoud", Rating = 5, Text = "Words cannot describe standing at the base of this structure. Truly humbling." },
-                        new() { AuthorName = "Thomas Brown", Rating = 5, Text = "A bucket list experience. Arrive very early to avoid the crowds and heat." },
-                        new() { AuthorName = "Nour Abdel", Rating = 5, Text = "The solar boat museum next to it is also fascinating. Don't miss it!" }
-                    }
-                },
-                new() {
-                    Name = "Great Sphinx of Giza", Description = "A limestone statue of a reclining sphinx with a human head, guarding the pyramids. It's the largest monolith statue in the world.",
-                    Address = "Nazlet El-Semman, Al Haram, Giza", Latitude = 29.9753m, Longitude = 31.1376m,
-                    Website = "https://maps.app.goo.gl/RoMpFCspmLuFhPXaA", Rating = 4.8m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1539768942893-daf525e3b71b?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Giza"), PlaceTypeID = pyramidType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Monica Costa", Rating = 5, Text = "Even more impressive in person. The restoration work is interesting to see." },
-                        new() { AuthorName = "Ali Karim", Rating = 4, Text = "Viewing area is restricted — you can't get too close but the sight is still incredible." }
-                    }
-                },
-                new() {
-                    Name = "Marriott Mena House", Description = "Historic 5-star luxury hotel built in 1869 at the foot of the Pyramids, with direct views of Khufu's pyramid from its rooms and pool.",
-                    Address = "6 Pyramids Rd, Giza", Latitude = 29.9866m, Longitude = 31.1283m,
-                    Website = "https://maps.app.goo.gl/hPQGW8XTLkexLt3eA", Rating = 4.7m, PriceLevel = 4,
-                    MainImageURL = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Giza"), PlaceTypeID = hotelType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Elena Fischer", Rating = 5, Text = "Waking up to Pyramid views is an unmatched experience. The pool area is beautiful." },
-                        new() { AuthorName = "Karim Waheed", Rating = 5, Text = "Historic, luxurious and the best location in Giza. Worth every penny." }
-                    }
-                },
+                var tripPlaces = await context.TripPlaces.Where(tp => oldPlaceIds.Contains(tp.PlaceID)).ToListAsync();
+                context.TripPlaces.RemoveRange(tripPlaces);
 
-                // ── LUXOR ──────────────────────────────────────────────────────────
-                new() {
-                    Name = "Karnak Temple", Description = "The largest ancient religious site in the world — a vast complex of temples, chapels and pylons dedicated to Amun, Mut and Khonsu.",
-                    Address = "Karnak, Luxor", Latitude = 25.7188m, Longitude = 32.6573m,
-                    Website = "https://maps.app.goo.gl/8eJ3r7bV6mNTcnFD7", Rating = 4.9m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1594916301297-a7eb443a9926?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Luxor"), PlaceTypeID = templeType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Pierre Dupont", Rating = 5, Text = "The Avenue of Sphinxes alone makes this worth visiting. Staggering scale." },
-                        new() { AuthorName = "Hend Salem", Rating = 5, Text = "Visit the sound and light show at night — a magical experience." },
-                        new() { AuthorName = "Mark Johnson", Rating = 5, Text = "Bigger than you can imagine from photos. Give yourself at least 3 hours." }
-                    }
-                },
-                new() {
-                    Name = "Luxor Temple", Description = "A large ancient Egyptian temple complex on the east bank of the Nile, built mainly by Amenhotep III and Ramesses II.",
-                    Address = "Al-Karnak, Luxor City", Latitude = 25.6994m, Longitude = 32.6392m,
-                    Website = "https://maps.app.goo.gl/mZQR97wE3GaXBj1HA", Rating = 4.8m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1571843439991-dd2b8e051966?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Luxor"), PlaceTypeID = templeType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Amina Youssef", Rating = 5, Text = "Night visit is absolutely breathtaking with illuminations. Don't miss it." },
-                        new() { AuthorName = "Roberto Mancini", Rating = 4, Text = "Stunning temple right on the Nile. The colossi of Ramesses II are incredible." }
-                    }
-                },
-                new() {
-                    Name = "Valley of the Kings", Description = "The burial ground for pharaohs of the New Kingdom (1539–1075 BC), containing over 60 elaborately decorated tombs.",
-                    Address = "West Bank, Luxor", Latitude = 25.7403m, Longitude = 32.6014m,
-                    Website = "https://maps.app.goo.gl/oHpRQXU4CL2PH3w46", Rating = 4.9m, PriceLevel = 3,
-                    MainImageURL = "https://images.unsplash.com/photo-1563292769-0c69c07af2de?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Luxor"), PlaceTypeID = templeType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Nadia Khalil", Rating = 5, Text = "Tutankhamun's tomb is smaller than expected but still awe-inspiring. Seti I's tomb has the best paintings." },
-                        new() { AuthorName = "David Clarke", Rating = 5, Text = "The colours on the tomb walls after 3000 years are still vivid. Unreal." },
-                        new() { AuthorName = "Sarah Petrov", Rating = 4, Text = "Go early to beat the heat and crowds. The audio guide is very informative." }
-                    }
-                },
-                new() {
-                    Name = "Sofra Restaurant", Description = "A beautifully restored 1930s traditional Egyptian home serving authentic Upper Egyptian cuisine with a stunning courtyard ambiance.",
-                    Address = "90 Mohammed Farid St, Luxor", Latitude = 25.7003m, Longitude = 32.6420m,
-                    Website = "https://maps.app.goo.gl/HnXm1E7GsqK9XMKZ8", Rating = 4.6m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Luxor"), PlaceTypeID = restaurantType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Hannah Smith", Rating = 5, Text = "Best meal of our entire Egypt trip. The kofta and stuffed pigeon are extraordinary." },
-                        new() { AuthorName = "Tariq Elmasry", Rating = 5, Text = "The rooftop terrace has views of the Nile. A perfect dinner setting." }
-                    }
-                },
+                var posts = await context.Posts.Where(p => p.LocationId != null && oldPlaceIds.Contains(p.LocationId.Value)).ToListAsync();
+                foreach(var post in posts)
+                {
+                    var comments = await context.Comments.Where(c => c.PostID == post.PostID).ToListAsync();
+                    context.Comments.RemoveRange(comments);
+                }
+                context.Posts.RemoveRange(posts);
 
-                // ── ASWAN ──────────────────────────────────────────────────────────
-                new() {
-                    Name = "Philae Temple", Description = "A stunning ancient Egyptian temple complex relocated to Agilkia Island after the construction of the Aswan Dam. Dedicated to the goddess Isis.",
-                    Address = "Agilkia Island, Aswan", Latitude = 24.0276m, Longitude = 32.8839m,
-                    Website = "https://maps.app.goo.gl/kFN8SWDJqWrJn3TS6", Rating = 4.8m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1610486828590-edc9372e617d?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Aswan"), PlaceTypeID = templeType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Lena Schmidt", Rating = 5, Text = "The boat ride to the island is part of the experience. The temple at sunset is magical." },
-                        new() { AuthorName = "Youssef Badr", Rating = 5, Text = "Sound and light show at night is well worth doing. The reflections on the Nile are incredible." }
-                    }
-                },
-                new() {
-                    Name = "Abu Simbel Temples", Description = "Two massive rock-cut temples built by Ramesses II. They were relocated in the 1960s to save them from the rising Nile — a UNESCO engineering marvel.",
-                    Address = "Abu Simbel, Aswan Governorate", Latitude = 22.3372m, Longitude = 31.6258m,
-                    Website = "https://maps.app.goo.gl/cxUc1N3F9BVQFZ9u5", Rating = 4.9m, PriceLevel = 3,
-                    MainImageURL = "https://images.unsplash.com/photo-1598256741842-a9cf6e51bf24?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Aswan"), PlaceTypeID = templeType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Claire Bonnet", Rating = 5, Text = "The most impressive ancient monument I've ever seen. The colossal Ramesses statues are breathtaking." },
-                        new() { AuthorName = "Hassan Salam", Rating = 5, Text = "Worth the 3-hour drive from Aswan. Visit during the solar alignment event (Feb 22 / Oct 22) if you can." },
-                        new() { AuthorName = "Stefan Novak", Rating = 5, Text = "The engineering feat of moving these temples is almost as impressive as their age." }
-                    }
-                },
-                new() {
-                    Name = "Old Cataract Hotel Aswan", Description = "A legendary 5-star resort built in 1899 on a granite outcrop overlooking the Nile — Agatha Christie wrote 'Death on the Nile' here.",
-                    Address = "Abtal El Tahrir St, Aswan", Latitude = 24.0855m, Longitude = 32.8967m,
-                    Website = "https://maps.app.goo.gl/R7Eq8rU6MgxdSH4U9", Rating = 4.9m, PriceLevel = 4,
-                    MainImageURL = "https://images.unsplash.com/photo-1614089756453-a72a5b35e3f4?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Aswan"), PlaceTypeID = hotelType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Isabella Rossi", Rating = 5, Text = "The terrace over the Nile with Elephantine Island view is out of this world. Pure elegance." },
-                        new() { AuthorName = "Fady Morcos", Rating = 5, Text = "History, luxury and the Nile all in one. The afternoon tea is a tradition you must try." }
-                    }
-                },
-
-                // ── ALEXANDRIA ─────────────────────────────────────────────────────
-                new() {
-                    Name = "Qaitbay Citadel", Description = "A 15th-century fortress built on the exact site of the legendary Lighthouse of Alexandria, one of the Seven Wonders. Now a naval museum.",
-                    Address = "Corniche Road, Alexandria", Latitude = 31.2138m, Longitude = 29.8854m,
-                    Website = "https://maps.app.goo.gl/cJqMHJzWxPdaWZ4Q8", Rating = 4.7m, PriceLevel = 1,
-                    MainImageURL = "https://images.unsplash.com/photo-1621251817478-f685c7bb74e6?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Alexandria"), PlaceTypeID = citadelType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "George Christodoulou", Rating = 5, Text = "The waves crashing against the base are dramatic. The sea views are spectacular." },
-                        new() { AuthorName = "Menna Fouad", Rating = 4, Text = "Great location, stunning exterior. The naval museum inside is an added bonus." }
-                    }
-                },
-                new() {
-                    Name = "Bibliotheca Alexandrina", Description = "A major library and cultural center built to revive the spirit of the ancient Library of Alexandria, holding over 8 million books.",
-                    Address = "Chatby, Alexandria", Latitude = 31.2089m, Longitude = 29.9090m,
-                    Website = "https://maps.app.goo.gl/uy2cCWBqHWFJhgqn6", Rating = 4.8m, PriceLevel = 1,
-                    MainImageURL = "https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Alexandria"), PlaceTypeID = museumType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Ana Lima", Rating = 5, Text = "The architecture is stunning and the planetarium inside is world-class." },
-                        new() { AuthorName = "Dina Amer", Rating = 5, Text = "Five museums under one roof. The antiquities museum is particularly impressive." }
-                    }
-                },
-                new() {
-                    Name = "Stanley Bridge", Description = "An iconic suspension bridge in the Stanley district of Alexandria, popular for its Mediterranean sea views and vibrant promenade atmosphere.",
-                    Address = "Stanley, Alexandria", Latitude = 31.2417m, Longitude = 29.9546m,
-                    Website = "https://maps.app.goo.gl/dGDMhqGMzCqhwTLX6", Rating = 4.4m, PriceLevel = 0,
-                    MainImageURL = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Alexandria"), PlaceTypeID = parkType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Salma Tarek", Rating = 4, Text = "Perfect for an evening stroll. The seafood restaurants nearby are excellent." },
-                        new() { AuthorName = "Miriam Zaki", Rating = 5, Text = "Beautiful at sunset. The Mediterranean breeze and views are refreshing." }
-                    }
-                },
-
-                // ── RED SEA ────────────────────────────────────────────────────────
-                new() {
-                    Name = "Hurghada Marina", Description = "A vibrant waterfront complex in Hurghada with restaurants, cafés, boutiques and boat trips. The social hub of the Red Sea Riviera.",
-                    Address = "Hurghada Marina, Red Sea", Latitude = 27.2164m, Longitude = 33.8327m,
-                    Website = "https://maps.app.goo.gl/AkFZkmTwE8HhnHN48", Rating = 4.5m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1584025000781-9f935fcc2dbe?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Red Sea"), PlaceTypeID = beachType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Peter Hansen", Rating = 4, Text = "Great atmosphere at night with live music. Boat trips to the reef are superb." },
-                        new() { AuthorName = "Noha Ismail", Rating = 5, Text = "The yacht club is beautiful. Restaurant options are varied and the food is fresh." }
-                    }
-                },
-                new() {
-                    Name = "Giftun Island", Description = "A protected national park island near Hurghada with pristine beaches and extraordinary coral reefs, ideal for snorkelling and diving.",
-                    Address = "Giftun Island, Red Sea", Latitude = 27.1719m, Longitude = 33.9222m,
-                    Website = "https://maps.app.goo.gl/kBB8mhF3JeLbmVbq8", Rating = 4.8m, PriceLevel = 2,
-                    MainImageURL = "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Red Sea"), PlaceTypeID = divingType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Julia Weber", Rating = 5, Text = "The clearest water I've ever snorkelled in. The coral is pristine and the fish life is incredible." },
-                        new() { AuthorName = "Amr Samy", Rating = 5, Text = "Best day trip from Hurghada. The island has a Robinson Crusoe feel." }
-                    }
-                },
-
-                // ── SOUTH SINAI ────────────────────────────────────────────────────
-                new() {
-                    Name = "Ras Mohammed National Park", Description = "Egypt's premier national park at the tip of the Sinai Peninsula, world-famous for its stunning coral walls, sharks and pristine marine life.",
-                    Address = "Ras Mohammed, South Sinai", Latitude = 27.7397m, Longitude = 34.2416m,
-                    Website = "https://maps.app.goo.gl/C3VUymP3U3m5Z9yC7", Rating = 4.9m, PriceLevel = 1,
-                    MainImageURL = "https://images.unsplash.com/photo-1622350720516-ec7fdf41a100?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("South Sinai"), PlaceTypeID = divingType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Michael Scott", Rating = 5, Text = "The best diving in Egypt, possibly the world. The Shark Reef wall is extraordinary." },
-                        new() { AuthorName = "Dalia Refaat", Rating = 5, Text = "Even just snorkelling here blows every other location out of the water (pun intended)." }
-                    }
-                },
-                new() {
-                    Name = "St. Catherine Monastery", Description = "One of the world's oldest working Christian monasteries, built at the foot of Mount Sinai in the 6th century. A UNESCO World Heritage Site.",
-                    Address = "Saint Catherine, South Sinai", Latitude = 28.5560m, Longitude = 33.9760m,
-                    Website = "https://maps.app.goo.gl/jSWYtVSf8bLRHzLm8", Rating = 4.8m, PriceLevel = 0,
-                    MainImageURL = "https://images.unsplash.com/photo-1548786811-dd6e453ccca7?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("South Sinai"), PlaceTypeID = citadelType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Father Andreas", Rating = 5, Text = "A deeply moving spiritual place. The burning bush in the courtyard is humbling." },
-                        new() { AuthorName = "Lars Eriksson", Rating = 5, Text = "Climb Mount Sinai for sunrise then visit the monastery. A perfect combination." }
-                    }
-                },
-
-                // ── MATROUH ────────────────────────────────────────────────────────
-                new() {
-                    Name = "Siwa Oasis", Description = "An idyllic oasis city in the Western Desert, known for its ancient ruins, therapeutic salt lakes, and the Oracle Temple consulted by Alexander the Great.",
-                    Address = "Siwa, Matrouh", Latitude = 29.2035m, Longitude = 25.5195m,
-                    Website = "https://maps.app.goo.gl/xdBVaruivjKnFoqXA", Rating = 4.8m, PriceLevel = 1,
-                    MainImageURL = "https://images.unsplash.com/photo-1616790809516-92895f11181f?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Matrouh"), PlaceTypeID = oasisType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Emma van Dijk", Rating = 5, Text = "One of the most special places I've been. The stargazing here is beyond anything I've experienced." },
-                        new() { AuthorName = "Bassem Nabil", Rating = 5, Text = "Floated in the salt lake at sunset — pure bliss. The eco-lodges are charming." }
-                    }
-                },
-
-                // ── FAYOUM ────────────────────────────────────────────────────────
-                new() {
-                    Name = "Wadi El Rayan", Description = "A nature reserve containing Egypt's only naturally occurring waterfalls and a chain of beautiful desert lakes. A popular day trip from Cairo.",
-                    Address = "Faiyum Governorate", Latitude = 29.2022m, Longitude = 30.3506m,
-                    Website = "https://maps.app.goo.gl/b8NMQ5KxrPLMGpYy9", Rating = 4.7m, PriceLevel = 0,
-                    MainImageURL = "https://images.unsplash.com/photo-1601058268499-e52658b8ebf8?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("Fayoum"), PlaceTypeID = parkType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Shereen Hamed", Rating = 5, Text = "The waterfall between the two lakes is truly unique in Egypt. Perfect picnic spot." },
-                        new() { AuthorName = "Michael Liu", Rating = 4, Text = "Incredible combination of desert and water. The sand dunes near the lake are surreal." }
-                    }
-                },
-
-                // ── NEW VALLEY ────────────────────────────────────────────────────
-                new() {
-                    Name = "White Desert National Park", Description = "A stunning national park in Egypt's Western Desert with surreal white chalk rock formations shaped by wind erosion over millennia.",
-                    Address = "Farafra, New Valley", Latitude = 27.2819m, Longitude = 27.9928m,
-                    Website = "https://maps.app.goo.gl/dShsmD86ceFmU99cA", Rating = 4.9m, PriceLevel = 0,
-                    MainImageURL = "https://images.unsplash.com/photo-1539768942893-daf525e3b71b?auto=format&fit=crop&w=1200",
-                    GovernorateID = GovId("New Valley"), PlaceTypeID = parkType?.TypeID, Source = "seed",
-                    Reviews = new List<Review> {
-                        new() { AuthorName = "Ingrid Strand", Rating = 5, Text = "Like camping on the moon. The chalk formations by moonlight are ethereal." },
-                        new() { AuthorName = "Karim Bassiony", Rating = 5, Text = "The most otherworldly landscape in Egypt. Camping here overnight is unforgettable." }
-                    }
-                },
-            };
-
-            context.Places.AddRange(places);
-            await context.SaveChangesAsync();
-            System.Console.WriteLine($"SEED: Seeded {places.Count} places.");
+                System.Console.WriteLine("SEED: Deleting old places...");
+                context.Places.RemoveRange(oldPlaces);
+                await context.SaveChangesAsync();
+                System.Console.WriteLine("SEED: Old places deleted successfully. New Google Places will be hydrated on demand.");
+            }
+            else
+            {
+                System.Console.WriteLine("SEED: No old places found. Google Places will be hydrated on demand.");
+            }
         }
 
         private static async Task SeedSocialPostsAsync(ApplicationDbContext context)
