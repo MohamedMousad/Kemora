@@ -22,6 +22,7 @@ namespace Kemora.Application.Services
         private readonly IPlacesDataService _placesDataService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<PlacePublicService> _logger;
+        private readonly IImageService _imageService;
 
         public PlacePublicService(
             IPlaceRepository placeRepo, 
@@ -30,7 +31,8 @@ namespace Kemora.Application.Services
             IUnitOfWork unitOfWork, 
             IPlacesDataService placesDataService, 
             IServiceScopeFactory scopeFactory,
-            ILogger<PlacePublicService> logger)
+            ILogger<PlacePublicService> logger,
+            IImageService imageService)
         {
             _placeRepo = placeRepo;
             _mapper = mapper;
@@ -39,6 +41,7 @@ namespace Kemora.Application.Services
             _placesDataService = placesDataService;
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _imageService = imageService;
         }
 
         public async Task<PagedResult<PlacePublicDto>> GetPlacesAsync(int? governorateId, int? categoryId, string? categoryName, string? searchQuery, int page, int pageSize)
@@ -176,6 +179,12 @@ namespace Kemora.Application.Services
                     
                     if (!string.IsNullOrEmpty(basicPlace.Name))
                     {
+                        string? uploadedImageUrl = null;
+                        if (!string.IsNullOrEmpty(basicPlace.ImageUrl) && basicPlace.ImageUrl.StartsWith("http"))
+                        {
+                            uploadedImageUrl = await _imageService.UploadImageFromUrlAsync(basicPlace.ImageUrl);
+                        }
+                        
                         var newPlace = new Place
                         {
                             GoogleDataId = basicPlace.ExternalId,
@@ -186,7 +195,7 @@ namespace Kemora.Application.Services
                             Longitude = (decimal)basicPlace.Longitude,
                             Rating = (decimal)(basicPlace.Rating ?? 0),
                             PriceLevel = int.TryParse(basicPlace.PriceLevel, out int pl) ? pl : 0,
-                            MainImageURL = basicPlace.ImageUrl, 
+                            MainImageURL = uploadedImageUrl ?? basicPlace.ImageUrl, 
                             Phone = basicPlace.Phone,
                             Website = basicPlace.Website,
                             GovernorateID = governorateId,

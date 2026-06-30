@@ -71,6 +71,8 @@ class GovernorateModel extends Governorate {
     required super.name,
     super.imageUrl,
     super.region,
+    super.latitude,
+    super.longitude,
   });
 
   factory GovernorateModel.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,8 @@ class GovernorateModel extends Governorate {
       name: json['name'] as String? ?? 'Unknown Governorate',
       imageUrl: json['imageURL'] as String?,
       region: json['region'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -88,6 +92,8 @@ class GovernorateModel extends Governorate {
       'name': name,
       'imageUrl': imageUrl,
       'region': region,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 }

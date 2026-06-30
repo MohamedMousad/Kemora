@@ -77,14 +77,18 @@ class Governorate extends Equatable {
   final String name;
   final String? imageUrl;
   final String? region;
+  final double latitude;
+  final double longitude;
 
   const Governorate({
     required this.id,
     required this.name,
     this.imageUrl,
     this.region,
+    this.latitude = 0.0,
+    this.longitude = 0.0,
   });
 
   @override
-  List<Object?> get props => [id, name, imageUrl, region];
+  List<Object?> get props => [id, name, imageUrl, region, latitude, longitude];
 }

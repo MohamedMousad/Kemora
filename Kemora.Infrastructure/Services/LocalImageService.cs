@@ -42,5 +42,34 @@ namespace Kemora.Infrastructure.Services
             // Return the public URL pointing to the static-file middleware
             return $"{_baseUrl}/uploads/{uniqueName}";
         }
+
+        public async Task<string?> UploadImageFromUrlAsync(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+
+            try
+            {
+                using var httpClient = new System.Net.Http.HttpClient();
+                using var response = await httpClient.GetAsync(url);
+                
+                if (!response.IsSuccessStatusCode) return null;
+
+                var ext = ".jpg"; 
+                if (url.Contains(".png")) ext = ".png";
+                else if (url.Contains(".gif")) ext = ".gif";
+
+                var uniqueName = $"{Guid.NewGuid():N}{ext}";
+                var filePath = Path.Combine(_uploadsFolder, uniqueName);
+
+                using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+                await response.Content.CopyToAsync(fs);
+
+                return $"{_baseUrl}/uploads/{uniqueName}";
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

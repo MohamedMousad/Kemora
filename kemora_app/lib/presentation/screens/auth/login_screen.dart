@@ -233,6 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 40),
                   Center(
                     child: GestureDetector(
+                      key: const Key('create_account_link'),
                       onTap: () {
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const RegisterScreen()));

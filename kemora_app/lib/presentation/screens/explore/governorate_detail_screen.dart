@@ -4,7 +4,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
 import '../../widgets/editorial_place_card.dart';
-import '../../../data/local/governorate_data.dart';
 import '../../viewmodels/places_view_model.dart';
 import '../../../domain/entities/place.dart';
 import 'place_detail_screen.dart';
@@ -13,7 +12,7 @@ import 'places_screen.dart';
 /// Detailed view of a single governorate with categorized place sections,
 /// matching the Home design style with a sticky search bar.
 class GovernorateDetailScreen extends StatefulWidget {
-  final GovernorateInfo governorate;
+  final Governorate governorate;
   const GovernorateDetailScreen({super.key, required this.governorate});
 
   @override
@@ -62,6 +61,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final placesViewModel = context.watch<PlacesViewModel>();
     return Scaffold(
       appBar: const KemoraAppBar(showBack: true),
       body: Consumer<PlacesViewModel>(
@@ -116,10 +116,10 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
               children: [
                 const Icon(Icons.wb_sunny_rounded, color: AppColors.tertiary, size: 20),
                 const SizedBox(width: 8),
-                Text(widget.governorate.temperature, style: AppTypography.titleMedium),
+                Text(context.read<PlacesViewModel>().getGovernorateTemperature(widget.governorate.id), style: AppTypography.titleMedium),
                 const SizedBox(width: 12),
                 Text(
-                  widget.governorate.weather,
+                  context.read<PlacesViewModel>().getGovernorateWeatherCode(widget.governorate.id),
                   style: AppTypography.labelSmall.copyWith(color: AppColors.onSurfaceVariant),
                 ),
               ],
@@ -127,27 +127,30 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
           ),
           const SizedBox(height: 20),
           // Top Activities
-          Row(
-            children: [
-              ...widget.governorate.topActivities.take(2).map((a) => Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Chip(
-                      avatar: Icon(a.icon, size: 16, color: AppColors.primaryContainer),
-                      label: Text(a.label),
-                      backgroundColor: AppColors.surfaceContainerLowest,
-                      side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-                    ),
-                  )),
-              if (widget.governorate.topActivities.length > 2)
-                ActionChip(
-                  label: Text('Show All (${widget.governorate.topActivities.length})',
-                      style: TextStyle(color: AppColors.primaryContainer)),
-                  backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.1),
-                  side: BorderSide.none,
-                  onPressed: () => _showAllActivities(context),
-                ),
-            ],
-          ),
+          Builder(builder: (context) {
+            final activities = context.read<PlacesViewModel>().getGovernorateActivities(widget.governorate.id);
+            return Row(
+              children: [
+                ...activities.take(2).map((a) => Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Chip(
+                        avatar: Icon(a.icon, size: 16, color: AppColors.primaryContainer),
+                        label: Text(a.label),
+                        backgroundColor: AppColors.surfaceContainerLowest,
+                        side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                      ),
+                    )),
+                if (activities.length > 2)
+                  ActionChip(
+                    label: Text('Show All (${activities.length})',
+                        style: TextStyle(color: AppColors.primaryContainer)),
+                    backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.1),
+                    side: BorderSide.none,
+                    onPressed: () => _showAllActivities(context, activities),
+                  ),
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -207,7 +210,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                       category: place.type ?? 'Place',
                       location: place.address ?? place.governorateName ?? 'Egypt',
                       rating: place.rating.toDouble(),
-                      reviewsCount: place.reviewsCount,
+                      reviewsCount: place.reviews.length,
                       price: place.priceLevel != null ? '\$' * place.priceLevel! : 'Free',
                       distance: 'N/A', // Distance needs location services
                       isFavorite: false,
@@ -241,7 +244,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
     return sections;
   }
 
-  void _showAllActivities(BuildContext context) {
+  void _showAllActivities(BuildContext context, List<ActivityInfo> activities) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceContainerLowest,
@@ -259,7 +262,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: widget.governorate.topActivities
+              children: activities
                   .map((a) => Chip(
                         avatar: Icon(a.icon, size: 16),
                         label: Text(a.label),

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_shadows.dart';
-import '../../../data/local/governorate_data.dart';
+import '../../viewmodels/places_view_model.dart';
 import 'governorate_detail_screen.dart';
 import '../../widgets/fade_slide_in.dart';
 import '../../../core/router/page_transitions.dart';
@@ -17,9 +18,20 @@ class GovernoratesMapScreen extends StatefulWidget {
 class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
   int _selectedIndex = 0;
 
-  void _nextGovernorate() {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final vm = context.read<PlacesViewModel>();
+      if (vm.governorates.isEmpty) {
+        vm.loadGovernorates();
+      }
+    });
+  }
+
+  void _nextGovernorate(int maxIndex) {
     setState(() {
-      if (_selectedIndex < governoratesData.length - 1) {
+      if (_selectedIndex < maxIndex - 1) {
         _selectedIndex++;
       } else {
         _selectedIndex = 0;
@@ -27,22 +39,37 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
     });
   }
 
-  void _prevGovernorate() {
+  void _prevGovernorate(int maxIndex) {
     setState(() {
       if (_selectedIndex > 0) {
         _selectedIndex--;
       } else {
-        _selectedIndex = governoratesData.length - 1;
+        _selectedIndex = maxIndex - 1;
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final governorate = governoratesData[_selectedIndex];
+    return Consumer<PlacesViewModel>(
+      builder: (context, vm, child) {
+        if (vm.governorates.isEmpty) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
 
-    return Scaffold(
-      body: Stack(
+        // Adjust index if list shrank
+        if (_selectedIndex >= vm.governorates.length) {
+          _selectedIndex = 0;
+        }
+
+        final governorate = vm.governorates[_selectedIndex];
+        
+        final temp = vm.getGovernorateTemperature(governorate.id);
+        final weather = vm.getGovernorateWeatherCode(governorate.id);
+        final topActivities = vm.getGovernorateActivities(governorate.id);
+
+        return Scaffold(
+          body: Stack(
         children: [
           // Background Map Placeholder
           FadeSlideIn(
@@ -57,15 +84,21 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
             ),
           ),
 
-          // Map Dots (render all 27)
-          ...governoratesData.asMap().entries.map((entry) {
+          // Map Dots
+          ...vm.governorates.asMap().entries.map((entry) {
             final int index = entry.key;
-            final GovernorateInfo gov = entry.value;
+            final gov = entry.value;
             final bool isSelected = index == _selectedIndex;
 
+            // Map Egypt bounds to 0.0 - 1.0
+            // Lat: 22(S) to 32(N)
+            // Lon: 25(W) to 35(E)
+            final double relativeY = (32.0 - gov.latitude) / 10.0;
+            final double relativeX = (gov.longitude - 25.0) / 10.0;
+
             return Positioned(
-              top: MediaQuery.of(context).size.height * gov.latitude,
-              left: MediaQuery.of(context).size.width * gov.longitude,
+              top: MediaQuery.of(context).size.height * relativeY.clamp(0.0, 1.0),
+              left: MediaQuery.of(context).size.width * relativeX.clamp(0.0, 1.0),
               child: FadeSlideIn(
                 delayMs: 200,
                 child: GestureDetector(
@@ -163,7 +196,7 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.chevron_left, color: AppColors.outline),
-                          onPressed: _prevGovernorate,
+                          onPressed: () => _prevGovernorate(vm.governorates.length),
                         ),
                         Expanded(
                           child: Column(
@@ -171,14 +204,14 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
                               Text(governorate.name.toUpperCase(),
                                   style: AppTypography.headlineLarge, textAlign: TextAlign.center),
                               const SizedBox(height: 4),
-                              Text(governorate.region,
+                              Text(governorate.region ?? 'Egypt',
                                   style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant)),
                             ],
                           ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.chevron_right, color: AppColors.outline),
-                          onPressed: _nextGovernorate,
+                          onPressed: () => _nextGovernorate(vm.governorates.length),
                         ),
                       ],
                     ),
@@ -189,9 +222,9 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
                       children: [
                         const Icon(Icons.wb_sunny, color: AppColors.primaryContainer, size: 20),
                         const SizedBox(width: 8),
-                        Text(governorate.temperature, style: AppTypography.titleLarge.copyWith(color: AppColors.primaryContainer)),
+                        Text(temp, style: AppTypography.titleLarge.copyWith(color: AppColors.primaryContainer)),
                         const SizedBox(width: 12),
-                        Text(governorate.weather, style: AppTypography.labelSmall.copyWith(color: AppColors.onSurfaceVariant)),
+                        Text(weather, style: AppTypography.labelSmall.copyWith(color: AppColors.onSurfaceVariant)),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -201,14 +234,14 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ...governorate.topActivities.take(2)
+                        ...topActivities.take(2)
                             .map((act) => Padding(
                                   padding: const EdgeInsets.only(right: 12),
                                   child: _buildActivityIcon(act.icon, act.label),
                                 )),
-                        if (governorate.topActivities.length > 2)
+                        if (topActivities.length > 2)
                           GestureDetector(
-                            onTap: () => _showAllActivities(context, governorate),
+                            onTap: () => _showAllActivities(context, governorate.name, topActivities),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                               decoration: BoxDecoration(
@@ -248,6 +281,8 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
         ],
       ),
     );
+  },
+);
   }
 
   Widget _buildActivityIcon(IconData icon, String label) {
@@ -267,7 +302,7 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
     );
   }
 
-  void _showAllActivities(BuildContext context, GovernorateInfo gov) {
+  void _showAllActivities(BuildContext context, String govName, List<ActivityInfo> activities) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceContainerLowest,
@@ -280,12 +315,12 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${gov.name} Activities', style: AppTypography.headlineSmall),
+            Text('$govName Activities', style: AppTypography.headlineSmall),
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: gov.topActivities
+              children: activities
                   .map((a) => Chip(
                         avatar: Icon(a.icon, size: 16),
                         label: Text(a.label),

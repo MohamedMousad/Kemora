@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:kemora/main.dart' as app;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:kemora/core/auth/token_storage.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -12,9 +13,15 @@ void main() {
     // Clear preferences to ensure a clean state (not logged in, onboarding not seen)
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+    // Also clear TokenStorage since it's a singleton and might retain state across test hot-restarts
+    TokenStorage.instance.clearTokens();
 
-    // Start the app
+    // Start the app and wait for it to initialize completely
     app.main();
+    
+    // We need to pump a frame to get runApp() to render the first frame
+    await tester.pump();
+    
     // Splash screen uses Future.delayed for 2.5 seconds, so we need to pump time
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 4));
@@ -35,10 +42,13 @@ void main() {
     expect(find.text('Welcome Back'), findsWidgets, reason: 'Expected Welcome Back on login screen');
 
     // 2. Go to Register Screen
-    final createAccountText = find.textContaining('Create an account', findRichText: true);
-    expect(createAccountText, findsOneWidget, reason: 'Expected "Create an account" link');
-    await tester.ensureVisible(createAccountText);
-    await tester.tap(createAccountText);
+    final createAccountLink = find.byKey(const Key('create_account_link'));
+    await tester.dragUntilVisible(
+      createAccountLink,
+      find.byType(CustomScrollView),
+      const Offset(0, -300),
+    );
+    await tester.tap(createAccountLink);
     await tester.pumpAndSettle();
 
     // 3. Register a new user
@@ -51,10 +61,13 @@ void main() {
         find.widgetWithText(TextField, 'Enter your full name'), 'E2E Test User');
     await tester.enterText(
         find.widgetWithText(TextField, 'name@luxury-travel.com'), testEmail);
-    // Find the password fields by their hint text, which is '••••••••'
     final passwordFields = find.widgetWithText(TextField, '••••••••');
     await tester.enterText(passwordFields.first, testPassword);
-    await tester.enterText(passwordFields.last, testPassword);
+    
+    // In RegisterScreen, confirm password might need scroll to become visible
+    final confirmPasswordField = passwordFields.last;
+    await tester.ensureVisible(confirmPasswordField);
+    await tester.enterText(confirmPasswordField, testPassword);
 
     // Check the Terms & Conditions checkbox
     final checkbox = find.byType(Checkbox);

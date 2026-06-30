@@ -42,7 +42,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
           final savedPlaces = placesViewModel.favorites;
 
           if (savedPlaces.isEmpty) {
-            return const Center(child: Text('No saved places yet.', style: AppTypography.titleMedium));
+            return Center(child: Text('No saved places yet.', style: AppTypography.titleMedium));
           }
 
           return ListView.builder(
@@ -54,7 +54,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: GestureDetector(
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(place: place)));
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id, placeName: place.name)));
                   },
                   child: Container(
                     decoration: BoxDecoration(
@@ -70,10 +70,10 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                             width: 100,
                             height: 100,
                             color: AppColors.surfaceContainerHigh,
-                            child: place.imageAsset.isNotEmpty
-                                ? (place.imageAsset.startsWith('http')
-                                    ? Image.network(place.imageAsset, fit: BoxFit.cover)
-                                    : Image.asset(place.imageAsset, fit: BoxFit.cover))
+                            child: (place.mainImageUrl ?? place.imageUrl).isNotEmpty
+                                ? ((place.mainImageUrl ?? place.imageUrl).startsWith('http')
+                                    ? Image.network(place.mainImageUrl ?? place.imageUrl, fit: BoxFit.cover)
+                                    : Image.asset(place.mainImageUrl ?? place.imageUrl, fit: BoxFit.cover))
                                 : const Icon(Icons.image, color: AppColors.outlineVariant),
                           ),
                         ),
@@ -84,7 +84,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                             children: [
                               Text(place.name, style: AppTypography.titleMedium),
                               const SizedBox(height: 4),
-                              Text(place.location, style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant)),
+                              Text(place.address ?? place.governorateName ?? 'Egypt', style: AppTypography.bodySmall.copyWith(color: AppColors.onSurfaceVariant)),
                               const SizedBox(height: 8),
                               Row(
                                 children: [

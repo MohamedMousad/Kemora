@@ -186,7 +186,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
                             category: place.type ?? 'Place',
                             location: place.address ?? place.governorateName ?? 'Egypt',
                             rating: place.rating.toDouble(),
-                            reviewsCount: place.reviewsCount,
+                            reviewsCount: place.reviews.length,
                             price: place.priceLevel != null ? '\$' * place.priceLevel! : 'Free',
                             distance: 'N/A', // Distance needs location services
                             isFavorite: false,
