@@ -42,6 +42,13 @@ Kemora utilizes a multi-tier, decoupled architecture designed for high cohesion 
     \item \textbf{API Layer:} Exposes RESTful endpoints (e.g., \texttt{AuthController}, \texttt{TripsController}) secured via Bearer authentication.
 \end{enumerate}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/architecture.png}
+    \caption{Kemora's Overall Architecture}
+    \label{fig:architecture}
+\end{figure}
+
 \subsection{Sequence Diagrams}
 
 \subsubsection{Authentication Flow (JWT Generation)}
@@ -127,23 +134,123 @@ The data tier is powered by a relational SQL Server database schema optimized fo
     \item \textbf{Post \& Comment:} The core of the social network. Posts link to a \texttt{UserID} and optionally a \texttt{LinkedTripId}, allowing users to seamlessly share their itineraries directly to the feed.
 \end{itemize}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/erd.png}
+    \caption{Entity Relationship Diagram (ERD)}
+    \label{fig:erd}
+\end{figure}
+
 \section{Frontend User Journeys and UI Design}
 The Flutter application (`lib/presentation/`) is structurally divided by core domains. The User Interface (UI) follows a "Modern Heritage" design language—blending contemporary mobile UX patterns (glassmorphism, vibrant gradients) with culturally resonant typography and color palettes.
 
 \subsection{Journey 1: Onboarding \& Authentication}
 The user is first greeted by an animated Splash Screen, followed by an educational Walkthrough. The Authentication flow supports standard registration and OAuth. It intercepts deep links for email confirmation and password resets.
 
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/splash.png}
+        \caption{Mobile Application Splash Screen}
+        \label{fig:splash}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/login.png}
+        \caption{Mobile Application Authentication Page}
+        \label{fig:login}
+    \end{minipage}
+\end{figure}
+
 \subsection{Journey 2: Main Dashboard \& Discovery}
 The Home screen serves as the central hub, presenting personalized recommendations, top-rated destinations, and quick-action navigation via a custom floating tab bar.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{figures/home.png}
+    \caption{Mobile Application Home Page}
+    \label{fig:home}
+\end{figure}
 
 \subsection{Journey 3: Explore \& Location Discovery}
 Users can navigate an interactive map of Egyptian governorates. Selecting a governorate transitions to a detailed view listing sub-categories (Historical, Coastal, etc.) and individual Place detail screens.
 
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/map.png}
+        \caption{Interactive Map}
+        \label{fig:map}
+    \end{minipage}\hfill
+    \begin{minipage}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/gov_details.png}
+        \caption{Governorate Details}
+        \label{fig:gov_details}
+    \end{minipage}\hfill
+    \begin{minipage}{0.3\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/place_details.png}
+        \caption{Place Details}
+        \label{fig:place_details}
+    \end{minipage}
+\end{figure}
+
 \subsection{Journey 4: Trip Planning \& AI Itinerary}
 This is the flagship journey. Users input parameters into a multi-step questionnaire (`ai_step_questions_screen.dart`). The system displays a loading animation while negotiating with the backend AI. The result is a beautifully rendered, interactive timeline (`ai_itinerary_result_screen.dart`).
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/ai_questions.png}
+        \caption{AI Trip Planner Questionnaire}
+        \label{fig:ai_questions}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/ai_itinerary.png}
+        \caption{AI Generated Itinerary Timeline}
+        \label{fig:ai_itinerary}
+    \end{minipage}
+\end{figure}
 
 \subsection{Journey 5: Social \& Community}
 A familiar, vertically scrolling feed allows users to consume and produce content. Users can view detailed posts, engage in comment threads, and participate in direct real-time chats.
 
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/social_feed.png}
+        \caption{Community Social Feed}
+        \label{fig:social_feed}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/chat.png}
+        \caption{Real-Time Messaging Interface}
+        \label{fig:chat}
+    \end{minipage}
+\end{figure}
+
 \subsection{Journey 6: Profile \& Gamification}
 The Profile screen tracks the user's identity, displaying earned badges, total points, redeemed vouchers, and saved places.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/profile.png}
+        \caption{User Profile Screen}
+        \label{fig:profile}
+    \end{minipage}\hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/badges.png}
+        \caption{Gamification \& Badges Screen}
+        \label{fig:badges}
+    \end{minipage}
+\end{figure}
