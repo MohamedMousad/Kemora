@@ -34,21 +34,7 @@ The Kemora AI Trip Planner is not a simple passthrough proxy to an LLM. It is a 
 The \texttt{OpenRouterAiService} diverges from traditional AI implementations by eschewing hardcoded models (e.g., \texttt{gpt-4}). Instead, it leverages a dynamic model rotation architecture to utilize free open-source models while maintaining high availability.
 
 \textbf{Model Discovery and Filtering:}
-Upon initialization, a thread-safe \texttt{SemaphoreSlim} ensures the service fetches the model directory from the OpenRouter API exactly once. The models are rigorously filtered:
-\begin{lstlisting}[language=Java]
-if (model.Pricing != null && 
-    double.TryParse(model.Pricing.Prompt, out var promptPrice) && promptPrice == 0 &&
-    double.TryParse(model.Pricing.Completion, out var compPrice) && compPrice == 0)
-{
-    var blocklist = new[] { "lyria", "imagen", "owl-alpha", "ocr-fast", "music" };
-    if (model.ContextLength >= 8192 && 
-        !blocklist.Any(b => model.Id.Contains(b, StringComparison.OrdinalIgnoreCase)))
-    {
-        _models[model.Id] = new ModelInfo { ... };
-    }
-}
-\end{lstlisting}
-This explicitly isolates text-generation models capable of handling the extensive RAG context window (minimum 8192 tokens) while actively blacklisting unreliable or specialized models.
+Upon initialization, the service fetches the model directory from the OpenRouter API. The models are rigorously filtered to isolate text-generation models capable of handling extensive RAG context windows (minimum 8192 tokens) while actively blacklisting unreliable, specialized, or paid models that falsely advertise as free. This ensures only high-quality, cost-effective models are used.
 
 \textbf{Intelligent Rotation Strategy:}
 The \texttt{SelectBestModel} method employs a Least-Recently-Used (LRU) style selection. It estimates the required tokens based on character count (\texttt{Length / 4}), buffers it by 1.5x, and filters available models to ensure they have sufficient context limits. Models are then sorted primarily by their daily \texttt{RequestCount} (to distribute the load evenly) and secondarily by \texttt{ContextLength}.
@@ -72,35 +58,15 @@ Before executing complex geographical queries, the service utilizes a dual-layer
 \end{enumerate}
 
 \textbf{Spatial Filtering \& The 30km Constraint:}
-If a cache miss occurs, the service queries the local database utilizing the Haversine formula to compute point-to-point distances. To ensure the AI doesn't cross city borders (e.g., suggesting an attraction in Alexandria when the user is in Cairo), a hard-coded strict radius constraint is enforced, clipping the maximum allowed radius:
-\begin{lstlisting}[language=Java]
-var strictRadiusKm = Math.Min(request.MaxRadiusKm, 30.0);
-var localPlaces = allDbPlaces
-    .Select(p => new FetchedPlaceDto
-    {
-        // Property mapping...
-        DistanceKm = Math.Round(HaversineKm(request.Latitude, request.Longitude, (double)p.Latitude, (double)p.Longitude), 2)
-    })
-    .Where(p => p.DistanceKm <= strictRadiusKm && (p.Latitude != 0 || p.Longitude != 0))
-    .OrderBy(p => p.DistanceKm)
-    .ToList();
-\end{lstlisting}
+If a cache miss occurs, the service queries the local database utilizing the Haversine formula to compute point-to-point distances. To ensure the AI doesn't cross city borders (e.g., suggesting an attraction in Alexandria when the user is in Cairo), a strict 30-kilometer maximum radius constraint is enforced. Any location falling outside this geographic boundary is discarded entirely, ensuring the itinerary routing remains physically possible.
 
 \textbf{Dynamic API Fallback:}
 The service evaluates the richness of the local DB cache. If \texttt{localPlaces.Count < 15}, it recognizes a data deficiency and dynamically triggers \texttt{IPlacesDataService.FetchNearbyPlacesAsync} (interfacing with the Google Places API). These external results are merged, deduplicated, and asynchronously persisted to the local DB for future queries.
 
 \textbf{Categorical Injection and Token Compression:}
-To optimize the prompt injected into the LLM, the candidate places are bucketed by type using substring matches on the \texttt{Categories} or \texttt{Types} fields. The context is then carefully curated to ensure a balanced itinerary, injecting exactly the top 3 hotels, 20 attractions, 8 restaurants, and 4 cafes:
-\begin{lstlisting}[language=Java]
-var orderedPlaces = hotels.Take(3)
-    .Concat(attractions.OrderByDescending(p => p.Rating).Take(20))
-    .Concat(restaurants.OrderByDescending(p => p.Rating).Take(8))
-    .Concat(cafes.OrderByDescending(p => p.Rating).Take(4))
-    .DistinctBy(p => p.Name)
-    .Take(35)
-    .ToList();
-\end{lstlisting}
-This \texttt{orderedPlaces} collection is subsequently compressed into a dense string array. Each place is formatted as \texttt{[TYPE] Name | Rating: X.X | Categories | Address}, significantly reducing the token footprint while providing the AI with sufficient context to reason about scheduling and proximity.
+To drastically lower the prompt usage and reduce API costs, we implemented a strict token compression strategy. Instead of sending the full JSON payload of all available locations to the AI, we first categorically limit the data pool. The system selects exactly the highest-rated 3 hotels, 20 attractions, 8 restaurants, and 4 cafes. 
+
+Then, rather than sending lengthy descriptions, we compress each selected location into a single dense string format: \texttt{[TYPE] Name | Rating | Categories | Address}. This simple, highly efficient formatting minimizes token consumption while providing the LLM with the exact necessary context to reason about scheduling and proximity, effectively lowering context costs without sacrificing intelligence.
 
 \subsection{System and User Prompt Definitions}
 The final prompts merged in May 2026 enforce strict behavioral rules on the LLM.
@@ -151,26 +117,7 @@ You MUST return valid JSON only: { "newActivity": { "time": "HH:mm", "place": ".
 In late June 2026, profiling revealed a critical bottleneck: the backend was attempting to enrich all 35 candidate places sequentially \textit{before} feeding them to the AI, which caused unacceptable latency. Because Entity Framework Core's \texttt{DbContext} is not thread-safe, concurrent fetching and saving in a loop led to frequent \texttt{InvalidOperationException} crashes.
 
 \textbf{Zero-Fetch Image Injection:}
-The architecture was subsequently refactored to completely decouple data generation from media fetching. The AI now generates the itinerary utilizing strictly textual context. Once the JSON is parsed, the backend avoids external image API calls entirely. Instead, it iterates through the generated itinerary, cross-references the AI's exact choices against the pre-loaded local dataset, and directly re-injects existing image URLs:
-
-\begin{lstlisting}[language=Java]
-foreach (var day in itinerary)
-{
-    foreach (var act in day["activities"].AsArray())
-    {
-        var placeName = act["place"]?.ToString();
-        var match = finalPlaces.FirstOrDefault(p =>
-            p.Name.Equals(placeName, StringComparison.OrdinalIgnoreCase));
-            
-        if (match != null && !string.IsNullOrEmpty(match.ImageUrl) && !match.ImageUrl.Contains("placeholder"))
-        {
-            act["image_url"] = match.ImageUrl;
-        }
-    }
-}
-\end{lstlisting}
-
-This transition from sequential bulk fetching to local, in-memory image injection eradicated the API bottleneck, massively improving response time and eliminating the database concurrency exceptions that plagued earlier iterations.
+The architecture was subsequently refactored to completely decouple data generation from media fetching. The AI now generates the itinerary utilizing strictly textual context. Once the itinerary is parsed, the backend avoids external image API calls entirely. Instead, it systematically scans the generated JSON, matches the AI's chosen locations against our pre-loaded local dataset, and injects the corresponding image URLs directly into the final response object. This transition from sequential bulk fetching to local, in-memory image injection eradicated the API bottleneck, massively improving response time.
 
 \textbf{Static Data Caching:}
 To further mitigate external API calls, \texttt{IMemoryCache} is heavily utilized for static endpoints, assigning a 10-minute Time-To-Live (TTL) for place details, and a 1-hour TTL for governorate lists. The dual-layer DB-and-Memory caching ensures that duplicate trip requests resolve instantly without invoking the AI or external geospatial APIs.
