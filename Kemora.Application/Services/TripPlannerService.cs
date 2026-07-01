@@ -38,7 +38,7 @@ namespace Kemora.Application.Services
             if (request.MinRadiusKm >= request.MaxRadiusKm)
                 throw new ArgumentException("MinRadiusKm must be less than MaxRadiusKm.");
 
-            // 1. Redis / Memory Cache handling
+            // 1. In-memory cache handling (Level 1)
             string prefs = request.Preferences ?? "none";
             string cacheKey = $"plan_{request.CenterPlaceId}_{request.Latitude}_{request.Longitude}_{request.DurationDays}_{request.Location}_{prefs}_{request.AlternativeIndex}";
 
@@ -82,7 +82,7 @@ namespace Kemora.Application.Services
             var localPlaces = allDbPlaces
                 .Select(p => new FetchedPlaceDto
                 {
-                    ExternalId = p.FoursquareId,
+                    ExternalId = p.GooglePlaceId,
                     Name = p.Name,
                     Latitude = (double)p.Latitude,
                     Longitude = (double)p.Longitude,
@@ -105,12 +105,12 @@ namespace Kemora.Application.Services
 
             if (finalPlaces.Count < 15)
             {
-                // Trigger Foursquare API to fill gaps
+                // Trigger Google Places API to fill gaps
                 var fsPlaces = await _placesDataService.FetchNearbyPlacesAsync(
                     request.Latitude, request.Longitude,
                     request.MinRadiusKm, request.MaxRadiusKm);
 
-                // Merge Foursquare results, avoiding duplicates with DB places
+                // Merge Google Places results, avoiding duplicates with DB places
                 foreach (var fsp in fsPlaces)
                 {
                     if (!finalPlaces.Any(lp => lp.Name.Equals(fsp.Name, StringComparison.OrdinalIgnoreCase)))
@@ -120,7 +120,7 @@ namespace Kemora.Application.Services
                         // Async persist to DB with RICH ATTRIBUTES
                         var newPlace = new Place
                         {
-                            FoursquareId = fsp.ExternalId,
+                            GooglePlaceId = fsp.ExternalId,
                             Name = fsp.Name,
                             Address = fsp.Address,
                             Latitude = (decimal)fsp.Latitude,
@@ -128,7 +128,7 @@ namespace Kemora.Application.Services
                             Rating = (decimal)(fsp.Rating ?? 0),
                             PriceLevel = int.TryParse(fsp.PriceLevel, out int pl) ? pl : 0,
                             MainImageURL = fsp.ImageUrl,
-                            Source = "foursquare",
+                            Source = "google",
                             LastEnrichedAt = DateTime.UtcNow
                         };
                         await _unitOfWork.Repository<Place>().AddAsync(newPlace);
@@ -301,7 +301,7 @@ Select ONLY from this curated list:
             await _unitOfWork.Repository<PrecomputedTripPlan>().AddAsync(newDbCache);
             await _unitOfWork.CommitAsync();
 
-            // 6. Save the generated alternative in Redis/Memory Cache (Level 1)
+            // 6. Save the generated alternative in the in-memory cache (Level 1)
             _cache.Set(cacheKey, response, TimeSpan.FromHours(24));
 
             return response;

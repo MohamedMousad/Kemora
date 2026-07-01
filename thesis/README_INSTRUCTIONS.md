@@ -38,5 +38,5 @@ Take vertical screenshots from your Flutter emulator/phone and name them exactly
 
 ## 3. Review the Appendices
 I have included two robust appendices at the end of the document to ensure the page count is substantial and technically impressive:
-- **Appendix A:** A full API reference detailing the 17 backend endpoints.
+- **Appendix A:** An API reference detailing key backend endpoints (the full API surface spans 100 endpoints across 18 controllers).
 - **Appendix B:** The critical source code implementation of the `OpenRouterAiService` showing the dynamic LLM integration.

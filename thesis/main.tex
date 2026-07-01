@@ -2,6 +2,8 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx} % Load actual image files
+\usepackage{amsmath}  % Math environments (align, equation, etc.)
+\usepackage{amssymb}  % Mathematical symbols including \mathbb (real numbers, etc.)
 \usepackage{hyperref}
 \usepackage[margin=1in]{geometry}
 \usepackage{titlesec}
@@ -42,6 +44,30 @@
     tabsize=2
 }
 \lstset{style=mystyle}
+
+% Define a "json" language for the listings package (used by the AI prompt blocks).
+% The listings package has no built-in JSON language, so we register one here so
+% that \begin{lstlisting}[language=json] renders correctly instead of erroring.
+\lstdefinelanguage{json}{
+    basicstyle=\ttfamily\footnotesize,
+    string=[s]{"}{"},
+    stringstyle=\color{codepurple},
+    comment=[l]{//},
+    commentstyle=\color{codegreen}\itshape,
+    showstringspaces=false,
+    breaklines=true,
+    literate=
+     *{0}{{{\color{codegreen}0}}}{1}
+      {1}{{{\color{codegreen}1}}}{1}
+      {2}{{{\color{codegreen}2}}}{1}
+      {3}{{{\color{codegreen}3}}}{1}
+      {4}{{{\color{codegreen}4}}}{1}
+      {5}{{{\color{codegreen}5}}}{1}
+      {6}{{{\color{codegreen}6}}}{1}
+      {7}{{{\color{codegreen}7}}}{1}
+      {8}{{{\color{codegreen}8}}}{1}
+      {9}{{{\color{codegreen}9}}}{1}
+}
 
 \usepackage[font=small,labelfont=bf]{caption} % Strict technical report formatting for figures and tables
 \usepackage{pdflscape} % For landscape orientation of large tables if necessary
@@ -120,7 +146,7 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing. To solve this, this project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem integrating a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Google Places API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM). Empirical benchmarking confirms the backend successfully achieves median latencies of 22ms and sustains robust throughput under load via aggressive \texttt{IMemoryCache} permutations, while transitioning from sequential API fetching to in-memory Zero-Fetch Image Injection eradicated database concurrency bottlenecks. Future iterations should transition to a Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and natively fine-tune open-source LLMs using LoRA techniques to completely eliminate third-party dependencies.
+The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing. To solve this, this project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem integrating a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Google Places API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM). Empirical benchmarking confirms the cached read path serves requests with a median latency around 100\,ms and sustains robust, error-free throughput up to 2000 concurrent requests via aggressive \texttt{IMemoryCache} reuse, while transitioning from sequential API fetching to in-memory Zero-Fetch Image Injection eradicated database concurrency bottlenecks. Future iterations should transition to a Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and natively fine-tune open-source LLMs using LoRA techniques to completely eliminate third-party dependencies.
 
 \newpage
 \input{acknowledgments}

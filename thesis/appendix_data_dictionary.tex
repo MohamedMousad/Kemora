@@ -14,7 +14,7 @@ NormalizedUserName & NVARCHAR(256) & Nullable. Uppercase username for fast looku
 Email & NVARCHAR(256) & Unique Index. User's login email (Inherited). \\ \hline
 NormalizedEmail & NVARCHAR(256) & Nullable. Uppercase email (Inherited). \\ \hline
 EmailConfirmed & BIT & Required. Indicates if email is verified (Inherited). \\ \hline
-PasswordHash & NVARCHAR(MAX) & Nullable. Bcrypt/PBKDF2 hashed password string (Inherited). \\ \hline
+PasswordHash & NVARCHAR(MAX) & Nullable. PBKDF2 hashed password string (ASP.NET Core Identity default, inherited). \\ \hline
 SecurityStamp & NVARCHAR(MAX) & Nullable. Value that changes on credential change (Inherited). \\ \hline
 ConcurrencyStamp & NVARCHAR(MAX) & Nullable. Concurrency token (Inherited). \\ \hline
 PhoneNumber & NVARCHAR(MAX) & Nullable. User's phone number (Inherited). \\ \hline

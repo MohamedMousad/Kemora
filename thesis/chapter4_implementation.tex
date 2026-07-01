@@ -4,16 +4,16 @@
 This chapter delves into the practical execution of the Kemora project, tracking its evolution through the version control history (Git). It provides a detailed examination of how abstract designs were translated into concrete code, with a special emphasis on the iterative refinement of the AI prompt engineering pipeline.
 
 \section{Development Lifecycle and Phases}
-An analysis of the full commit history reveals that the project was developed iteratively over six distinct phases spanning approximately seven months.
+An analysis of the full commit history reveals that the project was developed iteratively over seven distinct phases spanning approximately seven months.
 
-\subsection{Phase 1: Initial Setup \& MVP (December 2025)}
-The project commenced with repository initialization, establishing the `.gitignore`, and outlining the skeletal structure of the .NET Clean Architecture. Early commits focused on scaffolding the Entity Framework models, primarily the `ApplicationUser` and base geospatial entities like `Place` and `Governorate`.
+\subsection{Phase 1: Initial Setup \& Project Scaffold (December 2025)}
+The project commenced with repository initialization, establishing the `.gitignore`, and outlining the skeletal structure of the .NET Clean Architecture solution. The two December 2025 commits scaffolded the Visual Studio solution and the empty project shells for the Domain, Application, Infrastructure, and API layers. No application functionality was implemented in this phase; the committed code at this point consisted entirely of template-generated files.
 
 \subsection{Phase 2: Database, Auth \& Core API (February 2026)}
-The backend architecture matured significantly during this period. The core API controllers were implemented alongside their respective Data Transfer Objects (DTOs) and application services. Security was a primary focus: JWT Authentication was integrated, and secure secret management was established. Initial data seeding mechanisms were implemented utilizing basic Overpass API queries.
+The backend architecture matured significantly during this period. The core API controllers were implemented alongside their respective Data Transfer Objects (DTOs) and application services. Security was a primary focus: JWT Authentication was integrated, refresh tokens were added, SMTP email (for email confirmation and password reset) was wired in, and secure secret management was established via .NET User Secrets and environment variables. Initial EF Core migrations and a local database seeder were implemented to populate governorates and base place data.
 
 \subsection{Phase 3: Frontend Architecture (March 2026)}
-The Flutter application (`kemora_app`) was initialized. The frontend team established the state management architecture and began wiring up the authentication screens to the live backend. By mid-March, the preliminary interfaces for the AI Trip Planning feature were merged into the main branch.
+The Flutter application (\texttt{kemora\_app}) was initialized. The frontend team established the state management architecture and began wiring up the authentication screens to the live backend. By mid-March, the preliminary interfaces for the AI Trip Planning feature were merged into the main branch.
 
 \subsection{Phase 4: Advanced AI Pipeline \& Infrastructure (April - May 2026)}
 This phase marked the most significant architectural shift in the backend. On May 2, 2026, the entire AI infrastructure was overhauled. The `OpenRouterAiService` was introduced to dynamically orchestrate multiple Large Language Models. To improve performance and reduce API costs, a dual-layer `PrecomputedTripPlan` cache was implemented, storing successful generations in memory and persisting them to the database for future identical queries.
@@ -53,7 +53,7 @@ To prevent hallucinations and guarantee determinism, \texttt{TripPlannerService.
 \textbf{Dual-Layer Caching Architecture:}
 Before executing complex geographical queries, the service utilizes a dual-layer cache structure to intercept identical requests:
 \begin{enumerate}
-    \item \textbf{Level 1 (Memory/Redis):} Extremely fast lookup via \texttt{ICacheService} using a complex composite key combining coordinates, location name, duration, and user preferences.
+    \item \textbf{Level 1 (In-Memory Cache):} Extremely fast lookup via \texttt{ICacheService} (backed by \texttt{IMemoryCache}) using a complex composite key combining coordinates, location name, duration, and user preferences.
     \item \textbf{Level 2 (DB Persistence):} If the ephemeral cache is purged, the \texttt{PrecomputedTripPlan} table in the database acts as a durable fallback. A cache hit here repopulates the L1 cache dynamically.
 \end{enumerate}
 

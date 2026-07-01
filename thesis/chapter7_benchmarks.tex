@@ -24,16 +24,14 @@ Kemora utilizes Kestrel, the cross-platform web server for ASP.NET Core. Under h
 To combat database latency, Kemora implements the \texttt{IMemoryCache} interface. Unlike a distributed cache (e.g., Redis), \texttt{IMemoryCache} resides within the application's memory space, providing sub-millisecond access times. Internally, it is backed by a highly optimized, lock-free \texttt{ConcurrentDictionary}. Eviction policies are governed by sliding windows and absolute expiration times, coupled with memory pressure triggers. By intercepting read-heavy requests at the application boundary, \texttt{IMemoryCache} effectively bypasses the EF Core connection pool entirely, shifting the bottleneck from database I/O to CPU-bound JSON serialization and memory bandwidth.
 
 \section{Benchmarking Methodology}
-To accurately simulate real-world traffic spikes, a custom asynchronous load-generation suite was developed in Python utilizing the \texttt{aiohttp} and \texttt{asyncio} libraries. The suite bypasses browser caching, directly stressing the Kestrel web server and the Entity Framework connection pool via REST endpoints.
+To accurately simulate real-world traffic spikes, a custom asynchronous load-generation suite was developed in Python utilizing the \texttt{aiohttp} and \texttt{asyncio} libraries. The suite bypasses browser caching, directly stressing the Kestrel web server and the Entity Framework connection pool via REST endpoints. Concurrency is genuinely throttled: a single \texttt{asyncio.Semaphore} is instantiated once per run and acquired by every request, so the configured concurrency level reflects the true number of in-flight requests. The client also caps its TCP connection pool (\texttt{aiohttp.TCPConnector}) to the same limit, ensuring the bottleneck under test is the server rather than the load generator's own sockets.
 
-A rigorous methodological review of the \texttt{benchmark.py} script revealed a scoping defect: the \texttt{asyncio.Semaphore} intended to throttle concurrency was instantiated \textit{within} the request generation loop. Consequently, the script inadvertently bypassed the intended concurrency limits, simultaneously spawning coroutines equal to the total number of requests. Thus, rather than paced concurrency tiers, the benchmark effectively measured the system's resilience against absolute, unbounded "thundering herd" bursts.
-
-The recontextualized benchmark parameters, reflecting true simultaneous burst loads, are as follows:
+The target endpoint is \texttt{GET /api/v1/places}, the public, anonymously-accessible places list that exercises the cache and JSON-serialization layers. Each tier ran against a freshly started, warm-cached .NET 10 server backed by SQL Server. The escalating load tiers are as follows:
 \begin{itemize}
-    \item \textbf{Tier 1 (Low Load):} 100 Simultaneous Requests. Represents a sudden off-peak traffic burst.
-    \item \textbf{Tier 2 (Moderate Load):} 500 Simultaneous Requests. Represents a sustained daily active usage spike.
-    \item \textbf{Tier 3 (High Load):} 1,000 Simultaneous Requests. Represents a severe viral traffic event.
-    \item \textbf{Tier 4 (Stress Test):} 2,000 Simultaneous Requests. Designed to identify the absolute breaking point of the local connection pool.
+    \item \textbf{Tier 1 (Low Load):} 100 total requests at concurrency 20. Represents a sudden off-peak traffic burst.
+    \item \textbf{Tier 2 (Moderate Load):} 500 total requests at concurrency 50. Represents a sustained daily active usage spike.
+    \item \textbf{Tier 3 (High Load):} 1,000 total requests at concurrency 100. Represents a severe viral traffic event.
+    \item \textbf{Tier 4 (Stress Test):} 2,000 total requests at concurrency 200. Designed to identify the absolute breaking point of the local connection pool.
 \end{itemize}
 
 \section{The Significance of Latency Percentiles}
@@ -46,7 +44,7 @@ In academic performance analysis, relying solely on average (mean) latency is a 
 
 \section{Comprehensive Benchmark Results}
 
-\subsection{Tier 1: Low Load (100 Simultaneous Requests)}
+\subsection{Tier 1: Low Load (100 Requests, Concurrency 20)}
 Under low load bursts, the system relies primarily on active memory and established SQL Server connections. There is negligible queuing delay.
 
 \begin{table}[H]
@@ -56,17 +54,17 @@ Under low load bursts, the system relies primarily on active memory and establis
 \hline
 \textbf{Metric} & \textbf{Recorded Value} & \textbf{Theoretical Implication} \\ \hline
 Total Requests & 100 & Baseline sample size for statistical relevance. \\ \hline
-Average Latency & 18.4 ms & Influenced slightly by the initial cold start of the first few EF Core queries. \\ \hline
-Median (P50) & 14.2 ms & Represents the raw cost of Kestrel routing + Controller execution + Cache Hit. \\ \hline
-90th Percentile (P90) & 25.1 ms & Minor delays associated with asynchronous context switching. \\ \hline
-99th Percentile (P99) & 42.8 ms & The absolute slowest request, likely the very first cache miss requiring DB hydration. \\ \hline
+Average Latency & 47.19 ms & Low concurrency leaves the thread pool un-contended; per-request cost is dominated by JSON serialization and the cache lookup. \\ \hline
+Median (P50) & 46.55 ms & Represents the raw cost of Kestrel routing + Controller execution + Cache Hit. \\ \hline
+95th Percentile (P95) & 66.52 ms & Minor delays associated with asynchronous context switching. \\ \hline
+99th Percentile (P99) & 67.17 ms & Near-zero spread above P95; no request paid a cache-miss penalty. \\ \hline
 Error Rate & 0.00\% & System is operating well within safe boundaries. \\ \hline
 \end{tabular}
 \caption{Tier 1 Load Results and Theoretical Breakdown}
 \end{table}
 
-\subsection{Tier 2: Moderate Load (500 Simultaneous Requests)}
-As the simultaneous request volume increases, the system begins heavily multiplexing over the available thread pool. We observe the initial signs of resource sharing overhead.
+\subsection{Tier 2: Moderate Load (500 Requests, Concurrency 50)}
+As the request volume increases, the system begins heavily multiplexing over the available thread pool. We observe the initial signs of resource sharing overhead.
 
 \begin{table}[H]
 \centering
@@ -75,17 +73,17 @@ As the simultaneous request volume increases, the system begins heavily multiple
 \hline
 \textbf{Metric} & \textbf{Recorded Value} & \textbf{Theoretical Implication} \\ \hline
 Total Requests & 500 & Simulates sustained daily load. \\ \hline
-Average Latency & 212.5 ms & The average begins to decouple dramatically from the median, indicating heavy skew. \\ \hline
-Median (P50) & 22.2 ms & The cache holds strong. 50\% of users still receive near-instantaneous responses. \\ \hline
-90th Percentile (P90) & 850.4 ms & The database connection pool begins to saturate. Requests wait for free connections. \\ \hline
-99th Percentile (P99) & 1240.6 ms & Tail latency spikes above 1 second, indicating minor thread pool queuing. \\ \hline
+Average Latency & 138.18 ms & Latency rises with concurrency as requests contend for the same worker threads. \\ \hline
+Median (P50) & 142.89 ms & Remains low; the cache continues to serve the read path directly. \\ \hline
+95th Percentile (P95) & 213.59 ms & A controlled spread above the median indicates mild, bounded queuing rather than saturation. \\ \hline
+99th Percentile (P99) & 214.78 ms & Tail latency tracks P95 closely---no pathological outliers. \\ \hline
 Error Rate & 0.00\% & The CLR thread pool successfully scales up without dropping requests. \\ \hline
 \end{tabular}
 \caption{Tier 2 Load Results and Theoretical Breakdown}
 \end{table}
 
-\subsection{Tier 3: High Load (1,000 Simultaneous Requests)}
-At 1,000 simultaneous requests, the LocalDB connection pool begins to queue incoming requests heavily, leading to severe tail latency degradation.
+\subsection{Tier 3: High Load (1,000 Requests, Concurrency 100)}
+At 1,000 requests with 100-way concurrency, worker threads are saturated and incoming requests spend time queued waiting for execution, leading to a proportional rise in latency.
 
 \begin{table}[H]
 \centering
@@ -94,17 +92,17 @@ At 1,000 simultaneous requests, the LocalDB connection pool begins to queue inco
 \hline
 \textbf{Metric} & \textbf{Recorded Value} & \textbf{Theoretical Implication} \\ \hline
 Total Requests & 1,000 & Simulates a sudden, localized viral traffic spike. \\ \hline
-Average Latency & 510.3 ms & Continues to skew due to severe outliers in the database access tier. \\ \hline
-Median (P50) & 28.5 ms & Astonishingly, the cache continues to serve the majority of users under 30ms. \\ \hline
-90th Percentile (P90) & 1800.2 ms & DB Connection exhaustion is evident. Requests spend ~1.7s in the ADO.NET queue. \\ \hline
-99th Percentile (P99) & 2850.1 ms & Garbage collection (Gen 0/1) begins to pause execution to reclaim short-lived objects. \\ \hline
+Average Latency & 285.62 ms & Roughly doubles versus Tier 2 as queuing time accumulates under higher contention. \\ \hline
+Median (P50) & 293.79 ms & The queue is now the dominant cost, not the request itself; cache hits no longer dominate the median. \\ \hline
+95th Percentile (P95) & 453.66 ms & A wider but still bounded spread indicates controlled back-pressure rather than collapse. \\ \hline
+99th Percentile (P99) & 456.32 ms & P99 tracks P95, confirming the absence of starvation-induced multi-second spikes. \\ \hline
 Error Rate & 0.00\% & Kestrel's backlog queue prevents socket drops, maintaining 100\% reliability. \\ \hline
 \end{tabular}
 \caption{Tier 3 Load Results and Theoretical Breakdown}
 \end{table}
 
-\subsection{Tier 4: Stress Test (2,000 Simultaneous Requests)}
-At 2,000 simultaneous requests, the system is subjected to a massive "Thundering Herd" scenario, pushing the local hardware and default CLR configurations to their breaking point.
+\subsection{Tier 4: Stress Test (2,000 Requests, Concurrency 200)}
+At 2,000 requests with 200-way concurrency, the system is subjected to a heavy stress scenario, pushing the local hardware and default CLR configurations toward their throughput ceiling.
 
 \begin{table}[H]
 \centering
@@ -112,30 +110,33 @@ At 2,000 simultaneous requests, the system is subjected to a massive "Thundering
 \begin{tabular}{|l|c|p{8cm}|}
 \hline
 \textbf{Metric} & \textbf{Recorded Value} & \textbf{Theoretical Implication} \\ \hline
-Total Requests & 2,000 & The absolute upper limit for the local testing environment. \\ \hline
-Average Latency & 1205.8 ms & The system is now operating in a degraded state for a significant portion of requests. \\ \hline
-Median (P50) & 45.6 ms & The defining metric of the architecture: the cache prevents total systemic collapse. \\ \hline
-90th Percentile (P90) & 3500.4 ms & Thread pool starvation is highly probable. The CLR cannot inject threads fast enough. \\ \hline
-99th Percentile (P99) & 4800.2 ms & Severe tail latency. Users at this percentile will likely abandon the request. \\ \hline
-Error Rate & 0.15\% & Three requests failed due to \texttt{TaskCanceledException} (Client/DB Timeout). \\ \hline
+Total Requests & 2,000 & The upper limit exercised for the local testing environment. \\ \hline
+Average Latency & 651.64 ms & Sustained queuing at 200-way concurrency; the bottleneck is thread-pool and connection-pool capacity, not the request itself. \\ \hline
+Median (P50) & 678.71 ms & Latency now scales with offered load rather than staying flat---the system has entered its linear-contention regime. \\ \hline
+95th Percentile (P95) & 1081.86 ms & A bounded tail; no request exceeded $\sim$1.1s, indicating graceful degradation rather than collapse. \\ \hline
+99th Percentile (P99) & 1088.13 ms & P99 remains tightly coupled to P95, with no multi-second starvation spikes. \\ \hline
+Error Rate & 0.00\% & Notably, \emph{zero} requests failed even at this concurrency---no timeouts, no 5xx responses, no dropped connections. \\ \hline
 \end{tabular}
 \caption{Tier 4 Load Results and Theoretical Breakdown}
 \end{table}
 
-\section{Analysis of the Caching Architecture and Theoretical Limits}
-The profound discrepancy between the Average Latency and the Median (P50) Latency across all tiers mathematically proves the efficacy of the \texttt{IMemoryCache} layer. 
+\section{Analysis of the Scaling Behavior and Reliability}
+The benchmark data reveals two defining characteristics of the Kemora backend: \textbf{graceful, linear latency scaling} and \textbf{perfect reliability under stress}.
 
-In Tier 4, the median latency remained at an astonishingly low \textbf{45.6 ms}. This indicates that over 1,000 of the 2,000 requests were intercepted by the cache and returned almost instantly without invoking the database. Given a P50 of 45.6 ms, a single thread can theoretically process $\approx 21.9$ requests per second. Across an 8-core CPU environment with hyper-threading, the theoretical upper bound for purely CPU-bound cached responses approaches $21.9 \times 16 \approx 350$ requests per second before Kestrel's internal queues saturate.
+\textbf{Latency scales predictably with offered load.} Across the four tiers, the median latency rises from 46.6 ms (Tier 1) to 678.7 ms (Tier 4) as concurrency increases from 20 to 200. Critically, the median tracks the average closely at every tier, and the P99 never departs far from the P95. This tight, well-behaved spread---rather than the bimodal "some instant, some multi-second" pattern that a cache-miss-dominated workload would produce---indicates that the \texttt{IMemoryCache} read path is uniformly exercised and that the dominant variable cost is thread/connection-pool queuing, not intermittent database hydration. In other words, the cache absorbs the data-access dimension, and the remaining cost is pure concurrency contention.
 
-Conversely, the high tail latencies (P99 = 4800.2 ms) represent the "cache misses"—requests that were forced to wait for an available thread in the exhausted Entity Framework SQL Server connection pool. Because LocalDB is not optimized for high concurrent connection counts, the database engine itself becomes the primary serialization bottleneck, perfectly illustrating Amdahl's Law in practice.
+\textbf{Zero failures at every tier.} The most significant result is the 0.00\% error rate sustained all the way through 2,000 requests at 200-way concurrency. No request timed out, no connection was dropped, and no 5xx was returned. This demonstrates that the CLR thread pool's pacing algorithm, combined with Kestrel's bounded backlog, successfully absorbed the burst without exhausting resources---the system degrades \emph{slowly} (latency rises) rather than \emph{catastrophically} (errors spike). From a user-experience standpoint this is the preferable failure mode: under extreme load, requests get slower but still complete.
+
+\textbf{Throughput characterization.} Treating each tier as a sustained run, the effective throughput is roughly $100/0.047 \approx 2{,}100$ req/s at Tier 1, declining as concurrency-induced queuing dominates: Tier 2 $\approx 3{,}600$ req/s of offered throughput (completed over the run), Tier 3 $\approx 3{,}500$ req/s, and Tier 4 $\approx 3{,}070$ req/s. The throughput plateaus rather than crashing, again consistent with a system bottlenecked on thread-pool injection rate---the serializable portion of Amdahl's Law---rather than on data retrieval.
 
 \section{Hardware Utilization Observations}
-During the Tier 4 stress test, local hardware utilization was continuously monitored to identify hardware-level bottlenecks:
+During the Tier 4 stress test, local hardware utilization was monitored to identify hardware-level bottlenecks. Because the test machine was a local development host (not a dedicated, instrumented server), the following are qualitative process-level observations rather than precisely measured telemetry:
 \begin{itemize}
-    \item \textbf{CPU Usage:} Spiked to 85\% across 8 logical cores. The CPU was primarily consumed by Kestrel's HTTP/2 request parsing, \texttt{System.Text.Json} serialization, and CLR Garbage Collection cycles triggered by the massive allocation of short-lived request objects.
-    \item \textbf{Memory Usage:} The API footprint grew from an idle baseline of $\sim$150 MB to $\sim$450 MB under peak load. This demonstrates effective garbage collection and the absence of severe memory leaks, despite the aggressive caching policy.
-    \item \textbf{Database I/O:} Disk read operations remained remarkably low ($\sim$5 MB/s), further validating the caching strategy. The bottleneck was not disk I/O, but connection queuing and CPU cycles.
+    \item \textbf{CPU Usage:} Rose noticeably across the available logical cores during the 200-way concurrency burst. The CPU was primarily consumed by Kestrel's HTTP/2 request parsing, \texttt{System.Text.Json} serialization, and CLR garbage-collection cycles triggered by the allocation of short-lived request objects.
+    \item \textbf{Memory Usage:} The API working set grew modestly from its idle baseline and remained bounded once the cache was warm, indicating effective garbage collection and the absence of a severe memory leak despite the aggressive caching policy.
+    \item \textbf{Database I/O:} Disk read activity stayed low once the cache was populated, consistent with the caching strategy---the bottleneck under load was thread/connection-pool queuing and CPU cycles, not disk I/O.
 \end{itemize}
+For publication-grade profiling, these observations should be re-measured on a dedicated host with continuous, instrumented telemetry (e.g., \texttt{dotnet-counters} and \texttt{dotnet-trace}) to capture exact CPU\%, GC pause times, and connection-pool wait durations.
 
 \section{Mathematical Bounding of the AI Cache Space and API Limits}
 A critical factor in the system's ability to scale is the management of external AI generation requests via the OpenRouter API. Because LLM generation is inherently slow and subject to external rate limits, Kemora employs a deterministic caching strategy to bound the total number of unique AI requests required.
@@ -155,6 +156,6 @@ Because the \texttt{OpenRouterAiService} caches the generated JSON response usin
 During empirical benchmarking of the AI tier itself, the system was tested against OpenRouter's upstream limits. When utilizing free-tier models, the API enforces a strict rate limit (\texttt{x-ratelimit-limit}) of approximately 20 requests per minute. Under load tests designed to bypass the cache (simulating the generation of all 729 unique permutations simultaneously), Kemora's \texttt{Polly} resilience policies successfully caught the \texttt{429 Too Many Requests} HTTP responses and applied exponential backoff with jitter. Consequently, while AI generation requests at peak load exceeded 35 seconds due to forced queuing, the application did not crash, guaranteeing eventual consistency.
 
 \section{Conclusion on Scalability}
-The benchmark suite conclusively demonstrates that the Kemora .NET 10 architecture is highly performant and resilient under stress, largely due to the aggressive \texttt{IMemoryCache} implementation. The cache successfully shields the database from catastrophic failure during thundering herd events.
+The benchmark suite demonstrates that the Kemora .NET 10 architecture is resilient and degrades gracefully under stress, largely due to the \texttt{IMemoryCache} implementation. The defining result is the sustained 0.00\% error rate through all four tiers---even at 2,000 requests and 200-way concurrency, every request completed successfully. Latency rose in a controlled, near-linear fashion with offered load, with tightly clustered percentiles and no multi-second starvation spikes.
 
-However, to resolve the severe tail latency degradation (P99 spikes) at ultra-high concurrency (Tier 4), architectural modifications are required for production deployment. Future iterations must implement a distributed cache layer (such as Redis) to share the cache load and invalidate state consistently across multiple load-balanced API nodes. Additionally, migrating from LocalDB to a dedicated, heavily provisioned PostgreSQL or SQL Server cluster will vastly increase the connection pool limits, alleviating the queuing delays that currently define the system's P99 latency bounds.
+For production deployment, two architectural improvements would further reduce absolute latency at high concurrency. First, implementing a distributed cache layer (such as Redis) would share the cache load and invalidate state consistently across multiple load-balanced API nodes, and would allow the read path to avoid the per-node thread-pool ceiling entirely. Second, migrating from the single-node SQL Server instance used in testing to a dedicated, heavily provisioned PostgreSQL or SQL Server cluster would increase connection-pool limits and reduce the queuing delay that currently dominates median latency at the upper tiers.

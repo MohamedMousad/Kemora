@@ -187,10 +187,10 @@ namespace Kemora.Infrastructure.Data
 
         private static async Task SeedPlacesAsync(ApplicationDbContext context)
         {
-            System.Console.WriteLine("SEED: Checking for old Foursquare and mock Places...");
-            
+            System.Console.WriteLine("SEED: Checking for old external and mock Places...");
+
             var oldPlaces = await context.Places
-                .Where(p => p.Source == "seed" || p.Source == "foursquare")
+                .Where(p => p.Source == "seed" || p.Source == "google")
                 .ToListAsync();
 
             if (oldPlaces.Any())

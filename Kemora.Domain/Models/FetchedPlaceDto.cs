@@ -6,8 +6,8 @@ namespace Kemora.Domain.Models
     /// </summary>
     public class FetchedPlaceDto
     {
-        public string? ExternalId { get; set; } // fsq_id
-        public string? Source { get; set; } // "foursquare" or "db"
+        public string? ExternalId { get; set; } // Google Places place_id
+        public string? Source { get; set; } // "google" or "db"
         public string Name { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string? Description { get; set; }

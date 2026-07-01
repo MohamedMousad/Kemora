@@ -56,35 +56,37 @@ The integration test suite (\texttt{app\_test.dart}) programmatically executes a
 \end{itemize}
 
 \section{Backend Load Testing \& Benchmarking}
-To guarantee that the .NET 10 API could handle concurrent user traffic—especially during peak travel seasons—a comprehensive load test was conducted. 
+To guarantee that the .NET 10 API could handle concurrent user traffic—especially during peak travel seasons—a comprehensive load test was conducted.
 
 \subsection{Methodology}
-A custom asynchronous Python benchmarking script (\texttt{benchmark.py}) utilizing the \texttt{aiohttp} library was developed. The script was configured to target the core data retrieval endpoints (e.g., \texttt{GET /api/Places}). The load parameters were set to simulate moderate-to-heavy traffic:
+A custom asynchronous Python benchmarking script (\texttt{benchmark.py}) utilizing the \texttt{aiohttp} library was developed. The script targets the core read-heavy data retrieval endpoint \texttt{GET /api/v1/places} (the versioned public places list, which is anonymously accessible and exercises the caching and serialization layers). Concurrency is throttled by a single \texttt{asyncio.Semaphore} instantiated once per run, so the configured number of in-flight requests is genuinely enforced. The load parameters were set to simulate moderate-to-heavy traffic:
 \begin{itemize}
     \item \textbf{Total Requests:} 200 consecutive requests.
-    \item \textbf{Concurrency Level:} 50 simultaneous connections utilizing \texttt{asyncio.Semaphore}.
+    \item \textbf{Concurrency Level:} 50 simultaneous connections, throttled via \texttt{asyncio.Semaphore}.
 \end{itemize}
 
 \subsection{Benchmark Results}
-The benchmark was executed against the local .NET development server on June 30, 2026. The results demonstrated the exceptional efficiency of Kestrel and the implemented \texttt{IMemoryCache} strategy.
+The benchmark was executed against the local .NET 10 development server (Kestrel, SQL Server backend) on July 1, 2026. All 200 requests completed successfully with a 100\% success rate (HTTP 200), confirming the stability of the stack under moderate concurrency.
 
 \begin{table}[H]
 \centering
 \begin{tabular}{|l|l|}
 \hline
-\textbf{Metric} & \textbf{Recorded Value (ms)} \\ \hline
-Average Latency & 684.38 ms \\ \hline
-Median (P50) Latency & 22.22 ms \\ \hline
-95th Percentile (P95) Latency & 2688.66 ms \\ \hline
-99th Percentile (P99) Latency & 2691.19 ms \\ \hline
+\textbf{Metric} & \textbf{Recorded Value} \\ \hline
+Total Requests & 200 (all HTTP 200) \\ \hline
+Error Rate & 0.00\% \\ \hline
+Average Latency & 103.79 ms \\ \hline
+Median (P50) Latency & 108.63 ms \\ \hline
+95th Percentile (P95) Latency & 131.63 ms \\ \hline
+99th Percentile (P99) Latency & 132.32 ms \\ \hline
 \end{tabular}
-\caption{API Load Benchmark Results (Concurrency: 50)}
+\caption{API Load Benchmark Results (200 requests, concurrency 50)}
 \label{tab:benchmark}
 \end{table}
 
 \subsection{Analysis of Results}
-The \textbf{Median (P50) Latency of 22.22 ms} is a phenomenal result. It indicates that 50\% of all concurrent requests were served almost instantaneously. This highlights the effectiveness of the Clean Architecture implementation, where database queries are bypassed entirely for cached, high-frequency requests.
+The results show a \textbf{median (P50) latency of 108.63 ms} with a tight distribution: the P99 (132.32 ms) sits only $\sim$24 ms above the median, and the average (103.79 ms) closely tracks the median. This narrow spread indicates \emph{predictable, stable} performance rather than erratic tail-latency spikes—no request was an order-of-magnitude outlier.
 
-The \textbf{Average Latency (684.38 ms)} and \textbf{P95 Latency (2688.66 ms)} reveal the upper bounds of the system under initial load stress. These higher tail latencies are characteristic of connection pooling initialization, the cold-start instantiation of Entity Framework contexts, and TCP handshake overheads during the sudden burst of 50 simultaneous connections. In a production environment behind a robust reverse proxy (e.g., Nginx) or a cloud load balancer (e.g., Azure Front Door), connection multiplexing would significantly flatten these tail latencies.
+The 0\% error rate under 50-way concurrency confirms that the Kestrel thread pool and the SQL Server connection pool were never exhausted at this load level; the CLR injected worker threads fast enough to keep the request queue drained. The absolute latency floor (P50 $\approx$ 109 ms) reflects the combined cost of Kestrel routing, controller execution, JSON serialization of the places payload, and any cache lookups. In a production environment behind a robust reverse proxy (e.g., Nginx) or a cloud load balancer with HTTP/2 connection multiplexing, the per-request connection-setup overhead would be amortized, further reducing this floor.
 
-Overall, the benchmark definitively proves that the backend architecture is highly scalable and capable of supporting a large active user base without degradation in the core user experience.
+Overall, the benchmark confirms that the backend architecture handles moderate concurrent load robustly and without degradation. Chapter 7 extends this analysis with escalating multi-tiered stress tests to characterize the system's behavior at the limits of the local hardware.
