@@ -40,6 +40,9 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
             'imageUrl': act.imageUrl,
             'visitDate': visitDate.toIso8601String(),
             'notes': act.itineraryReview,
+            // Persist the DB PlaceID so a saved trip can still deep-link to
+            // /places/{id} after a reload.
+            'placeId': act.dbPlaceId,
           });
         }
       }
@@ -96,12 +99,22 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
       );
       
       if (response.statusCode == 200) {
-        // Backend returns the new place as JSON string or object
-        // Assuming it's a JSON string representing the activity
+        // Normalise the response into a Map. The controller usually unwraps the
+        // AI's { "newActivity": { ... } } envelope and returns the inner object,
+        // but be defensive in case it comes back wrapped or as a JSON string.
+        Map<String, dynamic> parsed;
         if (response.data is String) {
-          return ItineraryItemModel.fromJson(json.decode(response.data));
+          parsed = json.decode(response.data) as Map<String, dynamic>;
+        } else if (response.data is Map) {
+          parsed = response.data as Map<String, dynamic>;
+        } else {
+          throw const ServerFailure('Unexpected swap response format');
         }
-        return ItineraryItemModel.fromJson(response.data);
+        // Unwrap if the controller returned the full envelope.
+        if (parsed.containsKey('newActivity') && parsed['newActivity'] is Map) {
+          parsed = (parsed['newActivity'] as Map).cast<String, dynamic>();
+        }
+        return ItineraryItemModel.fromJson(parsed);
       } else {
         throw const ServerFailure('Failed to swap place');
       }

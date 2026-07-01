@@ -8,6 +8,12 @@ namespace Kemora.Domain.Models
     {
         public string? ExternalId { get; set; } // fsq_id
         public string? Source { get; set; } // "foursquare" or "db"
+        /// <summary>
+        /// Primary key of the Place row in the local DB. Set when this DTO is
+        /// materialised from a persisted Place so the AI trip plan can reference it
+        /// and the Flutter app can deep-link to <c>/places/{DbPlaceId}</c>.
+        /// </summary>
+        public int? DbPlaceId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string? Description { get; set; }

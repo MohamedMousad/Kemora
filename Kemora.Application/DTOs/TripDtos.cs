@@ -74,6 +74,10 @@ namespace Kemora.Application.DTOs
         public DateTime VisitDate { get; set; }
         public string? Notes { get; set; }
         public bool IsVisited { get; set; }
+        // Carried through so a reloaded AI trip renders the image + category badge
+        // without an extra round-trip to /places/{id}.
+        public string? ImageUrl { get; set; }
+        public string? Category { get; set; }
     }
 
     public class SaveAIPlanDto
@@ -96,5 +100,11 @@ namespace Kemora.Application.DTOs
         public string? ImageUrl { get; set; }
         public DateTime VisitDate { get; set; }
         public string? Notes { get; set; }
+        /// <summary>
+        /// Database PlaceID when the activity references an existing Place (set by
+        /// the AI trip planner from the curated DB list). Preferred over name-based
+        /// lookups so the saved trip links to the real place and avoids stubs.
+        /// </summary>
+        public int? PlaceID { get; set; }
     }
 }

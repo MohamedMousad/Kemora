@@ -42,13 +42,18 @@ class TripModel extends Trip {
     for (var p in placesList) {
       final visitDate = p['visitDate'] != null ? DateTime.parse(p['visitDate'].toString()) : startDate;
       final dayNumber = visitDate.difference(startDate).inDays + 1;
-      
+
       final item = ai.ItineraryItem(
         name: p['placeName']?.toString() ?? 'Unknown Place',
         description: p['notes']?.toString() ?? '',
         timeOfDay: 'Anytime',
         isVisited: p['isVisited'] ?? false,
         tripPlaceId: (p['tripPlaceId'] ?? p['tripPlaceID']) as int?,
+        // Carry the underlying PlaceID so a reloaded trip can still deep-link to
+        // /places/{id}, plus image/category for consistent rendering.
+        dbPlaceId: (p['placeId'] ?? p['placeID']) as int?,
+        imageUrl: p['imageUrl'] as String?,
+        category: p['category'] as String?,
       );
 
       if (!groupedByDay.containsKey(dayNumber)) {

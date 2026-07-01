@@ -40,7 +40,7 @@ namespace Kemora.Application.Services
 
             // 1. Redis / Memory Cache handling
             string prefs = request.Preferences ?? "none";
-            string cacheKey = $"plan_{request.CenterPlaceId}_{request.Latitude}_{request.Longitude}_{request.DurationDays}_{request.Location}_{prefs}_{request.AlternativeIndex}";
+            string cacheKey = $"plan_v2_{request.CenterPlaceId}_{request.Latitude}_{request.Longitude}_{request.DurationDays}_{request.Location}_{prefs}_{request.AlternativeIndex}";
 
             var cachedPlan = _cache.Get<TripPlanResponseDto>(cacheKey);
             if (cachedPlan != null)
@@ -78,23 +78,52 @@ namespace Kemora.Application.Services
             // 3. Smart Fetching Strategy: Local DB first — strict proximity to avoid cross-city results
             // Cap at 30km regardless of requested radius to ensure city-accurate results
             var strictRadiusKm = Math.Min(request.MaxRadiusKm, 30.0);
-            var allDbPlaces = await _unitOfWork.Repository<Place>().GetAllAsync();
+            var allDbPlaces = await _unitOfWork.Repository<Place>()
+                .GetAllAsync(
+                    p => p.PlaceType, 
+                    p => p.PlaceType.Category, 
+                    p => p.Photos, 
+                    p => p.Reviews
+                );
             var localPlaces = allDbPlaces
-                .Select(p => new FetchedPlaceDto
+                .Select(p =>
                 {
-                    ExternalId = p.GoogleDataId,
-                    Name = p.Name,
-                    Latitude = (double)p.Latitude,
-                    Longitude = (double)p.Longitude,
-                    Address = p.Address ?? "",
-                    ImageUrl = p.MainImageURL ?? "",
-                    Rating = (double)p.Rating,
-                    PriceLevel = p.PriceLevel.ToString(),
-                    Types = new List<string> { p.Source ?? "db" },
-                    DistanceKm = Math.Round(HaversineKm(request.Latitude, request.Longitude, (double)p.Latitude, (double)p.Longitude), 2)
+                    // Resolve the best available image: prefer MainImageURL, fall back
+                    // to the first non-empty Photo URL. This guarantees every candidate
+                    // the AI sees has a usable picture that can be re-injected later.
+                    var resolvedImage = !string.IsNullOrWhiteSpace(p.MainImageURL)
+                        ? p.MainImageURL
+                        : p.Photos?.Select(ph => ph.ImageURL).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+                    return new FetchedPlaceDto
+                    {
+                        DbPlaceId = p.PlaceID,
+                        ExternalId = p.GoogleDataId,
+                        Name = p.Name,
+                        Latitude = (double)p.Latitude,
+                        Longitude = (double)p.Longitude,
+                        Address = p.Address ?? "",
+                        ImageUrl = resolvedImage ?? "",
+                        PhotoUrls = p.Photos?.Select(ph => ph.ImageURL).ToList() ?? new List<string>(),
+                        Reviews = p.Reviews?.Select(r => new FetchedReviewDto { AuthorName = r.AuthorName, Rating = r.Rating, Text = r.Text }).ToList() ?? new List<FetchedReviewDto>(),
+                        Rating = (double)p.Rating,
+                        PriceLevel = p.PriceLevel.ToString(),
+                        // Populate Types with real GoogleType AND category name so
+                        // downstream categorisation (hotels / restaurants / etc.) works.
+                        Types = new List<string> {
+                            p.PlaceType?.GoogleType ?? "",
+                            p.PlaceType?.DisplayName ?? "",
+                            p.PlaceType?.Category?.Name ?? "",
+                        }.Where(t => !string.IsNullOrEmpty(t)).ToList(),
+                        DistanceKm = Math.Round(HaversineKm(request.Latitude, request.Longitude, (double)p.Latitude, (double)p.Longitude), 2)
+                    };
                 })
-                // Only include places within strict radius AND that have valid coordinates (non-zero)
-                .Where(p => p.DistanceKm <= strictRadiusKm && (p.Latitude != 0 || p.Longitude != 0))
+                // Only include places within strict radius, with valid coordinates (non-zero),
+                // AND that have a usable picture. This ensures the AI can only pick places
+                // whose image (stored in Cloudinary) will actually render in the plan.
+                .Where(p => p.DistanceKm <= strictRadiusKm
+                            && (p.Latitude != 0 || p.Longitude != 0)
+                            && !string.IsNullOrWhiteSpace(p.ImageUrl)
+                            && !p.ImageUrl.Contains("placeholder", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(p => p.DistanceKm)
                 .ToList();
 
@@ -157,7 +186,7 @@ namespace Kemora.Application.Services
                                 restaurants.Any(r => r.Name == p.Name) ? "[RESTAURANT]" :
                                 cafes.Any(c => c.Name == p.Name) ? "[CAFÉ]" : "[ATTRACTION]";
                 var cats = string.Join(", ", (p.Categories ?? p.Types).Take(2));
-                return $"{idx + 1}. {typeLabel} {p.Name} | Rating: {p.Rating:F1} | {cats} | {p.Address}";
+                return $"{idx + 1}. {typeLabel} {p.Name} | ID: {p.DbPlaceId} | Rating: {p.Rating:F1} | {cats} | {p.Address}";
             }));
 
             var sysPrompt = @"You are Kemora, an expert Egyptian travel planner building premium itineraries.
@@ -168,19 +197,21 @@ You MUST output ONLY valid JSON, exactly matching this structure:
       ""day"": 1,
       ""theme"": ""Theme for the day e.g. Historic Cairo & Culture"",
       ""activities"": [
-        { ""time"": ""08:00"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""description"": ""2-3 sentence vivid description of what to do there and why it is special."" },
-        { ""time"": ""10:30"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""description"": ""..."" },
-        { ""time"": ""13:00"", ""time_slot"": ""Afternoon"", ""place"": ""Restaurant Name"", ""description"": ""Lunch stop description."" },
-        { ""time"": ""15:00"", ""time_slot"": ""Afternoon"", ""place"": ""Exact Name From List"", ""description"": ""..."" },
-        { ""time"": ""17:30"", ""time_slot"": ""Afternoon"", ""place"": ""Cafe Name"", ""description"": ""Afternoon coffee break."" },
-        { ""time"": ""19:30"", ""time_slot"": ""Evening"", ""place"": ""Restaurant Name"", ""description"": ""Dinner description."" }
+        { ""time"": ""08:00"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""place_id"": 123, ""description"": ""2-3 sentence vivid description of what to do there and why it is special."" },
+        { ""time"": ""10:30"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""place_id"": 456, ""description"": ""..."" },
+        { ""time"": ""13:00"", ""time_slot"": ""Afternoon"", ""place"": ""Restaurant Name"", ""place_id"": 789, ""description"": ""Lunch stop description."" },
+        { ""time"": ""15:00"", ""time_slot"": ""Afternoon"", ""place"": ""Exact Name From List"", ""place_id"": 101, ""description"": ""..."" },
+        { ""time"": ""17:30"", ""time_slot"": ""Afternoon"", ""place"": ""Cafe Name"", ""place_id"": 202, ""description"": ""Afternoon coffee break."" },
+        { ""time"": ""19:30"", ""time_slot"": ""Evening"", ""place"": ""Restaurant Name"", ""place_id"": 303, ""description"": ""Dinner description."" }
       ]
     }
   ]
 }
 
 RULES:
-- Use EXACT place names from the provided list only
+- You MUST select activities ONLY from the provided curated list. DO NOT invent or hallucinate any places not on the list.
+- Use the EXACT `ID` from the list for the `place_id` field. This is strictly required!
+- Use the EXACT `Name` from the list for the `place` field.
 - Assign realistic times: Morning (07:00-12:00), Afternoon (12:00-18:00), Evening (18:00-23:00)
 - time_slot MUST be one of: Morning, Afternoon, Evening
 - Each day MUST include: 1 hotel check-in (day 1 only), 1-2 restaurants for meals, 3-5 sightseeing attractions, 1 cafe break
@@ -220,7 +251,8 @@ Select ONLY from this curated list:
                 }
             }
 
-            // Re-inject image URLs into the itinerary from the local loaded places
+            // Re-inject image URLs, place_id, category, latitude, longitude into the
+            // itinerary from the local loaded places (in case the AI omitted them).
             try
             {
                 var jObject = System.Text.Json.Nodes.JsonObject.Parse(tripPlanContent);
@@ -235,14 +267,78 @@ Select ONLY from this curated list:
                             foreach (var act in activities)
                             {
                                 var placeName = act?["place"]?.ToString();
-                                if (!string.IsNullOrEmpty(placeName))
+                                var placeIdToken = act?["place_id"];
+                                
+                                int? parsedId = null;
+                                if (placeIdToken != null && int.TryParse(placeIdToken.ToString(), out int id))
                                 {
-                                    var match = finalPlaces.FirstOrDefault(p =>
+                                    parsedId = id;
+                                }
+
+                                FetchedPlaceDto match = null;
+                                
+                                // 1. Match by exact ID first (most reliable)
+                                if (parsedId.HasValue && parsedId.Value > 0)
+                                {
+                                    match = finalPlaces.FirstOrDefault(p => p.DbPlaceId == parsedId.Value);
+                                }
+                                
+                                // 2. Fallback to name matching
+                                if (match == null && !string.IsNullOrEmpty(placeName))
+                                {
+                                    match = finalPlaces.FirstOrDefault(p =>
                                         p.Name.Equals(placeName, StringComparison.OrdinalIgnoreCase));
-                                    if (match != null && !string.IsNullOrEmpty(match.ImageUrl) && !match.ImageUrl.Contains("placeholder"))
+                                        
+                                    // 3. Fuzzy name match if still not found
+                                    if (match == null)
+                                    {
+                                        match = finalPlaces.FirstOrDefault(p => 
+                                            p.Name.Contains(placeName, StringComparison.OrdinalIgnoreCase) || 
+                                            placeName.Contains(p.Name, StringComparison.OrdinalIgnoreCase));
+                                    }
+                                }
+
+                                if (match != null)
+                                {
+                                    // Override place name to ensure exact DB match
+                                    act["place"] = match.Name;
+
+                                    // Image URL: ImageUrl already holds the resolved best
+                                    // picture (MainImageURL with Photo fallback) from the
+                                    // candidate filtering stage, so just write it through.
+                                    if (!string.IsNullOrWhiteSpace(match.ImageUrl))
                                     {
                                         act["image_url"] = match.ImageUrl;
                                     }
+                                    
+                                    // Inject Rating & Price
+                                    if (match.Rating > 0) act["rating"] = match.Rating;
+                                    if (!string.IsNullOrEmpty(match.PriceLevel)) act["price"] = match.PriceLevel;
+
+                                    // Inject Top Review
+                                    if (match.Reviews?.Count > 0)
+                                    {
+                                        var topReview = match.Reviews.OrderByDescending(r => r.Rating).FirstOrDefault();
+                                        if (topReview != null)
+                                            act["itinerary_review"] = $"\"{topReview.Text}\" - {topReview.AuthorName}";
+                                    }
+                                    
+                                    // place_id — always inject from DB (authoritative)
+                                    if (match.DbPlaceId.HasValue)
+                                        act["place_id"] = match.DbPlaceId.Value;
+                                        
+                                    // category — from PlaceType.Category.Name
+                                    if (string.IsNullOrEmpty(act["category"]?.ToString()) && match.Types?.Count > 0)
+                                        act["category"] = match.Types.Last(); // last = category name
+                                        
+                                    // coordinates — always inject from DB
+                                    act["latitude"] = match.Latitude;
+                                    act["longitude"] = match.Longitude;
+                                }
+                                else
+                                {
+                                    // AI completely hallucinated a place not in our list
+                                    _logger.LogWarning("[TripPlanner] AI hallucinated place: {PlaceName} (ID: {PlaceId})", placeName, parsedId);
                                 }
                             }
                         }
@@ -250,7 +346,7 @@ Select ONLY from this curated list:
                 }
                 tripPlanContent = jObject?.ToJsonString() ?? tripPlanContent;
             }
-            catch { /* Ignore image injection errors — the clean JSON is still valid */ }
+            catch { /* Ignore injection errors — the clean JSON is still valid */ }
 
             var response = new TripPlanResponseDto
             {

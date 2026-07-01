@@ -192,9 +192,15 @@ class TripViewModel extends ChangeNotifier {
             }
             return activity;
           }).toList();
-          return TripDay(dayNumber: day.dayNumber, activities: updatedActivities);
+          // Forward dailySummary/transportTips — they were being dropped here.
+          return TripDay(
+            dayNumber: day.dayNumber,
+            activities: updatedActivities,
+            dailySummary: day.dailySummary,
+            transportTips: day.transportTips,
+          );
         }).toList();
-        
+
         _currentPlan = AIItinerary(
           title: _currentPlan!.title,
           duration: _currentPlan!.duration,
