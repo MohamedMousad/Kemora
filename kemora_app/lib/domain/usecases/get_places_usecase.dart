@@ -8,7 +8,7 @@ class GetPlacesUseCase {
 
   GetPlacesUseCase(this.repository);
 
-  Future<Either<Failure, List<Place>>> call() async {
-    return await repository.getPlaces();
+  Future<Either<Failure, List<Place>>> call({String? search, String? governorateId, String? categoryName}) async {
+    return await repository.getPlaces(search: search, governorateId: governorateId, categoryName: categoryName);
   }
 }

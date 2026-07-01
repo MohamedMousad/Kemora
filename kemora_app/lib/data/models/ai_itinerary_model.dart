@@ -36,7 +36,8 @@ class TripDayModel extends TripDay {
   factory TripDayModel.fromJson(Map<String, dynamic> json) {
     return TripDayModel(
       dayNumber: json['day'] as int? ?? 1,
-      dailySummary: json['daily_summary'] as String?,
+      // The backend AI prompt emits "theme"; older schemas used "daily_summary".
+      dailySummary: json['daily_summary'] as String? ?? json['theme'] as String?,
       transportTips: json['transport_tips'] as String?,
       activities: (json['activities'] as List<dynamic>?)
               ?.map((a) => ItineraryItemModel.fromJson(a as Map<String, dynamic>))
@@ -51,6 +52,7 @@ class ItineraryItemModel extends ItineraryItem {
     required super.name,
     required super.description,
     required super.timeOfDay,
+    super.time,
     super.suggestedHours,
     super.imageUrl,
     super.rating,
@@ -59,6 +61,7 @@ class ItineraryItemModel extends ItineraryItem {
     super.latitude,
     super.longitude,
     super.category,
+    super.dbPlaceId,
   });
 
   factory ItineraryItemModel.fromJson(Map<String, dynamic> json) {
@@ -66,6 +69,7 @@ class ItineraryItemModel extends ItineraryItem {
       name: json['place'] as String? ?? (json['name'] as String? ?? 'Unknown Place'),
       description: json['description'] as String? ?? '',
       timeOfDay: json['time_slot'] as String? ?? (json['time_of_day'] as String? ?? 'Morning'),
+      time: json['time'] as String?,
       suggestedHours: json['suggested_hours'] as String?,
       imageUrl: json['image_url'] as String?,
       rating: (json['rating'] as num?)?.toDouble(),
@@ -74,6 +78,7 @@ class ItineraryItemModel extends ItineraryItem {
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       category: json['category'] as String?,
+      dbPlaceId: (json['place_id'] as num?)?.toInt(),
     );
   }
 }

@@ -1,4 +1,5 @@
 import '../../domain/entities/place.dart';
+import '../../core/di/injection_container.dart';
 
 class PlaceModel extends Place {
   const PlaceModel({
@@ -18,6 +19,7 @@ class PlaceModel extends Place {
     super.website,
     super.reviews,
     super.photos,
+    super.reviewCount,
   });
 
   factory PlaceModel.fromJson(Map<String, dynamic> json) {
@@ -34,15 +36,23 @@ class PlaceModel extends Place {
             ))
         .toList();
 
-    final mainImageUrl =
-        json['mainImageURL'] as String? ?? json['mainImageUrl'] as String?;
+    final mainImageRaw =
+        json['mainImageURL'] as String? ?? json['mainImageUrl'] as String? ?? json['MainImageURL'] as String?;
+    String? resolvedMainImage;
+    if (mainImageRaw != null && mainImageRaw.isNotEmpty) {
+      resolvedMainImage = mainImageRaw.startsWith('http')
+          ? mainImageRaw
+          : (mainImageRaw.startsWith('/') ? '${resolveApiBaseUrl()}$mainImageRaw' : '${resolveApiBaseUrl()}/$mainImageRaw');
+    }
+    final mainImageUrl = resolvedMainImage;
 
     // Parse photos array from PlaceDetailPublicDto
     // Each element: {photoID, imageURL, isMain, placeID}
     final rawPhotos = json['photos'] as List<dynamic>? ?? [];
     final photos = rawPhotos
-        .map((p) => (p['imageURL'] as String? ?? p['imageUrl'] as String? ?? ''))
+        .map((p) => (p['imageURL'] as String? ?? p['imageUrl'] as String? ?? p['ImageURL'] as String? ?? ''))
         .where((url) => url.isNotEmpty)
+        .map((url) => url.startsWith('http') ? url : (url.startsWith('/') ? '${resolveApiBaseUrl()}$url' : '${resolveApiBaseUrl()}/$url'))
         .toList();
 
     return PlaceModel(
@@ -62,6 +72,7 @@ class PlaceModel extends Place {
       website: json['website'] as String?,
       reviews: reviews,
       photos: photos,
+      reviewCount: (json['reviewCount'] as num?)?.toInt() ?? reviews.length,
     );
   }
 
@@ -90,10 +101,17 @@ class GovernorateModel extends Governorate {
   });
 
   factory GovernorateModel.fromJson(Map<String, dynamic> json) {
+    final imageUrlRaw = json['imageURL'] as String? ?? json['imageUrl'] as String? ?? json['ImageURL'] as String?;
+    String? resolvedImage;
+    if (imageUrlRaw != null && imageUrlRaw.isNotEmpty) {
+      resolvedImage = imageUrlRaw.startsWith('http')
+          ? imageUrlRaw
+          : (imageUrlRaw.startsWith('/') ? '${resolveApiBaseUrl()}$imageUrlRaw' : '${resolveApiBaseUrl()}/$imageUrlRaw');
+    }
     return GovernorateModel(
       id: json['governorateID']?.toString() ?? '',
       name: json['name'] as String? ?? 'Unknown Governorate',
-      imageUrl: json['imageURL'] as String?,
+      imageUrl: resolvedImage,
       region: json['region'] as String?,
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,

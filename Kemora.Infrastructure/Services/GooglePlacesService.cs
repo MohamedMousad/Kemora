@@ -22,9 +22,13 @@ namespace Kemora.Infrastructure.Services
         {
             _httpClient = httpClientFactory.CreateClient("GooglePlaces");
             _logger = logger;
-            // Support both potential key names
-            _apiKey = configuration["Google:ApiKey"] ?? configuration["GoogleMaps:ApiKey"];
+            // Support both potential key names and ignore placeholders
+            var googleKey = configuration["Google:ApiKey"];
+            var googleMapsKey = configuration["GoogleMaps:ApiKey"];
             
+            _apiKey = (!string.IsNullOrEmpty(googleKey) && !googleKey.Contains("YOUR_")) ? googleKey : 
+                     (!string.IsNullOrEmpty(googleMapsKey) && !googleMapsKey.Contains("YOUR_") ? googleMapsKey : null);
+
             if (string.IsNullOrEmpty(_apiKey))
                 _logger.LogError("[GooglePlaces] API key is NOT configured! Check user secrets for 'GoogleMaps:ApiKey'.");
             else
@@ -111,6 +115,13 @@ namespace Kemora.Infrastructure.Services
         public async Task<List<FetchedPlaceDto>> FetchNearbyPlacesAsync(double latitude, double longitude, double minRadiusKm = 0, double maxRadiusKm = 20)
         {
             return await SearchPlacesAsync("places", latitude, longitude, (int)(maxRadiusKm * 1000));
+        }
+
+        public string? BuildPhotoFetchUrl(string photoResourceName, int maxWidthPx = 1600)
+        {
+            if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(photoResourceName)) return null;
+            // _apiKey already excludes "YOUR_" placeholders (resolved in the constructor).
+            return $"https://places.googleapis.com/v1/{photoResourceName}/media?key={_apiKey}&maxWidthPx={maxWidthPx}";
         }
 
         private async Task<List<FetchedPlaceDto>> ExecuteSearchAsync(string textQuery, int limit)
@@ -270,6 +281,10 @@ namespace Kemora.Infrastructure.Services
                     if (photoElement.TryGetProperty("name", out var photoName))
                     {
                         var nameStr = photoName.GetString();
+                        if (string.IsNullOrEmpty(nameStr)) continue;
+                        // Keep the raw resource name so hydration can build an
+                        // authenticated media URL for Cloudinary uploads.
+                        dto.PhotoResourceNames.Add(nameStr);
                         // Return the proxy URL instead of exposing the API key directly
                         var photoUrl = $"/api/v1/photos/proxy?name={nameStr}";
                         dto.PhotoUrls.Add(photoUrl);

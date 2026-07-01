@@ -76,8 +76,10 @@ namespace Kemora.Api.Controllers
         }
         /// <summary>
         /// Proxies a photo from Google Places API to avoid exposing the API key.
+        /// Served at <c>/api/v{version}/photos/proxy</c> to match the URLs stored on
+        /// places during hydration (see GooglePlacesService.BuildPhotoFetchUrl).
         /// </summary>
-        [HttpGet("proxy")]
+        [HttpGet("photos/proxy")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
         public async Task<IActionResult> ProxyPhoto(
@@ -87,7 +89,12 @@ namespace Kemora.Api.Controllers
         {
             if (string.IsNullOrEmpty(name)) return BadRequest("Photo name is required.");
 
-            var apiKey = config["Google:ApiKey"] ?? config["GoogleMaps:ApiKey"];
+            // Prefer a real key, ignoring unconfigured "YOUR_..." placeholders.
+            var googleKey = config["Google:ApiKey"];
+            var googleMapsKey = config["GoogleMaps:ApiKey"];
+            var apiKey = (!string.IsNullOrEmpty(googleKey) && !googleKey.Contains("YOUR_")) ? googleKey
+                       : (!string.IsNullOrEmpty(googleMapsKey) && !googleMapsKey.Contains("YOUR_")) ? googleMapsKey
+                       : null;
             if (string.IsNullOrEmpty(apiKey)) return StatusCode(500, "Google API Key is missing.");
 
             var url = $"https://places.googleapis.com/v1/{name}/media?key={apiKey}&maxWidthPx=800";

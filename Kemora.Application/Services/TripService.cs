@@ -146,29 +146,41 @@ namespace Kemora.Application.Services
             {
                 if (string.IsNullOrWhiteSpace(act.Name)) continue;
 
-                // Try to find if the place already exists by name
-                var existingPlace = (await _placeRepo.FindAsync(p => p.Name == act.Name)).FirstOrDefault();
-                
                 int placeId;
-                if (existingPlace == null)
+
+                // Prefer the authoritative PlaceID supplied by the AI planner (it
+                // comes straight from the curated DB list). Only fall back to a
+                // name lookup / stub creation when it is missing (e.g. swapped
+                // places not in our DB).
+                if (act.PlaceID.HasValue && act.PlaceID.Value > 0)
                 {
-                    // Create a new place stub — coordinates are optional from AI plans
-                    var newPlace = new Place
-                    {
-                        Name = act.Name,
-                        Description = act.Description ?? string.Empty,
-                        Latitude = (decimal)(act.Latitude ?? 0),
-                        Longitude = (decimal)(act.Longitude ?? 0),
-                        MainImageURL = act.ImageUrl ?? string.Empty,
-                        // PlaceTypeID intentionally omitted — PlaceTypes table may not have a default row
-                    };
-                    await _placeRepo.AddAsync(newPlace);
-                    await _unitOfWork.CommitAsync();
-                    placeId = newPlace.PlaceID;
+                    placeId = act.PlaceID.Value;
                 }
                 else
                 {
-                    placeId = existingPlace.PlaceID;
+                    // Try to find if the place already exists by name
+                    var existingPlace = (await _placeRepo.FindAsync(p => p.Name == act.Name)).FirstOrDefault();
+
+                    if (existingPlace == null)
+                    {
+                        // Create a new place stub — coordinates are optional from AI plans
+                        var newPlace = new Place
+                        {
+                            Name = act.Name,
+                            Description = act.Description ?? string.Empty,
+                            Latitude = (decimal)(act.Latitude ?? 0),
+                            Longitude = (decimal)(act.Longitude ?? 0),
+                            MainImageURL = act.ImageUrl ?? string.Empty,
+                            // PlaceTypeID intentionally omitted — PlaceTypes table may not have a default row
+                        };
+                        await _placeRepo.AddAsync(newPlace);
+                        await _unitOfWork.CommitAsync();
+                        placeId = newPlace.PlaceID;
+                    }
+                    else
+                    {
+                        placeId = existingPlace.PlaceID;
+                    }
                 }
 
                 var tp = new TripPlace

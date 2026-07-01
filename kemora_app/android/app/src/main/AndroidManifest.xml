@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required by Google Maps tiles + the Maps SDK network calls (also used in debug builds). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Kemora"
         android:name="${applicationName}"
@@ -38,6 +40,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Google Maps Android SDK key. Reuses the backend "Google:ApiKey".
+             Requires "Maps SDK for Android" enabled in Google Cloud Console. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAB_PVxiwsHPtMAkAmRKlm_TjMds3IgHAo" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

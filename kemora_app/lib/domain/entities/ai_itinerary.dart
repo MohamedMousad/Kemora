@@ -4,6 +4,7 @@ class ItineraryItem extends Equatable {
   final String name;
   final String description;
   final String timeOfDay;
+  final String? time;
   final String? suggestedHours;
   final String? imageUrl;
   final double? rating;
@@ -12,6 +13,8 @@ class ItineraryItem extends Equatable {
   final double? latitude;
   final double? longitude;
   final String? category;
+  /// Database PlaceID so the Flutter app can deep-link to /places/{dbPlaceId}.
+  final int? dbPlaceId;
   final bool isVisited;
   final int? tripPlaceId;
 
@@ -19,6 +22,7 @@ class ItineraryItem extends Equatable {
     required this.name,
     required this.description,
     required this.timeOfDay,
+    this.time,
     this.suggestedHours,
     this.imageUrl,
     this.rating,
@@ -27,6 +31,7 @@ class ItineraryItem extends Equatable {
     this.latitude,
     this.longitude,
     this.category,
+    this.dbPlaceId,
     this.isVisited = false,
     this.tripPlaceId,
   });
@@ -35,6 +40,7 @@ class ItineraryItem extends Equatable {
     String? name,
     String? description,
     String? timeOfDay,
+    String? time,
     String? suggestedHours,
     String? imageUrl,
     double? rating,
@@ -43,6 +49,7 @@ class ItineraryItem extends Equatable {
     double? latitude,
     double? longitude,
     String? category,
+    int? dbPlaceId,
     bool? isVisited,
     int? tripPlaceId,
   }) {
@@ -50,6 +57,7 @@ class ItineraryItem extends Equatable {
       name: name ?? this.name,
       description: description ?? this.description,
       timeOfDay: timeOfDay ?? this.timeOfDay,
+      time: time ?? this.time,
       suggestedHours: suggestedHours ?? this.suggestedHours,
       imageUrl: imageUrl ?? this.imageUrl,
       rating: rating ?? this.rating,
@@ -58,6 +66,7 @@ class ItineraryItem extends Equatable {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       category: category ?? this.category,
+      dbPlaceId: dbPlaceId ?? this.dbPlaceId,
       isVisited: isVisited ?? this.isVisited,
       tripPlaceId: tripPlaceId ?? this.tripPlaceId,
     );
@@ -68,6 +77,7 @@ class ItineraryItem extends Equatable {
         name,
         description,
         timeOfDay,
+        time,
         suggestedHours,
         imageUrl,
         rating,
@@ -76,6 +86,7 @@ class ItineraryItem extends Equatable {
         latitude,
         longitude,
         category,
+        dbPlaceId,
         isVisited,
         tripPlaceId,
       ];

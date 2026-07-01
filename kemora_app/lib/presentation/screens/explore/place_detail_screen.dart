@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/di/injection_container.dart';
 import '../../widgets/glassmorphism_container.dart';
 import '../../viewmodels/places_view_model.dart';
 import '../../../domain/entities/place.dart' as domain;
@@ -62,7 +65,69 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
           ? '\$' * _apiPlace!.priceLevel!
           : '';
 
-  String? get _imageUrl => _apiPlace?.mainImageUrl;
+  String? get _imageUrl {
+    var url = _apiPlace?.mainImageUrl;
+    if (url == null || url.isEmpty) return null;
+    if (url.startsWith('http')) return url;
+    return url.startsWith('/') ? '${resolveApiBaseUrl()}$url' : '${resolveApiBaseUrl()}/$url';
+  }
+
+  /// A place has usable coordinates only when both lat/lng are present and not 0,0.
+  bool get _hasValidCoords {
+    final lat = _apiPlace?.latitude;
+    final lng = _apiPlace?.longitude;
+    return lat != null && lng != null && (lat != 0.0 || lng != 0.0);
+  }
+
+  /// Opens the place in Google Maps using the universal cross-platform search URL.
+  /// On Android/iOS this hands off to the Google Maps app (falling back to the
+  /// browser); on desktop it opens the web map.
+  Future<void> _openInGoogleMaps() async {
+    if (!_hasValidCoords) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location coordinates are not available for this place.')),
+      );
+      return;
+    }
+    final lat = _apiPlace!.latitude;
+    final lng = _apiPlace!.longitude;
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
+    if (!await canLaunchUrl(url)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps.')),
+      );
+      return;
+    }
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  /// Interactive embedded Google Map centred on the place with a single marker.
+  Widget _buildMapPreview() {
+    final lat = _apiPlace?.latitude ?? 0.0;
+    final lng = _apiPlace?.longitude ?? 0.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox(
+        height: 200,
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(target: LatLng(lat, lng), zoom: 15),
+          markers: {
+            Marker(
+              markerId: const MarkerId('place'),
+              position: LatLng(lat, lng),
+              infoWindow: InfoWindow(title: _apiPlace?.name),
+            ),
+          },
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          compassEnabled: false,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,43 +142,59 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
       );
     }
 
-    return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              expandedHeight: MediaQuery.of(context).size.height * 0.55,
-              pinned: true,
-              leading: IconButton(
-                icon: GlassmorphismContainer(
-                  padding: const EdgeInsets.all(8),
-                  borderRadius: BorderRadius.circular(999),
-                  child: const Icon(Icons.arrow_back, color: Colors.white),
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
-              actions: [
-                IconButton(
-                  icon: GlassmorphismContainer(
-                    padding: const EdgeInsets.all(8),
-                    borderRadius: BorderRadius.circular(999),
-                    child: const Icon(Icons.share, color: Colors.white),
+    // Consumer ensures the heart icon reacts to toggleFavorite changes
+    return Consumer<PlacesViewModel>(
+      builder: (context, placesVM, child) {
+        final isFav = placesVM.isFavorite(widget.placeId!);
+
+        return Scaffold(
+          body: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverAppBar(
+                  expandedHeight: MediaQuery.of(context).size.height * 0.55,
+                  pinned: true,
+                  leading: IconButton(
+                    icon: GlassmorphismContainer(
+                      padding: const EdgeInsets.all(8),
+                      borderRadius: BorderRadius.circular(999),
+                      child: const Icon(Icons.arrow_back, color: Colors.white),
+                    ),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: GlassmorphismContainer(
-                    padding: const EdgeInsets.all(8),
-                    borderRadius: BorderRadius.circular(999),
-                    child: const Icon(Icons.favorite_border, color: Colors.white),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Added to favorites!')),
-                    );
-                  },
-                ),
-              ],
+                  actions: [
+                    IconButton(
+                      icon: GlassmorphismContainer(
+                        padding: const EdgeInsets.all(8),
+                        borderRadius: BorderRadius.circular(999),
+                        child: const Icon(Icons.share, color: Colors.white),
+                      ),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: GlassmorphismContainer(
+                        padding: const EdgeInsets.all(8),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_border,
+                          color: isFav ? Colors.red : Colors.white,
+                        ),
+                      ),
+                      onPressed: () {
+                        if (_apiPlace != null) {
+                          final wasFavorite = isFav;
+                          placesVM.toggleFavorite(_apiPlace!);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(wasFavorite
+                                  ? 'Removed from favorites'
+                                  : 'Added to favorites!'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(
                   fit: StackFit.expand,
@@ -250,6 +331,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
         ),
       ),
     );
+      }, // Consumer builder
+    );
   }
 
   Widget _buildInfoTab() {
@@ -294,27 +377,25 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
           style: AppTypography.bodyLarge.copyWith(height: 1.8),
         ),
         const SizedBox(height: 40),
-        // Google Maps link if available
-        if (_apiPlace?.website != null) ...[
+        // Google Maps link if coordinates are available
+        if (_hasValidCoords) ...[
           OutlinedButton.icon(
-            onPressed: () {
-              // [KEMORA-TODO] Launch URL
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(_apiPlace!.website!)),
-              );
-            },
+            onPressed: _openInGoogleMaps,
             icon: const Icon(Icons.map_outlined),
             label: const Text('Open in Google Maps'),
           ),
           const SizedBox(height: 24),
         ],
-        Container(
-          height: 150,
-          decoration: BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(20)),
-          child: const Center(child: Text('Map View')),
-        ),
+        if (_hasValidCoords)
+          _buildMapPreview()
+        else
+          Container(
+            height: 150,
+            decoration: BoxDecoration(
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(20)),
+            child: const Center(child: Text('Map not available for this place.')),
+          ),
         // Real reviews preview
         if (reviews.isNotEmpty) ...[
           const SizedBox(height: 32),

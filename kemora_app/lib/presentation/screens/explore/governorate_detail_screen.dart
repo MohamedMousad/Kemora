@@ -286,8 +286,9 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                       reviewsCount: place.reviews.length,
                       price: place.priceLevel != null ? '\$' * place.priceLevel! : 'Free',
                       distance: 'N/A', // Distance needs location services
-                      isFavorite: false,
-                      imageAsset: place.mainImageUrl ?? '',
+                      isFavorite: context.watch<PlacesViewModel>().isFavorite(place.id),
+                      onFavoriteTap: () => context.read<PlacesViewModel>().toggleFavorite(place),
+                      imageUrl: place.mainImageUrl ?? place.imageUrl,
                       aspectRatio: 1.6,
                     ),
                   ),

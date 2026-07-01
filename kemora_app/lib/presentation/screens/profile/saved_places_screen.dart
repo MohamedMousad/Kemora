@@ -96,9 +96,17 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                             ],
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Icon(Icons.favorite, color: AppColors.primaryContainer),
+                        GestureDetector(
+                          onTap: () {
+                            placesViewModel.toggleFavorite(place);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Icon(
+                              placesViewModel.isFavorite(place.id) ? Icons.favorite : Icons.favorite_border,
+                              color: placesViewModel.isFavorite(place.id) ? AppColors.primaryContainer : AppColors.outlineVariant,
+                            ),
+                          ),
                         ),
                       ],
                     ),
