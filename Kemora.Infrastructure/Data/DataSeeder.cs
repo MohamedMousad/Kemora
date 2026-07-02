@@ -40,33 +40,33 @@ namespace Kemora.Infrastructure.Data
 
             var governorates = new List<Governorate>
             {
-                new() { Name = "Cairo", Region = "Greater Cairo", Latitude = 30.0444m, Longitude = 31.2357m, ImageURL = "https://images.unsplash.com/photo-1572252009286-268acec5ca0a?auto=format&fit=crop&w=1200" },
-                new() { Name = "Giza", Region = "Greater Cairo", Latitude = 29.9792m, Longitude = 31.1342m, ImageURL = "https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&w=1200" },
-                new() { Name = "Alexandria", Region = "Northern Coast", Latitude = 31.2001m, Longitude = 29.9187m, ImageURL = "https://images.unsplash.com/photo-1621251817478-f685c7bb74e6?auto=format&fit=crop&w=1200" },
-                new() { Name = "Luxor", Region = "Upper Egypt", Latitude = 25.6872m, Longitude = 32.6396m, ImageURL = "https://images.unsplash.com/photo-1594916301297-a7eb443a9926?auto=format&fit=crop&w=1200" },
-                new() { Name = "Aswan", Region = "Upper Egypt", Latitude = 24.0889m, Longitude = 32.8998m, ImageURL = "https://images.unsplash.com/photo-1610486828590-edc9372e617d?auto=format&fit=crop&w=1200" },
-                new() { Name = "Red Sea", Region = "Eastern Coast", Latitude = 27.2579m, Longitude = 33.8116m, ImageURL = "https://images.unsplash.com/photo-1584025000781-9f935fcc2dbe?auto=format&fit=crop&w=1200" },
-                new() { Name = "South Sinai", Region = "Sinai Peninsula", Latitude = 27.9158m, Longitude = 34.3299m, ImageURL = "https://images.unsplash.com/photo-1622350720516-ec7fdf41a100?auto=format&fit=crop&w=1200" },
-                new() { Name = "Matrouh", Region = "Northern Coast", Latitude = 31.3543m, Longitude = 27.2373m, ImageURL = "https://images.unsplash.com/photo-1616790809516-92895f11181f?auto=format&fit=crop&w=1200" },
-                new() { Name = "Fayoum", Region = "Central Egypt", Latitude = 29.3090m, Longitude = 30.8418m, ImageURL = "https://images.unsplash.com/photo-1601058268499-e52658b8ebf8?auto=format&fit=crop&w=1200" },
-                new() { Name = "Dakahlia", Region = "Nile Delta", Latitude = 31.0413m, Longitude = 31.3785m },
-                new() { Name = "Sharqia", Region = "Nile Delta", Latitude = 30.6234m, Longitude = 31.6375m },
-                new() { Name = "Qalyubia", Region = "Greater Cairo", Latitude = 30.3308m, Longitude = 31.2241m },
-                new() { Name = "Kafr El Sheikh", Region = "Nile Delta", Latitude = 31.2137m, Longitude = 30.6872m },
-                new() { Name = "Gharbia", Region = "Nile Delta", Latitude = 30.7303m, Longitude = 30.9996m },
-                new() { Name = "Monufia", Region = "Nile Delta", Latitude = 30.4682m, Longitude = 30.9859m },
-                new() { Name = "Beheira", Region = "Nile Delta", Latitude = 31.0364m, Longitude = 30.4699m },
-                new() { Name = "Beni Suef", Region = "Central Egypt", Latitude = 29.0661m, Longitude = 31.0994m },
-                new() { Name = "Minya", Region = "Upper Egypt", Latitude = 28.1096m, Longitude = 30.7516m },
-                new() { Name = "Asyut", Region = "Upper Egypt", Latitude = 27.1802m, Longitude = 31.1837m },
-                new() { Name = "Sohag", Region = "Upper Egypt", Latitude = 26.5591m, Longitude = 31.6957m },
-                new() { Name = "Qena", Region = "Upper Egypt", Latitude = 26.1551m, Longitude = 32.7160m },
-                new() { Name = "Damietta", Region = "Nile Delta", Latitude = 31.4175m, Longitude = 31.8144m },
-                new() { Name = "Port Said", Region = "Canal Zone", Latitude = 31.2653m, Longitude = 32.3020m },
-                new() { Name = "Suez", Region = "Canal Zone", Latitude = 29.9668m, Longitude = 32.5498m },
-                new() { Name = "Ismailia", Region = "Canal Zone", Latitude = 30.5965m, Longitude = 32.2715m },
-                new() { Name = "North Sinai", Region = "Sinai Peninsula", Latitude = 30.5903m, Longitude = 33.7052m },
-                new() { Name = "New Valley", Region = "Western Desert", Latitude = 25.4390m, Longitude = 30.5586m },
+                new() { Name = "Cairo", Region = "Greater Cairo", Latitude = 30.0444m, Longitude = 31.2357m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1782855168/h4zpnpv26okfogjscrw2.jpg" }, // Museum of Islamic Art
+                new() { Name = "Giza", Region = "Greater Cairo", Latitude = 29.9792m, Longitude = 31.1342m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1783020572/jihxqmjeyh6mpgjypova.jpg" }, // Pyramids
+                new() { Name = "Alexandria", Region = "Northern Coast", Latitude = 31.2001m, Longitude = 29.9187m, ImageURL = null },
+                new() { Name = "Luxor", Region = "Upper Egypt", Latitude = 25.6872m, Longitude = 32.6396m, ImageURL = null },
+                new() { Name = "Aswan", Region = "Upper Egypt", Latitude = 24.0889m, Longitude = 32.8998m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1782855081/dipbtzn9bnhjl8ja1qqc.jpg" }, // Philae Temple
+                new() { Name = "Red Sea", Region = "Eastern Coast", Latitude = 27.2579m, Longitude = 33.8116m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1782844703/sa706u80egd2k1774bvn.jpg" }, // Mahmya Island
+                new() { Name = "South Sinai", Region = "Sinai Peninsula", Latitude = 27.9158m, Longitude = 34.3299m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1782844600/ogxvefpccwddeivuog39.jpg" }, // Ras Mohamed
+                new() { Name = "Matrouh", Region = "Northern Coast", Latitude = 31.3543m, Longitude = 27.2373m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1783024013/y72neyo5y6eirvypbr4j.jpg" }, // Ageeba Beach
+                new() { Name = "Fayoum", Region = "Central Egypt", Latitude = 29.3090m, Longitude = 30.8418m, ImageURL = null },
+                new() { Name = "Dakahlia", Region = "Nile Delta", Latitude = 31.0413m, Longitude = 31.3785m, ImageURL = null },
+                new() { Name = "Sharqia", Region = "Nile Delta", Latitude = 30.6234m, Longitude = 31.6375m, ImageURL = null },
+                new() { Name = "Qalyubia", Region = "Greater Cairo", Latitude = 30.3308m, Longitude = 31.2241m, ImageURL = null },
+                new() { Name = "Kafr El Sheikh", Region = "Nile Delta", Latitude = 31.2137m, Longitude = 30.6872m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1782930858/rdz74envavcgnvcyuxle.jpg" }, // Museum
+                new() { Name = "Gharbia", Region = "Nile Delta", Latitude = 30.7303m, Longitude = 30.9996m, ImageURL = null },
+                new() { Name = "Monufia", Region = "Nile Delta", Latitude = 30.4682m, Longitude = 30.9859m, ImageURL = null },
+                new() { Name = "Beheira", Region = "Nile Delta", Latitude = 31.0364m, Longitude = 30.4699m, ImageURL = null },
+                new() { Name = "Beni Suef", Region = "Central Egypt", Latitude = 29.0661m, Longitude = 31.0994m, ImageURL = null },
+                new() { Name = "Minya", Region = "Upper Egypt", Latitude = 28.1096m, Longitude = 30.7516m, ImageURL = null },
+                new() { Name = "Asyut", Region = "Upper Egypt", Latitude = 27.1802m, Longitude = 31.1837m, ImageURL = null },
+                new() { Name = "Sohag", Region = "Upper Egypt", Latitude = 26.5591m, Longitude = 31.6957m, ImageURL = null },
+                new() { Name = "Qena", Region = "Upper Egypt", Latitude = 26.1551m, Longitude = 32.7160m, ImageURL = null },
+                new() { Name = "Damietta", Region = "Nile Delta", Latitude = 31.4175m, Longitude = 31.8144m, ImageURL = null },
+                new() { Name = "Port Said", Region = "Canal Zone", Latitude = 31.2653m, Longitude = 32.3020m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1783019765/oaybbuqv0rvffc3ejvpt.jpg" }, // Lighthouse
+                new() { Name = "Suez", Region = "Canal Zone", Latitude = 29.9668m, Longitude = 32.5498m, ImageURL = null },
+                new() { Name = "Ismailia", Region = "Canal Zone", Latitude = 30.5965m, Longitude = 32.2715m, ImageURL = null },
+                new() { Name = "North Sinai", Region = "Sinai Peninsula", Latitude = 30.5903m, Longitude = 33.7052m, ImageURL = "https://res.cloudinary.com/dcctg0emo/image/upload/v1783019712/fodo9btlqb4hqwzjdl8l.jpg" }, // Al-Arish Beach
+                new() { Name = "New Valley", Region = "Western Desert", Latitude = 25.4390m, Longitude = 30.5586m, ImageURL = null },
             };
 
             context.Governorates.AddRange(governorates);

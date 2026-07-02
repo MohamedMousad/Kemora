@@ -58,9 +58,9 @@ class PlaceRepositoryImpl implements IPlaceRepository {
   }
 
   @override
-  Future<Either<Failure, List<Place>>> getPlacesByGovernorate(String governorateId) async {
+  Future<Either<Failure, List<Place>>> getPlacesByGovernorate(String governorateId, {int page = 1, int pageSize = 10}) async {
     try {
-      final places = await remoteDataSource.getPlacesByGovernorate(governorateId);
+      final places = await remoteDataSource.getPlacesByGovernorate(governorateId, page: page, pageSize: pageSize);
       return Right(places);
     } on Failure catch (e) {
       return Left(e);

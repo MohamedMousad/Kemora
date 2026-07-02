@@ -282,18 +282,23 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _user = null;
     TokenStorage.instance.clearTokens();
     await _clearPersistedUser();
+    
     try {
       await GoogleSignIn.instance.signOut();
     } catch (_) {
-      // Ignore sign-out failures — user is already being logged out locally
+      // Ignore sign-out failures
     }
     
     // Disconnect real-time notifications
-    await SignalRService().disconnect();
+    try {
+      await SignalRService().disconnect();
+    } catch (_) {
+      // Ignore disconnect failures
+    }
     
+    _user = null;
     _state = AuthState.unauthenticated;
     notifyListeners();
   }

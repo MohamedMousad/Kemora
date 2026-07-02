@@ -17,6 +17,7 @@ import '../../viewmodels/trip_view_model.dart';
 import '../../widgets/fade_slide_in.dart';
 import '../../widgets/tap_scale.dart';
 import '../explore/place_detail_screen.dart';
+import '../auth/login_screen.dart';
 import 'all_achievements_screen.dart';
 import 'redeemed_vouchers_screen.dart';
 import 'saved_places_screen.dart';
@@ -443,8 +444,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       icon: Icons.logout,
                       title: 'Log Out',
                       subtitle: null,
-                      onTap: () {
-                        context.read<AuthViewModel>().logout();
+                      onTap: () async {
+                        await context.read<AuthViewModel>().logout();
+                        if (context.mounted) {
+                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
                       },
                       isDestructive: true,
                     ),
@@ -640,11 +647,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         isDestructive ? AppColors.error : AppColors.onSurface;
 
     return TapScale(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
@@ -674,8 +680,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   // ── Redeem Modal ───────────────────────────────────────────────────

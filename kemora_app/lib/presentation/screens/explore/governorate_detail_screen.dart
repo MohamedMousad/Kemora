@@ -21,12 +21,14 @@ class GovernorateDetailScreen extends StatefulWidget {
 
 class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _hasRetried = false;
   bool _isRetrying = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final vm = context.read<PlacesViewModel>();
       if (vm.governorates.isEmpty) {
@@ -49,8 +51,20 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
     });
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final vm = context.read<PlacesViewModel>();
+      final govId = vm.governorateIdByName(widget.governorate.name);
+      if (govId != null && vm.hasMoreGovernoratePlaces && !vm.isLoadingMoreGovernoratePlaces) {
+        vm.loadPlacesByGovernorate(govId, isLoadMore: true);
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -99,6 +113,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
               }
             },
             child: CustomScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 // Hero header
@@ -113,6 +128,13 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                 ),
                 // Categorized sections
                 ..._buildSections(places),
+                if (placesViewModel.isLoadingMoreGovernoratePlaces)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ),
                 const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),

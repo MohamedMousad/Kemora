@@ -7,7 +7,7 @@ abstract class PlacesRemoteDataSource {
   Future<List<PlaceModel>> getPlacesByCategory(String category);
   Future<List<PlaceModel>> getTopPlaces();
   Future<List<GovernorateModel>> getGovernorates();
-  Future<List<PlaceModel>> getPlacesByGovernorate(String governorateId);
+  Future<List<PlaceModel>> getPlacesByGovernorate(String governorateId, {int page = 1, int pageSize = 10});
   Future<PlaceModel> getPlaceDetails(String id);
   Future<List<PlaceModel>> getFavorites();
   Future<void> addFavorite(String placeId);
@@ -94,9 +94,9 @@ class PlacesRemoteDataSourceImpl implements PlacesRemoteDataSource {
   }
 
   @override
-  Future<List<PlaceModel>> getPlacesByGovernorate(String governorateId) async {
+  Future<List<PlaceModel>> getPlacesByGovernorate(String governorateId, {int page = 1, int pageSize = 10}) async {
     try {
-      final response = await dio.get('/api/v1/places', queryParameters: {'governorateId': governorateId});
+      final response = await dio.get('/api/v1/places', queryParameters: {'governorateId': governorateId, 'page': page, 'pageSize': pageSize});
       if (response.statusCode == 200) {
         final data = response.data['items'] ?? response.data;
         if (data is List) {

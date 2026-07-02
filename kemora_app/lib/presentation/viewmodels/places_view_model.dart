@@ -63,6 +63,13 @@ class PlacesViewModel extends ChangeNotifier {
   String _currentCategory = 'All';
   String get currentCategory => _currentCategory;
 
+  int _currentGovernoratePage = 1;
+  bool _hasMoreGovernoratePlaces = true;
+  bool _isLoadingMoreGovernoratePlaces = false;
+
+  bool get hasMoreGovernoratePlaces => _hasMoreGovernoratePlaces;
+  bool get isLoadingMoreGovernoratePlaces => _isLoadingMoreGovernoratePlaces;
+
   String getGovernorateTemperature(String id) => _governorateWeather[id]?['temperature'] ?? '--°C';
   String getGovernorateWeatherCode(String id) => _governorateWeather[id]?['weather'] ?? 'Loading...';
 
@@ -138,9 +145,10 @@ class PlacesViewModel extends ChangeNotifier {
     result.fold(
       (failure) => _errorMessage = failure.message,
       (list) {
-        _governorates = list;
+        // Filter out governorates that use Wikipedia fallback images
+        _governorates = list.where((g) => g.imageUrl == null || !g.imageUrl!.contains('wikipedia.org')).toList();
         // Prefetch weather for all governorates silently
-        for (var gov in list) {
+        for (var gov in _governorates) {
           _fetchWeatherForGovernorate(gov);
         }
       },
@@ -157,22 +165,43 @@ class PlacesViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadPlacesByGovernorate(String governorateId) async {
-    _state = PlacesState.loading;
-    notifyListeners();
+  Future<void> loadPlacesByGovernorate(String governorateId, {bool isLoadMore = false}) async {
+    if (!isLoadMore) {
+      _currentGovernoratePage = 1;
+      _hasMoreGovernoratePlaces = true;
+      _state = PlacesState.loading;
+      notifyListeners();
+    } else {
+      if (!_hasMoreGovernoratePlaces || _isLoadingMoreGovernoratePlaces) return;
+      _isLoadingMoreGovernoratePlaces = true;
+      notifyListeners();
+    }
     
-    final result = await getPlacesByGovernorateUseCase(governorateId);
+    final result = await getPlacesByGovernorateUseCase(governorateId, page: _currentGovernoratePage, pageSize: 10);
     result.fold(
       (failure) {
-        _state = PlacesState.error;
-        _errorMessage = failure.message;
+        if (!isLoadMore) {
+          _state = PlacesState.error;
+          _errorMessage = failure.message;
+        }
+        _isLoadingMoreGovernoratePlaces = false;
+        notifyListeners();
       },
       (list) {
-        _places = list;
-        _state = PlacesState.loaded;
+        if (list.length < 10) {
+          _hasMoreGovernoratePlaces = false;
+        }
+        if (!isLoadMore) {
+          _places = list;
+          _state = PlacesState.loaded;
+        } else {
+          _places.addAll(list);
+        }
+        _currentGovernoratePage++;
+        _isLoadingMoreGovernoratePlaces = false;
+        notifyListeners();
       },
     );
-    notifyListeners();
   }
 
   List<Place> _favorites = [];
