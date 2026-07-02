@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../domain/entities/badge.dart' as entity;
 import '../../viewmodels/badge_view_model.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../widgets/badge_medallion.dart';
 // inline points display
 
 class BadgesScreen extends StatefulWidget {
@@ -212,23 +212,12 @@ class _BadgesScreenState extends State<BadgesScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Opacity(
-                  opacity: isEarned ? 1.0 : 0.3,
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: isEarned 
-                        ? const LinearGradient(
-                            colors: [AppColors.primaryContainer, AppColors.secondary],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ) 
-                        : null,
-                      color: isEarned ? null : Colors.grey.withValues(alpha: 0.1),
-                    ),
-                    child: _buildBadgeIcon(badge, isEarned),
+                  opacity: isEarned ? 1.0 : 0.85,
+                  child: BadgeMedallion(
+                    name: badge.name,
+                    criteria: badge.criteria,
+                    earned: isEarned,
+                    size: 72,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -278,28 +267,6 @@ class _BadgesScreenState extends State<BadgesScreen> {
     );
   }
 
-  Widget _buildBadgeIcon(entity.Badge badge, bool isEarned) {
-    if (badge.iconUrl.isEmpty) return _fallbackIcon(isEarned);
-
-    // Check if it's a single emoji (typical for seeded badges)
-    final isEmoji = badge.iconUrl.length <= 4 && !badge.iconUrl.contains('http');
-
-    if (isEmoji) {
-      return Text(
-        badge.iconUrl,
-        style: TextStyle(fontSize: 40, color: isEarned ? null : Colors.grey),
-      );
-    }
-
-    return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: badge.iconUrl,
-        fit: BoxFit.cover,
-        errorWidget: (_, __, ___) => _fallbackIcon(isEarned),
-      ),
-    );
-  }
-
   Widget _buildProgressBar(entity.Badge badge) {
     // Basic mock progress based on badge requirements
     double progress = 0.2; // Default
@@ -321,14 +288,6 @@ class _BadgesScreenState extends State<BadgesScreen> {
         const SizedBox(height: 4),
         Text('${(progress * 100).toInt()}% progress', style: const TextStyle(fontSize: 9, color: Colors.grey)),
       ],
-    );
-  }
-
-  Widget _fallbackIcon(bool isEarned) {
-    return Icon(
-      Icons.workspace_premium,
-      size: 40,
-      color: isEarned ? AppColors.primaryContainer : Colors.grey,
     );
   }
 }

@@ -74,8 +74,6 @@ class _FeedScreenState extends State<FeedScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   children: [
-                    _buildStoryItem(isAdd: true, name: 'Your Story'),
-                    const SizedBox(width: 16),
                     if (storyVm.state == StoryState.loading)
                       const Padding(
                         padding: EdgeInsets.all(20),

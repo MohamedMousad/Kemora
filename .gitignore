@@ -104,3 +104,6 @@ scratch/
 scratch_*.md
 *.zip
 benchmark_results.json
+# Local proxy scripts
+agentrouter_proxy.js
+run_claude.bat

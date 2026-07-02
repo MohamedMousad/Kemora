@@ -275,8 +275,6 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     physics: const BouncingScrollPhysics(),
                     child: Row(
                       children: [
-                        _buildStoryItem(context, isAdd: true, name: 'Your Story'),
-                        const SizedBox(width: 16),
                         if (storyVM.state == StoryState.loading)
                           const Padding(
                             padding: EdgeInsets.all(20),

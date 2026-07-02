@@ -78,6 +78,10 @@ namespace Kemora.Application.DTOs
         // without an extra round-trip to /places/{id}.
         public string? ImageUrl { get; set; }
         public string? Category { get; set; }
+        // Rating + a short description so saved-trip cards match the richness of
+        // home-screen place cards (star rating, blurb) instead of a bare name.
+        public double? Rating { get; set; }
+        public string? Description { get; set; }
     }
 
     public class SaveAIPlanDto

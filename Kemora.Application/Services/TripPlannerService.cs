@@ -189,40 +189,46 @@ namespace Kemora.Application.Services
                 return $"{idx + 1}. {typeLabel} {p.Name} | ID: {p.DbPlaceId} | Rating: {p.Rating:F1} | {cats} | {p.Address}";
             }));
 
-            var sysPrompt = @"You are Kemora, an expert Egyptian travel planner building premium itineraries.
-You MUST output ONLY valid JSON, exactly matching this structure:
+            var sysPrompt = @"You are Kemora — a master Egyptian travel curator. You design vivid, logistically-sane, day-by-day itineraries that feel handcrafted by a local expert, not a generic list.
+
+OUTPUT CONTRACT — return ONLY valid JSON, no prose, no markdown fences, exactly this shape:
 {
   ""itinerary"": [
     {
       ""day"": 1,
-      ""theme"": ""Theme for the day e.g. Historic Cairo & Culture"",
+      ""theme"": ""Short evocative day theme, e.g. 'Pharaonic Cairo & the Nile at Dusk'"",
       ""activities"": [
-        { ""time"": ""08:00"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""place_id"": 123, ""description"": ""2-3 sentence vivid description of what to do there and why it is special."" },
-        { ""time"": ""10:30"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""place_id"": 456, ""description"": ""..."" },
-        { ""time"": ""13:00"", ""time_slot"": ""Afternoon"", ""place"": ""Restaurant Name"", ""place_id"": 789, ""description"": ""Lunch stop description."" },
-        { ""time"": ""15:00"", ""time_slot"": ""Afternoon"", ""place"": ""Exact Name From List"", ""place_id"": 101, ""description"": ""..."" },
-        { ""time"": ""17:30"", ""time_slot"": ""Afternoon"", ""place"": ""Cafe Name"", ""place_id"": 202, ""description"": ""Afternoon coffee break."" },
-        { ""time"": ""19:30"", ""time_slot"": ""Evening"", ""place"": ""Restaurant Name"", ""place_id"": 303, ""description"": ""Dinner description."" }
+        { ""time"": ""08:30"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""place_id"": 123, ""description"": ""2-3 sentence vivid, specific description: what to see/do, why it matters, one insider tip."" }
       ]
     }
   ]
 }
 
-RULES:
-- You MUST select activities ONLY from the provided curated list. DO NOT invent or hallucinate any places not on the list.
-- Use the EXACT `ID` from the list for the `place_id` field. This is strictly required!
-- Use the EXACT `Name` from the list for the `place` field.
-- Assign realistic times: Morning (07:00-12:00), Afternoon (12:00-18:00), Evening (18:00-23:00)
-- time_slot MUST be one of: Morning, Afternoon, Evening
-- Each day MUST include: 1 hotel check-in (day 1 only), 1-2 restaurants for meals, 3-5 sightseeing attractions, 1 cafe break
-- Write rich engaging 2-3 sentence descriptions for each activity
-- Spread activities logically across the full day";
+HARD RULES (breaking any = invalid):
+- Select places ONLY from the CURATED LIST. Never invent, rename, or hallucinate a place.
+- Copy the EXACT `Name` into `place` and the EXACT `ID` into `place_id` (integer). These are mandatory.
+- GLOBAL UNIQUENESS: every place_id may appear AT MOST ONCE across the ENTIRE itinerary. Never repeat a place on the same day or on any other day. Each day must explore different places.
+- If the list has fewer unique places than a full schedule needs, build shorter days rather than repeating any place.
+- time_slot is exactly one of: Morning, Afternoon, Evening.
+- Realistic clock times: Morning 07:00-12:00, Afternoon 12:00-18:00, Evening 18:00-23:00, in ascending order within a day.
 
-            var userPrompt = $@"Generate a {request.DurationDays}-day itinerary for {request.Location}, Egypt.
-Budget: {request.Budget}. Interests: {request.TourismTypes}. User preferences: {prefs}.
-Ensure each day has Morning + Afternoon + Evening activities with realistic times.
-Select ONLY from this curated list:
+DAY DESIGN (quality bar):
+- Day 1 only: begin with a [HOTEL] check-in if one exists in the list.
+- Each day: 3-5 [ATTRACTION] sightseeing stops + 1-2 [RESTAURANT] meals (lunch ~13:00, dinner ~19:30) + optionally 1 [CAFÉ] break.
+- Group places that are geographically close on the same day to minimise backtracking; use the Address/area to reason about proximity.
+- Give each day a distinct character — don't cluster all museums on one day if they can be spread for variety.
+- Descriptions must be concrete and sensory (mention a specific artifact, view, dish, or moment), never generic filler.";
 
+            var userPrompt = $@"Plan a {request.DurationDays}-day itinerary for {request.Location}, Egypt.
+Traveller budget: {request.Budget}. Interests: {request.TourismTypes}. Extra preferences: {prefs}.
+
+Requirements:
+- Exactly {request.DurationDays} day object(s), days numbered 1..{request.DurationDays}.
+- Every place used AT MOST ONCE across all days (no repeats anywhere).
+- Each day has Morning + Afternoon + Evening activities with realistic ascending times.
+- Prefer places matching the interests and budget above.
+
+CURATED LIST (choose only from these; the number before each is its ID):
 {placesListText}";
 
 
@@ -259,16 +265,27 @@ Select ONLY from this curated list:
                 var itinerary = jObject?["itinerary"]?.AsArray();
                 if (itinerary != null)
                 {
+                    // Enforce GLOBAL place uniqueness across the whole itinerary. The
+                    // model is instructed not to repeat places, but we guarantee it
+                    // here: an activity whose resolved place was already used earlier
+                    // (same day or any prior day) is dropped from the plan.
+                    var usedPlaceIds = new HashSet<int>();
+                    var usedPlaceNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
                     foreach (var day in itinerary)
                     {
                         var activities = day?["activities"]?.AsArray();
                         if (activities != null)
                         {
+                            // Collect indices to remove after resolving, so we don't
+                            // mutate the array while iterating it.
+                            var keptActivities = new System.Text.Json.Nodes.JsonArray();
+
                             foreach (var act in activities)
                             {
                                 var placeName = act?["place"]?.ToString();
                                 var placeIdToken = act?["place_id"];
-                                
+
                                 int? parsedId = null;
                                 if (placeIdToken != null && int.TryParse(placeIdToken.ToString(), out int id))
                                 {
@@ -276,30 +293,41 @@ Select ONLY from this curated list:
                                 }
 
                                 FetchedPlaceDto match = null;
-                                
+
                                 // 1. Match by exact ID first (most reliable)
                                 if (parsedId.HasValue && parsedId.Value > 0)
                                 {
                                     match = finalPlaces.FirstOrDefault(p => p.DbPlaceId == parsedId.Value);
                                 }
-                                
+
                                 // 2. Fallback to name matching
                                 if (match == null && !string.IsNullOrEmpty(placeName))
                                 {
                                     match = finalPlaces.FirstOrDefault(p =>
                                         p.Name.Equals(placeName, StringComparison.OrdinalIgnoreCase));
-                                        
+
                                     // 3. Fuzzy name match if still not found
                                     if (match == null)
                                     {
-                                        match = finalPlaces.FirstOrDefault(p => 
-                                            p.Name.Contains(placeName, StringComparison.OrdinalIgnoreCase) || 
+                                        match = finalPlaces.FirstOrDefault(p =>
+                                            p.Name.Contains(placeName, StringComparison.OrdinalIgnoreCase) ||
                                             placeName.Contains(p.Name, StringComparison.OrdinalIgnoreCase));
                                     }
                                 }
 
                                 if (match != null)
                                 {
+                                    // Uniqueness guard — skip a place already used elsewhere.
+                                    var dupById = match.DbPlaceId.HasValue && usedPlaceIds.Contains(match.DbPlaceId.Value);
+                                    var dupByName = usedPlaceNames.Contains(match.Name);
+                                    if (dupById || dupByName)
+                                    {
+                                        _logger.LogInformation("[TripPlanner] Dropping duplicate place '{PlaceName}' (ID: {PlaceId}) from itinerary.", match.Name, match.DbPlaceId);
+                                        continue; // do not add to keptActivities
+                                    }
+                                    if (match.DbPlaceId.HasValue) usedPlaceIds.Add(match.DbPlaceId.Value);
+                                    usedPlaceNames.Add(match.Name);
+
                                     // Override place name to ensure exact DB match
                                     act["place"] = match.Name;
 
@@ -310,7 +338,7 @@ Select ONLY from this curated list:
                                     {
                                         act["image_url"] = match.ImageUrl;
                                     }
-                                    
+
                                     // Inject Rating & Price
                                     if (match.Rating > 0) act["rating"] = match.Rating;
                                     if (!string.IsNullOrEmpty(match.PriceLevel)) act["price"] = match.PriceLevel;
@@ -322,29 +350,34 @@ Select ONLY from this curated list:
                                         if (topReview != null)
                                             act["itinerary_review"] = $"\"{topReview.Text}\" - {topReview.AuthorName}";
                                     }
-                                    
+
                                     // place_id — always inject from DB (authoritative)
                                     if (match.DbPlaceId.HasValue)
                                         act["place_id"] = match.DbPlaceId.Value;
-                                        
+
                                     // category — from PlaceType.Category.Name
                                     if (string.IsNullOrEmpty(act["category"]?.ToString()) && match.Types?.Count > 0)
                                         act["category"] = match.Types.Last(); // last = category name
-                                        
+
                                     // coordinates — always inject from DB
                                     act["latitude"] = match.Latitude;
                                     act["longitude"] = match.Longitude;
+
+                                    keptActivities.Add(act.DeepClone());
                                 }
                                 else
                                 {
-                                    // AI completely hallucinated a place not in our list
+                                    // AI completely hallucinated a place not in our list — drop it.
                                     _logger.LogWarning("[TripPlanner] AI hallucinated place: {PlaceName} (ID: {PlaceId})", placeName, parsedId);
                                 }
                             }
+
+                            // Replace the day's activities with the de-duplicated, resolved set.
+                            day["activities"] = keptActivities;
                         }
                     }
+                    tripPlanContent = jObject.ToJsonString();
                 }
-                tripPlanContent = jObject?.ToJsonString() ?? tripPlanContent;
             }
             catch { /* Ignore injection errors — the clean JSON is still valid */ }
 

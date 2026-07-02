@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
+import '../../widgets/badge_medallion.dart';
 import '../../viewmodels/badge_view_model.dart';
 import '../../viewmodels/auth_view_model.dart';
 
@@ -120,19 +121,11 @@ class _AllAchievementsScreenState extends State<AllAchievementsScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isEarned ? AppColors.primaryContainer.withValues(alpha: 0.1) : AppColors.surfaceContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              badge.iconUrl.isNotEmpty ? badge.iconUrl : '🏆',
-              style: TextStyle(
-                fontSize: 24,
-                color: isEarned ? AppColors.primaryContainer : AppColors.outlineVariant,
-              ),
-            ),
+          BadgeMedallion(
+            name: badge.name,
+            criteria: badge.criteria,
+            earned: isEarned,
+            size: 56,
           ),
           const SizedBox(width: 16),
           Expanded(

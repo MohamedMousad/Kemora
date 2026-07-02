@@ -38,8 +38,6 @@ namespace Kemora.Application.Mapping
                 .ForMember(d => d.MainImageURL, o => o.MapFrom(s => s.Place.MainImageURL));
 
             // Trips
-            CreateMap<TripPlace, TripPlaceResponseDto>()
-                .ForMember(d => d.PlaceName, o => o.MapFrom(s => s.Place.Name));
             CreateMap<Trip, TripListDto>()
                 .ForMember(d => d.PlaceCount, o => o.MapFrom(s => s.TripPlaces.Count))
                 .ForMember(d => d.Location, o => o.MapFrom(s => 
@@ -95,10 +93,12 @@ namespace Kemora.Application.Mapping
             // Photos
             CreateMap<Photo, PhotoResponseDto>();
 
-            // Trip places — flatten navigation so ImageUrl/Category come from Place.
+            // Trip places — flatten navigation so ImageUrl/Category/Rating come from Place.
             CreateMap<TripPlace, TripPlaceResponseDto>()
                 .ForMember(d => d.PlaceName, o => o.MapFrom(s => s.Place != null ? s.Place.Name : ""))
                 .ForMember(d => d.ImageUrl, o => o.MapFrom(s => s.Place != null ? s.Place.MainImageURL : null))
+                .ForMember(d => d.Rating, o => o.MapFrom(s => s.Place != null ? (double?)s.Place.Rating : null))
+                .ForMember(d => d.Description, o => o.MapFrom(s => s.Place != null ? s.Place.Description : null))
                 .ForMember(d => d.Category, o => o.MapFrom(s => s.Place != null && s.Place.PlaceType != null && s.Place.PlaceType.Category != null ? s.Place.PlaceType.Category.Name : null));
 
             // Messages
