@@ -69,8 +69,9 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final regions = _regionOptions(vm.governorates);
-          final governorates = _filtered(vm.governorates);
+          final validGovernorates = vm.governorates.where((g) => g.imageUrl != null && g.imageUrl!.isNotEmpty).toList();
+          final regions = _regionOptions(validGovernorates);
+          final governorates = _filtered(validGovernorates);
 
           return CustomScrollView(
             slivers: [
@@ -104,21 +105,22 @@ class _GovernoratesMapScreenState extends State<GovernoratesMapScreen> {
               SliverToBoxAdapter(
                 child: FadeSlideIn(
                   delayMs: 100,
-                  child: SizedBox(
-                    height: 40,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                      itemCount: regions.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: List.generate(regions.length, (index) {
                         final region = regions[index];
-                        return _RegionChip(
-                          label: region,
-                          selected: region == _selectedRegion,
-                          onTap: () => setState(() => _selectedRegion = region),
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _RegionChip(
+                            label: region,
+                            selected: region == _selectedRegion,
+                            onTap: () => setState(() => _selectedRegion = region),
+                          ),
                         );
-                      },
+                      }),
                     ),
                   ),
                 ),
@@ -197,27 +199,34 @@ class _RegionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        alignment: Alignment.center,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.surfaceContainerLow
-              : Colors.white.withValues(alpha: 0.5),
+          color: selected ? AppColors.primaryContainer : AppColors.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.outlineVariant),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : [],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (selected) ...[
               const Icon(Icons.filter_list,
-                  size: 18, color: AppColors.primary),
+                  size: 18, color: AppColors.onPrimary),
               const SizedBox(width: 6),
             ],
             Text(label,
-                style: AppTypography.labelMedium
-                    .copyWith(color: AppColors.onSurface)),
+                style: AppTypography.labelLarge.copyWith(
+                    color: selected ? AppColors.onPrimary : AppColors.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.w500)),
           ],
         ),
       ),
