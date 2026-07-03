@@ -57,6 +57,7 @@ Median (P50) & 293.79 ms & The cache serves the vast majority of requests rapidl
 Error Rate & 0.00\% & Flawless execution. Kestrel doesn't drop a single socket. \\ \hline
 \end{tabular}
 \caption{Tier 1 Load Results and Performance Narrative}
+\label{tab:tier1_load}
 \end{table}
 
 \subsection{Tier 2: Medium Business / Viral Spike (10,000 Requests, Concurrency 1,000)}
@@ -76,6 +77,7 @@ Median (P50) & 878.45 ms & Linear contention regime; threads are fiercely compet
 Error Rate & 0.00\% & Despite extreme queues, 100\% reliability is maintained. \\ \hline
 \end{tabular}
 \caption{Tier 2 Load Results and Performance Narrative}
+\label{tab:tier2_load}
 \end{table}
 
 \subsection{Tier 3: Corporate / Enterprise Scale (100,000 Requests, Concurrency 10,000)}
@@ -95,6 +97,7 @@ Median (P50) & 2250.15 ms & Requests spend seconds in Kestrel's queue before eve
 Error Rate & 0.12\% & A handful of requests time out due to OS socket exhaustion, an expected outcome at this extreme density. \\ \hline
 \end{tabular}
 \caption{Tier 3 Load Results and Performance Narrative}
+\label{tab:tier3_load}
 \end{table}
 
 \subsection{Tier 4: Write-Heavy Workload Stress Test (Database Contention)}
@@ -114,6 +117,7 @@ Median (P50) & 395.12 ms & The baseline cost of establishing a database transact
 Error Rate & 0.00\% & Entity Framework Core \cite{ef_core} successfully serialized transactions without throwing concurrency exceptions. \\ \hline
 \end{tabular}
 \caption{Write-Heavy Load Results and Performance Narrative}
+\label{tab:write_heavy_load}
 \end{table}
 
 \subsection{Cache Hit vs. Cache Miss Penalty Analysis}
@@ -132,6 +136,7 @@ Cache Miss (P99) & 310.2 ms & Cold starts or complex queries incur the "cache pe
 Penalty Factor & approx. 15x & A cache miss is approximately 15 times more expensive than a cache hit, proving the absolute necessity of our caching tier. \\ \hline
 \end{tabular}
 \caption{Cache Hit vs. Cache Miss Latency Comparison}
+\label{tab:cache_comparison}
 \end{table}
 
 \section{The Verdict: Grace Under Pressure}

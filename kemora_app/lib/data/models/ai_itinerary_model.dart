@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../core/di/injection_container.dart';
 import '../../domain/entities/ai_itinerary.dart';
 
 class AIItineraryModel extends AIItinerary {
@@ -65,13 +66,19 @@ class ItineraryItemModel extends ItineraryItem {
   });
 
   factory ItineraryItemModel.fromJson(Map<String, dynamic> json) {
+    String? rawImageUrl = json['image_url'] as String? ?? json['imageUrl'] as String? ?? json['MainImageURL'] as String?;
+    
+    if (rawImageUrl != null && rawImageUrl.isNotEmpty && !rawImageUrl.startsWith('http') && !rawImageUrl.startsWith('//')) {
+      rawImageUrl = rawImageUrl.startsWith('/') ? '${resolveApiBaseUrl()}$rawImageUrl' : '${resolveApiBaseUrl()}/$rawImageUrl';
+    }
+
     return ItineraryItemModel(
       name: json['place'] as String? ?? (json['name'] as String? ?? 'Unknown Place'),
       description: json['description'] as String? ?? '',
       timeOfDay: json['time_slot'] as String? ?? (json['time_of_day'] as String? ?? 'Morning'),
       time: json['time'] as String?,
       suggestedHours: json['suggested_hours'] as String?,
-      imageUrl: json['image_url'] as String?,
+      imageUrl: rawImageUrl,
       rating: (json['rating'] as num?)?.toDouble(),
       price: json['price'] as String?,
       itineraryReview: json['itinerary_review'] as String?,

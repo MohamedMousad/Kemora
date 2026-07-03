@@ -3,7 +3,7 @@
 \section{Introduction}
 Every great software product begins as a response to a complex challenge. For Kemora, the challenge was building a cohesive, highly interactive travel platform that could seamlessly merge AI itinerary generation, social networking, and rich mapping without buckling under its own weight. Early conceptual prototypes quickly revealed the dangers of tight coupling: UI code tangled with business logic, and backend APIs inextricably bound to database frameworks. 
 
-To overcome these hurdles, this chapter delineates our journey in engineering the architectural design of the Kemora platform. Rather than settling for a monolithic anti-pattern, we intentionally designed a system resilient to future expansion and varying loads. The resulting architecture embraces ASP.NET Core \cite{aspnetcore} for the backend API—anchored by Clean Architecture \cite{cleanarchitecture} principles to protect core domain logic—and Flutter \cite{flutter} for the cross-platform mobile frontend, utilizing the Provider pattern \cite{providerpattern} to conquer state management complexities.
+To overcome these hurdles, this chapter delineates our journey in engineering the architectural design of the Kemora platform. Rather than settling for a monolithic anti-pattern, we intentionally designed a system resilient to future expansion and varying loads. The resulting architecture embraces ASP.NET Core \cite{aspnetcore} for the backend APIâ€”anchored by Clean Architecture \cite{cleanarchitecture} principles to protect core domain logicâ€”and Flutter \cite{flutter} for the cross-platform mobile frontend, utilizing the Provider pattern \cite{providerpattern} to conquer state management complexities.
 
 \section{Requirements Specification}
 
@@ -28,7 +28,7 @@ Non-functional requirements specify criteria that judge the operation of the sys
         \item \textbf{Data Encryption:} All communication is encrypted via TLS 1.2/1.3.
         \item \textbf{Password Hashing:} Passwords are cryptographically hashed using PBKDF2 (the ASP.NET Core Identity default) with a high iteration count.
         \item \textbf{JWT Structure:} JSON Web Tokens are signed using the HMAC-SHA512 algorithm (\texttt{SecurityAlgorithms.HmacSha512Signature}). Tokens contain specific claims (\texttt{NameId}, \texttt{Email}, \texttt{GivenName}, \texttt{Role}) and possess a 7-day expiration time to balance user convenience with security. Refresh tokens are generated as 32-byte cryptographically secure random numbers encoded in Base64.
-        \item \textbf{Rate Limiting:} Critical endpoints (e.g., \texttt{AuthController}) are protected against brute-force and DDoS attacks via ASP.NET Core Rate Limiting (\texttt{[EnableRateLimiting("auth")]}).
+        \item \textbf{Rate Limiting:} Critical endpoints (e.g., \texttt{AuthController}) are protected against brute-force and DDoS attacks via ASP.NET Core Rate Limiting (using the \texttt{[EnableRateLimiting]} attribute).
     \end{itemize}
     \item \textbf{NFR4 - Maintainability:} The backend strictly adheres to Clean Architecture. The Domain layer is completely independent of external frameworks. Application logic is separated into Services (\texttt{TripService}, \texttt{TripPlannerService}), while external integrations reside in the Infrastructure layer (\texttt{AuthService}, \texttt{OpenRouterAiService}). HTTP routing is confined to the API tier (\texttt{TripsController}, \texttt{AuthController}, \texttt{PlacesController}).
 \end{itemize}
@@ -82,7 +82,7 @@ sequenceDiagram
     AuthSvc->>TokenSvc: CreateTokenAsync(user)
     TokenSvc->>Identity: GetRolesAsync(user)
     Identity-->>TokenSvc: List of Roles
-    Note over TokenSvc: Sign JWT with HMAC-SHA512<br/>Attach Claims (NameId, Email, GivenName, Role)
+    Note over TokenSvc: Sign JWT & Attach Claims
     TokenSvc-->>AuthSvc: Return JWT String
     AuthSvc-->>API: Return AuthResponseDto
     API-->>Client: 200 OK (Tokens + User Info)
@@ -145,13 +145,13 @@ The data tier is powered by a relational SQL Server database schema optimized fo
     \centering
     \includegraphics[width=0.9\textwidth]{figures/erd.png}
     \caption{Entity Relationship Diagram (ERD)}
-    \label{fig:erd}
+    \label{fig:erd}
 \end{figure}
 
 \section{Frontend Architecture \& State Management Journey}
 Building a visually rich, heavily interactive frontend for Kemora posed a significant challenge: State Management. Initially, passing state down the widget tree via constructors led to "prop drilling," making the UI rigid and difficult to test. 
 
-To conquer this, we adopted the \textbf{Provider} pattern \cite{providerpattern}. Provider allowed us to cleanly separate our UI rendering from our business logic. By injecting ViewModels and Services at the top of the tree, any widget could reactively listen to state changes without tightly coupling to the data source. This decision transformed our Flutter application (`lib/presentation/`) into a highly modular, testable, and responsive frontend. The User Interface (UI) follows a "Modern Heritage" design language—blending contemporary mobile UX patterns (glassmorphism, vibrant gradients) with culturally resonant typography and color palettes.
+To conquer this, we adopted the \textbf{Provider} pattern \cite{providerpattern}. Provider allowed us to cleanly separate our UI rendering from our business logic. By injecting ViewModels and Services at the top of the tree, any widget could reactively listen to state changes without tightly coupling to the data source. This decision transformed our Flutter application (\texttt{lib/presentation/}) into a highly modular, testable, and responsive frontend. The User Interface (UI) follows a "Modern Heritage" design language—blending contemporary mobile UX patterns (glassmorphism, vibrant gradients) with culturally resonant typography and color palettes.
 
 Beyond state management, a robust \textbf{Mobile Security \& Offline Data Strategy} is implemented to ensure data integrity and user privacy. Sensitive credentials, such as JWTs and refresh tokens, are securely persisted using \textbf{Flutter Secure Storage}, leveraging native platform keystores. For performance and offline capabilities, frequently accessed data and user preferences are cached locally using high-performance embedded databases like \textbf{SQLite} and \textbf{Hive}, minimizing network overhead and allowing the application to gracefully handle intermittent connectivity.
 
@@ -160,14 +160,16 @@ The user is first greeted by an animated Splash Screen, followed by an education
 
 \begin{figure}[H]
     \centering
-    \begin{minipage}{0.45\textwidth}
+    \begin{minipage}[t]{0.45\textwidth}
         \centering
+        \vspace{0pt}
         \includegraphics[width=\linewidth]{figures/splash.png}
         \caption{Mobile Application Splash Screen}
         \label{fig:splash}
     \end{minipage}\hfill
-    \begin{minipage}{0.45\textwidth}
+    \begin{minipage}[t]{0.45\textwidth}
         \centering
+        \vspace{0pt}
         \includegraphics[width=\linewidth]{figures/login.png}
         \caption{Mobile Application Authentication Page}
         \label{fig:login}
@@ -189,20 +191,16 @@ Users can navigate an interactive map of Egyptian governorates. Selecting a gove
 
 \begin{figure}[H]
     \centering
-    \begin{minipage}{0.3\textwidth}
+    \begin{minipage}[t]{0.45\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{figures/map.png}
-        \caption{Interactive Map}
-        \label{fig:map}
-    \end{minipage}\hfill
-    \begin{minipage}{0.3\textwidth}
-        \centering
+        \vspace{0pt}
         \includegraphics[width=\linewidth]{figures/gov_details.png}
         \caption{Governorate Details}
         \label{fig:gov_details}
     \end{minipage}\hfill
-    \begin{minipage}{0.3\textwidth}
+    \begin{minipage}[t]{0.45\textwidth}
         \centering
+        \vspace{0pt}
         \includegraphics[width=\linewidth]{figures/place_details.png}
         \caption{Place Details}
         \label{fig:place_details}
@@ -214,18 +212,9 @@ This is the flagship journey. Users input parameters into a multi-step questionn
 
 \begin{figure}[H]
     \centering
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/ai_questions.png}
-        \caption{AI Trip Planner Questionnaire}
-        \label{fig:ai_questions}
-    \end{minipage}\hfill
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/ai_itinerary.png}
-        \caption{AI Generated Itinerary Timeline}
-        \label{fig:ai_itinerary}
-    \end{minipage}
+    \includegraphics[width=\textwidth]{figures/ai_questions.png}
+    \caption{AI Trip Planner Questionnaire}
+    \label{fig:ai_questions}
 \end{figure}
 
 \subsection{Journey 5: Social \& Community}
@@ -243,14 +232,16 @@ The Profile screen tracks the user's identity, displaying earned badges, total p
 
 \begin{figure}[H]
     \centering
-    \begin{minipage}{0.45\textwidth}
+    \begin{minipage}[t]{0.45\textwidth}
         \centering
+        \vspace{0pt}
         \includegraphics[width=\linewidth]{figures/profile.png}
         \caption{User Profile Screen}
         \label{fig:profile}
     \end{minipage}\hfill
-    \begin{minipage}{0.45\textwidth}
+    \begin{minipage}[t]{0.45\textwidth}
         \centering
+        \vspace{0pt}
         \includegraphics[width=\linewidth]{figures/badges.png}
         \caption{Gamification \& Badges Screen}
         \label{fig:badges}

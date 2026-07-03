@@ -135,9 +135,52 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
       
       if (response.statusCode == 200) {
         final String? tripPlanJson = response.data['tripPlan'] ?? response.data['TripPlan'];
+        final List<dynamic>? placesJson = response.data['places'] ?? response.data['Places'];
+
         if (tripPlanJson != null && tripPlanJson.isNotEmpty) {
           try {
-            return AIItineraryModel.fromString(tripPlanJson);
+            var itinerary = AIItineraryModel.fromString(tripPlanJson);
+
+            // Hydrate with places data from the same response
+            if (placesJson != null) {
+              final Map<String, dynamic> placesMap = {
+                for (var p in placesJson)
+                  p['name']?.toString() ?? p['Name']?.toString() ?? '': p
+              };
+
+              final hydratedDays = itinerary.days.map((day) {
+                final hydratedActivities = day.activities.map((act) {
+                  final placeData = placesMap[act.name] ?? placesMap[act.name.replaceAll('the ', 'The ')];
+                  if (placeData != null) {
+                    final imgUrl = placeData['imageUrl']?.toString() ?? placeData['ImageUrl']?.toString() ?? placeData['mainImageURL']?.toString() ?? placeData['MainImageURL']?.toString();
+                    return act.copyWith(
+                      imageUrl: (act.imageUrl == null || act.imageUrl!.isEmpty) ? imgUrl : act.imageUrl,
+                      category: act.category ?? placeData['category']?.toString() ?? placeData['Category']?.toString(),
+                      dbPlaceId: act.dbPlaceId ?? (placeData['dbPlaceId'] as num?)?.toInt() ?? (placeData['DbPlaceId'] as num?)?.toInt(),
+                      latitude: act.latitude ?? (placeData['latitude'] as num?)?.toDouble() ?? (placeData['Latitude'] as num?)?.toDouble(),
+                      longitude: act.longitude ?? (placeData['longitude'] as num?)?.toDouble() ?? (placeData['Longitude'] as num?)?.toDouble(),
+                      rating: act.rating ?? (placeData['rating'] as num?)?.toDouble() ?? (placeData['Rating'] as num?)?.toDouble(),
+                    );
+                  }
+                  return act;
+                }).toList();
+                
+                return TripDay(
+                  dayNumber: day.dayNumber,
+                  activities: List<ItineraryItem>.from(hydratedActivities),
+                  dailySummary: day.dailySummary,
+                  transportTips: day.transportTips,
+                );
+              }).toList();
+
+              itinerary = AIItineraryModel(
+                title: itinerary.title,
+                duration: itinerary.duration,
+                days: List<TripDay>.from(hydratedDays),
+              );
+            }
+
+            return itinerary;
           } catch (e) {
             throw const ServerFailure('AI generated an incomplete plan. Please try again.');
           }

@@ -321,20 +321,40 @@ using (var scope = app.Services.CreateScope())
 
     if (app.Environment.IsDevelopment())
     {
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    }
+    
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try 
+    {
+        Log.Information("DATABASE STARTUP: Ensuring base data is seeded...");
+        await DataSeeder.SeedAsync(scope.ServiceProvider);
+
+        // Execute SQL script if it exists (for migrating local data to remote)
+        string scriptPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "db_script.sql");
+        if (System.IO.File.Exists(scriptPath))
+        {
+            Log.Information("Found db_script.sql. Executing...");
+            var script = System.IO.File.ReadAllText(scriptPath);
+            var batches = System.Text.RegularExpressions.Regex.Split(script, @"^\s*GO\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline);
+            foreach (var batch in batches)
+            {
+                if (string.IsNullOrWhiteSpace(batch)) continue;
+                try {
+                    context.Database.ExecuteSqlRaw(batch);
+                } catch (Exception ex) {
+                    Log.Error(ex, "Error executing SQL batch:\n" + (batch.Length > 100 ? batch.Substring(0, 100) : batch));
+                }
+            }
+            System.IO.File.Delete(scriptPath);
+            Log.Information("db_script.sql executed and deleted.");
+        }
         
-        try 
-        {
-            Log.Information("DATABASE STARTUP: Ensuring base data is seeded...");
-            await DataSeeder.SeedAsync(scope.ServiceProvider);
-            
-            var placeCount = await context.Places.CountAsync();
-            Log.Information("DATABASE STARTUP: Ready. Current Place count: {Count}", placeCount);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "DATABASE STARTUP: Error during seeding check");
-        }
+        var placeCount = await context.Places.CountAsync();
+        Log.Information("DATABASE STARTUP: Ready. Current Place count: {Count}", placeCount);
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "DATABASE STARTUP: Error during seeding check");
     }
 }
 
