@@ -1,7 +1,9 @@
 \chapter{System Analysis \& Design}
 
 \section{Introduction}
-This chapter delineates the formal requirements engineering and architectural design of the Kemora platform. A robust system design is the foundation of any scalable application, ensuring that the software not only meets its current functional objectives but is also resilient to future expansion and varying loads. The architecture utilizes ASP.NET Core for the backend API and Flutter for the cross-platform mobile frontend.
+Every great software product begins as a response to a complex challenge. For Kemora, the challenge was building a cohesive, highly interactive travel platform that could seamlessly merge AI itinerary generation, social networking, and rich mapping without buckling under its own weight. Early conceptual prototypes quickly revealed the dangers of tight coupling: UI code tangled with business logic, and backend APIs inextricably bound to database frameworks. 
+
+To overcome these hurdles, this chapter delineates our journey in engineering the architectural design of the Kemora platform. Rather than settling for a monolithic anti-pattern, we intentionally designed a system resilient to future expansion and varying loads. The resulting architecture embraces ASP.NET Core \cite{aspnetcore} for the backend API—anchored by Clean Architecture \cite{cleanarchitecture} principles to protect core domain logic—and Flutter \cite{flutter} for the cross-platform mobile frontend, utilizing the Provider pattern \cite{providerpattern} to conquer state management complexities.
 
 \section{Requirements Specification}
 
@@ -9,7 +11,7 @@ This chapter delineates the formal requirements engineering and architectural de
 Functional requirements define the specific behaviors and functions the system must perform. The core functional requirements for Kemora are:
 \begin{itemize}
     \item \textbf{FR1 - User Authentication \& Authorization:} The system must allow users to register, log in (via email/password or Google OAuth), and securely manage their sessions. Authentication is handled via JWT tokens, with support for token refresh, email confirmation, and password reset functionalities.
-    \item \textbf{FR2 - Destination Discovery:} The system must display a categorized directory of Egyptian governorates and specific tourist attractions, augmented with images (via Cloudinary) and metadata (via Google Places).
+    \item \textbf{FR2 - Destination Discovery:} The system must display a categorized directory of Egyptian governorates and specific tourist attractions, augmented with images (via Cloudinary) and metadata stored exclusively in the local database, with no on-the-fly Google Places fallback.
     \item \textbf{FR3 - AI Trip Generation:} The system must accept user parameters (duration, budget, preferences) and generate a logically ordered, day-by-day itinerary using an external LLM (via OpenRouter).
     \item \textbf{FR4 - Trip Modification (Custom Roadmap):} Users must be able to view their generated trips on an interactive map, manually add places, remove places, and reorder itinerary items dynamically.
     \item \textbf{FR5 - Social Networking \& Community:} The system must provide a community feed where users can publish posts, attach media, leave comments, and react to content. Posts can be directly linked to user-generated AI trips.
@@ -31,15 +33,17 @@ Non-functional requirements specify criteria that judge the operation of the sys
     \item \textbf{NFR4 - Maintainability:} The backend strictly adheres to Clean Architecture. The Domain layer is completely independent of external frameworks. Application logic is separated into Services (\texttt{TripService}, \texttt{TripPlannerService}), while external integrations reside in the Infrastructure layer (\texttt{AuthService}, \texttt{OpenRouterAiService}). HTTP routing is confined to the API tier (\texttt{TripsController}, \texttt{AuthController}, \texttt{PlacesController}).
 \end{itemize}
 
-\section{System Architecture}
-Kemora utilizes a multi-tier, decoupled architecture designed for high cohesion and loose coupling. The backend is structured into four main layers: API, Application, Domain, and Infrastructure.
+\section{System Architecture: The Clean Architecture Journey}
+As the Kemora backend grew to encompass AI scheduling, social feeds, and gamification, early iterations suffered from the classic "spaghetti code" dilemma. Business rules were scattered across controllers, and swapping out external services (like the AI provider or storage layer) required rewriting core logic. 
+
+To resolve this, we adopted \textbf{Clean Architecture} \cite{cleanarchitecture}. By inverting the dependencies, we ensured that our core business rules remained isolated and independent of UI, databases, or external APIs. This structural discipline is organized into four concentric layers:
 
 \subsection{Architectural Layers}
 \begin{enumerate}
-    \item \textbf{Domain Layer:} Contains core business entities (\texttt{ApplicationUser}, \texttt{Trip}, \texttt{Place}) and repository interfaces.
-    \item \textbf{Application Layer:} Houses Data Transfer Objects (DTOs), business service interfaces (\texttt{ITripService}, \texttt{IAiService}), and core business logic (\texttt{TripService}, \texttt{TripPlannerService}).
-    \item \textbf{Infrastructure Layer:} Implements the interfaces. Key implementations include \texttt{TokenService} for JWT handling, \texttt{OpenRouterAiService} for communicating with LLMs, and \texttt{CloudinaryImageService} for media storage.
-    \item \textbf{API Layer:} Exposes RESTful endpoints (e.g., \texttt{AuthController}, \texttt{TripsController}) secured via Bearer authentication.
+    \item \textbf{Domain Layer (The Core):} At the center of our architecture lies the Domain Layer. It contains the fundamental business entities (\texttt{ApplicationUser}, \texttt{Trip}, \texttt{Place}) and repository interfaces. It has zero dependencies on any other project or framework, guaranteeing that our most critical rules are immune to external technological shifts.
+    \item \textbf{Application Layer (Use Cases):} Orchestrating the system's capabilities, this layer houses Data Transfer Objects (DTOs), business service interfaces (\texttt{ITripService}, \texttt{IAiService}), and core business logic (\texttt{TripService}, \texttt{TripPlannerService}). It dictates \textit{what} the system does without caring \textit{how} the data is fetched or saved. To decouple side effects, such as our gamification engine, we utilize an \textbf{event-driven architecture} powered by \textbf{MediatR domain events} \cite{mediatr}. Core user actions emit domain events, which are asynchronously handled to award points and badges without blocking the primary request thread.
+    \item \textbf{Infrastructure Layer (External Details):} This layer implements the interfaces defined in the Application layer. Whenever we needed to integrate a new third-party capability, it was confined here. Key implementations include \texttt{TokenService} for JWT handling, \texttt{OpenRouterAiService} for communicating with external LLMs, and \texttt{CloudinaryImageService} for media storage.
+    \item \textbf{API Layer (The Delivery Mechanism):} Serving as the entry point to the backend, the API layer exposes RESTful endpoints (e.g., \texttt{AuthController}, \texttt{TripsController}) secured via Bearer authentication. It remains thin, delegating all substantial work to the Application layer. To ensure robustness, API contracts are strictly maintained; all incoming requests undergo rigorous validation using \textbf{FluentValidation} \cite{fluentvalidation}, and exceptions or validation failures are uniformly formatted according to the \textbf{RFC 7807} \cite{rfc7807} standard (Problem Details for HTTP APIs).
 \end{enumerate}
 
 \begin{figure}[H]
@@ -103,7 +107,7 @@ sequenceDiagram
     PlacesAPI->>PlannerSvc: GenerateTripPlanAsync(request)
     PlannerSvc->>AI: GenerateCompletionAsync(sysPrompt, userPrompt)
     Note over AI: Check ConcurrentDictionary<br/>for available free models
-    AI->>ExtAI: HTTP POST /v1/chat/completions
+    AI->>ExtAI: HTTP POST /v1/completions
     ExtAI-->>AI: LLM JSON Response (Itinerary)
     AI-->>PlannerSvc: Parsed TripPlanResponseDto
     PlannerSvc-->>PlacesAPI: Return TripPlanResponseDto
@@ -123,8 +127,11 @@ sequenceDiagram
     TripsAPI-->>Client: 201 Created (Trip details)
 \end{verbatim}
 
+\subsection{Microservices Readiness \& Bounded Contexts}
+Although Kemora is currently deployed as a modular monolith to reduce operational overhead, its architecture is fundamentally designed for a seamless transition to microservices. By strictly adhering to Clean Architecture \cite{cleanarchitecture} and employing MediatR \cite{mediatr} for domain events, the system establishes clear bounded contexts (e.g., Identity, Trip Planning, Social Feed, Gamification). These bounded contexts interact through asynchronous events rather than direct method calls. When the platform scales to a point where independent deployment of these domains becomes necessary, the in-memory MediatR pipelines can easily be replaced with distributed event brokers, such as RabbitMQ \cite{rabbitmq} or Apache Kafka \cite{kafka}, with minimal refactoring of the core business logic.
+
 \section{Database Design and Entity Relationships}
-The data tier is powered by a relational SQL Server database schema optimized for entity integrity and rapid querying. The schema is managed via Entity Framework Core Code-First migrations.
+The data tier is powered by a relational SQL Server database schema optimized for entity integrity and rapid querying. The schema is managed via Entity Framework Core \cite{efcore} Code-First migrations.
 
 \subsection{Key Data Entities}
 \begin{itemize}
@@ -141,8 +148,12 @@ The data tier is powered by a relational SQL Server database schema optimized fo
     \label{fig:erd}
 \end{figure}
 
-\section{Frontend User Journeys and UI Design}
-The Flutter application (`lib/presentation/`) is structurally divided by core domains. The User Interface (UI) follows a "Modern Heritage" design language—blending contemporary mobile UX patterns (glassmorphism, vibrant gradients) with culturally resonant typography and color palettes.
+\section{Frontend Architecture \& State Management Journey}
+Building a visually rich, heavily interactive frontend for Kemora posed a significant challenge: State Management. Initially, passing state down the widget tree via constructors led to "prop drilling," making the UI rigid and difficult to test. 
+
+To conquer this, we adopted the \textbf{Provider} pattern \cite{providerpattern}. Provider allowed us to cleanly separate our UI rendering from our business logic. By injecting ViewModels and Services at the top of the tree, any widget could reactively listen to state changes without tightly coupling to the data source. This decision transformed our Flutter application (`lib/presentation/`) into a highly modular, testable, and responsive frontend. The User Interface (UI) follows a "Modern Heritage" design language—blending contemporary mobile UX patterns (glassmorphism, vibrant gradients) with culturally resonant typography and color palettes.
+
+Beyond state management, a robust \textbf{Mobile Security \& Offline Data Strategy} is implemented to ensure data integrity and user privacy. Sensitive credentials, such as JWTs and refresh tokens, are securely persisted using \textbf{Flutter Secure Storage}, leveraging native platform keystores. For performance and offline capabilities, frequently accessed data and user preferences are cached locally using high-performance embedded databases like \textbf{SQLite} and \textbf{Hive}, minimizing network overhead and allowing the application to gracefully handle intermittent connectivity.
 
 \subsection{Journey 1: Onboarding \& Authentication}
 The user is first greeted by an animated Splash Screen, followed by an educational Walkthrough. The Authentication flow supports standard registration and OAuth. It intercepts deep links for email confirmation and password resets.
@@ -199,7 +210,7 @@ Users can navigate an interactive map of Egyptian governorates. Selecting a gove
 \end{figure}
 
 \subsection{Journey 4: Trip Planning \& AI Itinerary}
-This is the flagship journey. Users input parameters into a multi-step questionnaire (`ai_step_questions_screen.dart`). The system displays a loading animation while negotiating with the backend AI. The result is a beautifully rendered, interactive timeline (`ai_itinerary_result_screen.dart`).
+This is the flagship journey. Users input parameters into a multi-step questionnaire (\texttt{ai\_step\_questions\_screen.dart}). The system displays a loading animation while negotiating with the backend AI. The result is a beautifully rendered, interactive timeline (\texttt{ai\_itinerary\_result\_screen.dart}).
 
 \begin{figure}[H]
     \centering
@@ -218,22 +229,13 @@ This is the flagship journey. Users input parameters into a multi-step questionn
 \end{figure}
 
 \subsection{Journey 5: Social \& Community}
-A familiar, vertically scrolling feed allows users to consume and produce content. Users can view detailed posts, engage in comment threads, and participate in direct real-time chats.
+A familiar, vertically scrolling feed allows users to consume and produce content. Users can view detailed posts and engage in comment threads.
 
 \begin{figure}[H]
     \centering
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/social_feed.png}
-        \caption{Community Social Feed}
-        \label{fig:social_feed}
-    \end{minipage}\hfill
-    \begin{minipage}{0.45\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{figures/chat.png}
-        \caption{Real-Time Messaging Interface}
-        \label{fig:chat}
-    \end{minipage}
+    \includegraphics[width=0.45\textwidth]{figures/social_feed.png}
+    \caption{Community Social Feed}
+    \label{fig:social_feed}
 \end{figure}
 
 \subsection{Journey 6: Profile \& Gamification}
@@ -254,3 +256,6 @@ The Profile screen tracks the user's identity, displaying earned badges, total p
         \label{fig:badges}
     \end{minipage}
 \end{figure}
+
+\subsection{Offline-First Mobile Sync Strategy}
+To provide a seamless user experience even in unreliable network conditions, Kemora employs an offline-first mobile sync strategy. Data fetched from the backend is aggressively cached using local embedded databases like SQLite and Hive. More importantly, when a user performs a data mutation---such as creating a trip, liking a post, or adding a comment---while offline, the action is not discarded. Instead, these mutations are serialized and appended to a local pending operations queue managed by SQLite/Hive. A background synchronization service periodically monitors network connectivity; upon detecting a stable connection, it flushes the queue, sequentially applying the pending mutations to the remote backend. This approach ensures high availability and consistency without compromising the responsiveness of the mobile frontend.

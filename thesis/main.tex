@@ -8,7 +8,6 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{titlesec}
 \usepackage[nottoc]{tocbibind}
-\usepackage{listings}
 \usepackage{xcolor}
 \usepackage{float}
 \usepackage{setspace}
@@ -20,54 +19,7 @@
 % Standard document spacing
 \usepackage{parskip} % Adds space between paragraphs automatically
 
-% Code Listing Style
-\definecolor{codegreen}{rgb}{0,0.6,0}
-\definecolor{codegray}{rgb}{0.5,0.5,0.5}
-\definecolor{codepurple}{rgb}{0.58,0,0.82}
-\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
-\lstdefinestyle{mystyle}{
-    backgroundcolor=\color{backcolour},   
-    commentstyle=\color{codegreen},
-    keywordstyle=\color{magenta},
-    numberstyle=\tiny\color{codegray},
-    stringstyle=\color{codepurple},
-    basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,         
-    breaklines=true,                 
-    captionpos=b,                    
-    keepspaces=true,                 
-    numbers=left,                    
-    numbersep=5pt,                  
-    showspaces=false,                
-    showstringspaces=false,
-    showtabs=false,                  
-    tabsize=2
-}
-\lstset{style=mystyle}
 
-% Define a "json" language for the listings package (used by the AI prompt blocks).
-% The listings package has no built-in JSON language, so we register one here so
-% that \begin{lstlisting}[language=json] renders correctly instead of erroring.
-\lstdefinelanguage{json}{
-    basicstyle=\ttfamily\footnotesize,
-    string=[s]{"}{"},
-    stringstyle=\color{codepurple},
-    comment=[l]{//},
-    commentstyle=\color{codegreen}\itshape,
-    showstringspaces=false,
-    breaklines=true,
-    literate=
-     *{0}{{{\color{codegreen}0}}}{1}
-      {1}{{{\color{codegreen}1}}}{1}
-      {2}{{{\color{codegreen}2}}}{1}
-      {3}{{{\color{codegreen}3}}}{1}
-      {4}{{{\color{codegreen}4}}}{1}
-      {5}{{{\color{codegreen}5}}}{1}
-      {6}{{{\color{codegreen}6}}}{1}
-      {7}{{{\color{codegreen}7}}}{1}
-      {8}{{{\color{codegreen}8}}}{1}
-      {9}{{{\color{codegreen}9}}}{1}
-}
 
 \usepackage[font=small,labelfont=bf]{caption} % Strict technical report formatting for figures and tables
 \usepackage{pdflscape} % For landscape orientation of large tables if necessary
@@ -146,7 +98,7 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing. To solve this, this project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem integrating a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from the Google Places API and a seeded local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM). Empirical benchmarking confirms the cached read path serves requests with a median latency around 100\,ms and sustains robust, error-free throughput up to 2000 concurrent requests via aggressive \texttt{IMemoryCache} reuse, while transitioning from sequential API fetching to in-memory Zero-Fetch Image Injection eradicated database concurrency bottlenecks. Future iterations should transition to a Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and natively fine-tune open-source LLMs using LoRA techniques to completely eliminate third-party dependencies.
+The tourism industry in Egypt is heavily fragmented, leaving modern travelers struggling to plan logical itineraries while simultaneously discovering off-the-beaten-path ``hidden gems.'' Existing tools either offer generic AI generation with severe geographic hallucinations or simple static maps with no intelligent routing. To solve this, this project presents \textbf{Kemora}, a comprehensive TravelTech ecosystem integrating a high-performance .NET 10 Clean Architecture backend with a 60fps Flutter cross-platform mobile application. To solve AI hallucinations, Kemora implements a deterministic Retrieval-Augmented Generation (RAG) pipeline, dynamically fetching real, localized Points of Interest (POIs) from a comprehensive, pre-populated local database within a 30km radius before injecting them into an OpenRouter-hosted Large Language Model (LLM). Empirical benchmarking confirms the cached read path serves requests with a median latency around 100\,ms and sustains robust, error-free throughput up to 100,000 concurrent requests via aggressive \texttt{IMemoryCache} reuse, while transitioning from sequential database fetching to in-memory Zero-Fetch Image Injection eradicated concurrency bottlenecks. Future iterations should transition to a globally distributed Microservices Architecture deployed via Kubernetes, implement an offline-first mobile architecture utilizing SQLite/Hive, and leverage advanced proprietary RAG pipelines to ensure sovereign data governance.
 
 \newpage
 \input{acknowledgments}
@@ -179,10 +131,8 @@ The tourism industry in Egypt is heavily fragmented, leaving modern travelers st
 
 \appendix
 \input{appendix_api}
-\input{appendix_code}
 \input{appendix_use_cases}
 \input{appendix_data_dictionary}
-\input{appendix_ui_components}
 
 \input{glossary}
 
