@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import 'core/di/injection_container.dart' as di;
 import 'core/auth/token_storage.dart';
@@ -26,6 +27,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Must complete before runApp so TokenStorage.instance.isAuthenticated is usable in SplashScreen
   await TokenStorage.instance.initialize();
+  try {
+    await GoogleSignIn.instance.initialize();
+  } catch (_) {
+    // Ignore initialization failures on unsupported platforms
+  }
   await di.init();
   runApp(const KemoraApp());
 }

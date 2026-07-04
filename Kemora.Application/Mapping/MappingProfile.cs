@@ -38,8 +38,6 @@ namespace Kemora.Application.Mapping
                 .ForMember(d => d.MainImageURL, o => o.MapFrom(s => s.Place.MainImageURL));
 
             // Trips
-            CreateMap<TripPlace, TripPlaceResponseDto>()
-                .ForMember(d => d.PlaceName, o => o.MapFrom(s => s.Place.Name));
             CreateMap<Trip, TripListDto>()
                 .ForMember(d => d.PlaceCount, o => o.MapFrom(s => s.TripPlaces.Count))
                 .ForMember(d => d.Location, o => o.MapFrom(s => 
@@ -95,6 +93,14 @@ namespace Kemora.Application.Mapping
             // Photos
             CreateMap<Photo, PhotoResponseDto>();
 
+            // Trip places — flatten navigation so ImageUrl/Category/Rating come from Place.
+            CreateMap<TripPlace, TripPlaceResponseDto>()
+                .ForMember(d => d.PlaceName, o => o.MapFrom(s => s.Place != null ? s.Place.Name : ""))
+                .ForMember(d => d.ImageUrl, o => o.MapFrom(s => s.Place != null ? s.Place.MainImageURL : null))
+                .ForMember(d => d.Rating, o => o.MapFrom(s => s.Place != null ? (double?)s.Place.Rating : null))
+                .ForMember(d => d.Description, o => o.MapFrom(s => s.Place != null ? s.Place.Description : null))
+                .ForMember(d => d.Category, o => o.MapFrom(s => s.Place != null && s.Place.PlaceType != null && s.Place.PlaceType.Category != null ? s.Place.PlaceType.Category.Name : null));
+
             // Messages
             CreateMap<Message, MessageDto>()
                 .ForMember(d => d.SenderName, o => o.MapFrom(s => s.Sender.FullName))
@@ -115,7 +121,9 @@ namespace Kemora.Application.Mapping
                 .ForMember(d => d.GovernorateName, o => o.MapFrom(s => s.Governorate.Name))
                 .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName));
             CreateMap<Place, PlacePublicDto>()
-                .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName));
+                .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName))
+                .ForMember(d => d.GovernorateName, o => o.MapFrom(s => s.Governorate.Name))
+                .ForMember(d => d.ReviewCount, o => o.MapFrom(s => s.Reviews.Count));
             CreateMap<Place, PlaceDetailPublicDto>()
                 .ForMember(d => d.PlaceTypeName, o => o.MapFrom(s => string.IsNullOrEmpty(s.PlaceType.DisplayName) ? s.PlaceType.Category.Name : s.PlaceType.DisplayName))
                 .ForMember(d => d.AdditionalPhotoUrls, o => o.MapFrom(s => string.IsNullOrEmpty(s.AdditionalPhotoUrlsJSON) ? new List<string>() : System.Text.Json.JsonSerializer.Deserialize<List<string>>(s.AdditionalPhotoUrlsJSON, (System.Text.Json.JsonSerializerOptions?)null)));

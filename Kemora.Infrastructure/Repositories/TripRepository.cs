@@ -30,6 +30,8 @@ namespace Kemora.Infrastructure.Repositories
         {
             return await _dbSet
                 .Include(x => x.TripPlaces).ThenInclude(tp => tp.Place)
+                    .ThenInclude(p => p.PlaceType)
+                        .ThenInclude(pt => pt.Category)
                 .FirstOrDefaultAsync(x => x.TripID == id);
         }
 

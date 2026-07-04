@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../domain/entities/badge.dart' as entity;
 import '../../viewmodels/badge_view_model.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../widgets/badge_medallion.dart';
 // inline points display
 
 class BadgesScreen extends StatefulWidget {
@@ -43,7 +44,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
       body: Consumer<BadgeViewModel>(
         builder: (context, viewModel, child) {
           if (viewModel.state == BadgeState.loading && viewModel.allBadges.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFFC5A358)));
+            return const Center(child: CircularProgressIndicator(color: AppColors.primaryContainer));
           }
 
           if (viewModel.state == BadgeState.error && viewModel.allBadges.isEmpty) {
@@ -60,7 +61,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
                       viewModel.loadAllBadges();
                       viewModel.loadUserBadges(widget.userId);
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC5A358), foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryContainer, foregroundColor: Colors.white),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -99,13 +100,13 @@ class _BadgesScreenState extends State<BadgesScreen> {
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1A1A1A), Color(0xFF2D2D2D)],
+            colors: [AppColors.primary, AppColors.secondary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
-            BoxShadow(color: const Color(0xFFC5A358).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
+            BoxShadow(color: AppColors.primaryContainer.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10)),
           ],
         ),
         child: Column(
@@ -118,7 +119,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
               children: [
                 Text(
                   '$totalPoints',
-                  style: const TextStyle(color: Color(0xFFC5A358), fontSize: 48, fontWeight: FontWeight.bold, height: 1),
+                  style: const TextStyle(color: AppColors.primaryContainer, fontSize: 48, fontWeight: FontWeight.bold, height: 1),
                 ),
                 const SizedBox(width: 8),
                 const Padding(
@@ -190,9 +191,9 @@ class _BadgesScreenState extends State<BadgesScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isEarned ? const Color(0xFFC5A358).withValues(alpha: 0.5) : Colors.transparent,
+          color: isEarned ? AppColors.primaryContainer.withValues(alpha: 0.5) : Colors.transparent,
           width: 2,
         ),
         boxShadow: [
@@ -211,16 +212,12 @@ class _BadgesScreenState extends State<BadgesScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Opacity(
-                  opacity: isEarned ? 1.0 : 0.3,
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isEarned ? const Color(0xFFC5A358).withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-                    ),
-                    child: _buildBadgeIcon(badge, isEarned),
+                  opacity: isEarned ? 1.0 : 0.85,
+                  child: BadgeMedallion(
+                    name: badge.name,
+                    criteria: badge.criteria,
+                    earned: isEarned,
+                    size: 72,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -241,7 +238,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isEarned ? const Color(0xFFC5A358) : Colors.grey,
+                    color: isEarned ? AppColors.primaryContainer : Colors.grey,
                     fontWeight: isEarned ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
@@ -259,35 +256,13 @@ class _BadgesScreenState extends State<BadgesScreen> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
-                  color: Color(0xFFC5A358),
+                  color: AppColors.primaryContainer,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.check, color: Colors.white, size: 12),
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBadgeIcon(entity.Badge badge, bool isEarned) {
-    if (badge.iconUrl.isEmpty) return _fallbackIcon(isEarned);
-
-    // Check if it's a single emoji (typical for seeded badges)
-    final isEmoji = badge.iconUrl.length <= 4 && !badge.iconUrl.contains('http');
-
-    if (isEmoji) {
-      return Text(
-        badge.iconUrl,
-        style: TextStyle(fontSize: 40, color: isEarned ? null : Colors.grey),
-      );
-    }
-
-    return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: badge.iconUrl,
-        fit: BoxFit.cover,
-        errorWidget: (_, __, ___) => _fallbackIcon(isEarned),
       ),
     );
   }
@@ -306,21 +281,13 @@ class _BadgesScreenState extends State<BadgesScreen> {
           child: LinearProgressIndicator(
             value: progress,
             backgroundColor: Colors.grey[200],
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFC5A358)),
+            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryContainer),
             minHeight: 4,
           ),
         ),
         const SizedBox(height: 4),
         Text('${(progress * 100).toInt()}% progress', style: const TextStyle(fontSize: 9, color: Colors.grey)),
       ],
-    );
-  }
-
-  Widget _fallbackIcon(bool isEarned) {
-    return Icon(
-      Icons.workspace_premium,
-      size: 40,
-      color: isEarned ? const Color(0xFFC5A358) : Colors.grey,
     );
   }
 }

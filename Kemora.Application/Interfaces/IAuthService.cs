@@ -15,5 +15,6 @@ namespace Kemora.Application.Interfaces
         Task<(bool Succeeded, string Error)> UpdatePreferencesAsync(string userId, string preferencesJson);
         Task<(bool Succeeded, string Error)> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
         Task<(bool Succeeded, string Error)> ChangeEmailAsync(string userId, string newEmail, string password);
+        Task<(bool Succeeded, string Error)> LogoutAsync(string userId);
     }
 }

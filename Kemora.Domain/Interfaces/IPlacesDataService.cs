@@ -37,5 +37,12 @@ namespace Kemora.Domain.Interfaces
         Task<List<FetchedPlaceDto>> FetchNearbyPlacesAsync(
             double latitude, double longitude,
             double minRadiusKm = 0, double maxRadiusKm = 20);
+
+        /// <summary>
+        /// Builds an authenticated, directly-fetchable media URL for a Google photo
+        /// resource name (e.g. "places/{id}/photos/{ref}"). Used server-side as the
+        /// source for Cloudinary uploads. Returns null when no valid API key is set.
+        /// </summary>
+        string? BuildPhotoFetchUrl(string photoResourceName, int maxWidthPx = 1600);
     }
 }

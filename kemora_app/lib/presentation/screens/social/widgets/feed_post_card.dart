@@ -5,6 +5,7 @@ import '../../../../core/theme/app_typography.dart';
 class FeedPostCard extends StatelessWidget {
   final String? postId;
   final String authorName;
+  final String? authorProfilePicture;
   final String location;
   final String timeAgo;
   final String content;
@@ -23,6 +24,7 @@ class FeedPostCard extends StatelessWidget {
     super.key,
     this.postId,
     required this.authorName,
+    this.authorProfilePicture,
     required this.location,
     required this.timeAgo,
     required this.content,
@@ -63,14 +65,35 @@ class FeedPostCard extends StatelessWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.surfaceContainerHigh,
+                    border: Border.all(color: AppColors.primaryContainer, width: 2),
                   ),
-                  child: Center(
-                      child: Text(authorName[0],
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, color: AppColors.onSurface))),
+                  child: ClipOval(
+                    child: authorProfilePicture != null && authorProfilePicture!.isNotEmpty
+                        ? (authorProfilePicture!.startsWith('http')
+                            ? Image.network(
+                                authorProfilePicture!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                    child: Text(authorName.isNotEmpty ? authorName[0] : '',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold, color: AppColors.onSurface))),
+                              )
+                            : Image.asset(
+                                authorProfilePicture!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Center(
+                                    child: Text(authorName.isNotEmpty ? authorName[0] : '',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold, color: AppColors.onSurface))),
+                              ))
+                        : Center(
+                            child: Text(authorName.isNotEmpty ? authorName[0] : '',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, color: AppColors.onSurface))),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

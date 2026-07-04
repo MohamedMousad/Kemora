@@ -37,5 +37,19 @@ namespace Kemora.Infrastructure.Services
 
             return null;
         }
+
+        public async Task<string?> UploadImageFromUrlAsync(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return null;
+
+            var uploadParams = new ImageUploadParams
+            {
+                File = new FileDescription(url),
+                Transformation = new Transformation().Height(1000).Width(1000).Crop("limit")
+            };
+            
+            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+            return uploadResult.SecureUrl?.ToString();
+        }
     }
 }

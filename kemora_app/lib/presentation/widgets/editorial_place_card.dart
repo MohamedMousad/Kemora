@@ -4,6 +4,8 @@ import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_shadows.dart';
 import 'glassmorphism_container.dart';
 
+import '../../core/di/injection_container.dart';
+
 class EditorialPlaceCard extends StatelessWidget {
   final String title;
   final String category;
@@ -36,197 +38,207 @@ class EditorialPlaceCard extends StatelessWidget {
     this.imageUrl,
   });
 
+  String get _fullImageUrl {
+    if (imageUrl == null || imageUrl!.isEmpty) return '';
+    if (imageUrl!.startsWith('http')) return imageUrl!;
+    final baseUrl = resolveApiBaseUrl();
+    if (imageUrl!.startsWith('/')) {
+      return '$baseUrl$imageUrl';
+    }
+    return '$baseUrl/$imageUrl';
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: AppShadows.ambient,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image Stack
-            AspectRatio(
-              aspectRatio: aspectRatio > 1 ? aspectRatio : 1 / (1 / aspectRatio), // handle both wide and tall
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Image or Placeholder
-                    if (imageUrl != null && imageUrl!.startsWith('http'))
-                      Image.network(
-                        imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceContainer,
-                          child: const Center(
-                            child: Icon(Icons.image_outlined, color: AppColors.outline, size: 48),
-                          ),
-                        ),
-                      )
-                    else if (imageUrl != null && imageUrl!.isNotEmpty)
-                      Image.asset(
-                        imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceContainer,
-                          child: const Center(
-                            child: Icon(Icons.image_outlined, color: AppColors.outline, size: 48),
-                          ),
-                        ),
-                      )
-                    else if (imageAsset != null)
-                      Image.asset(
-                        imageAsset!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceContainer,
-                          child: const Center(
-                            child: Icon(Icons.image_outlined, color: AppColors.outline, size: 48),
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        color: AppColors.surfaceContainer,
-                        child: const Center(
-                          child: Icon(Icons.image_outlined, color: AppColors.outline, size: 48),
-                        ),
-                      ),
-                    
-                    // Category Badge
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondaryFixed,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          category.toUpperCase(),
-                          style: AppTypography.labelSmall.copyWith(
-                            color: AppColors.onSecondaryFixed,
-                          ),
-                        ),
-                      ),
+      child: AspectRatio(
+        aspectRatio: aspectRatio > 1 ? aspectRatio : 1 / (1 / aspectRatio),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: AppShadows.ambient,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Image or Placeholder
+                if (_fullImageUrl.isNotEmpty && _fullImageUrl.startsWith('http'))
+                  Image.network(
+                    _fullImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                  )
+                else if (imageAsset != null)
+                  Image.asset(
+                    imageAsset!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                  )
+                else
+                  _buildPlaceholder(),
+                
+                // Gradient Overlay (Soft Lapis-to-transparent)
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        AppColors.secondary.withOpacity(0.9),
+                        AppColors.secondary.withOpacity(0.4),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.4, 0.8],
                     ),
-                    
-                    // Favorite Button
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: GestureDetector(
-                        onTap: onFavoriteTap,
-                        child: GlassmorphismContainer(
-                          opacity: 0.2,
-                          blurRadius: 10,
-                          borderRadius: BorderRadius.circular(999),
-                          padding: const EdgeInsets.all(8),
-                          child: Icon(
-                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: isFavorite ? AppColors.primaryContainer : Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: AppTypography.titleMedium,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                
+                // Category Badge
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondaryFixed,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      category.toUpperCase(),
+                      style: AppTypography.labelSmall.copyWith(
+                        color: AppColors.onSecondaryFixed,
                       ),
-                      const SizedBox(width: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: AppColors.tertiary, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            rating.toStringAsFixed(1),
-                            style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            ' (${reviewsCount ~/ 1000}k)',
-                            style: AppTypography.labelMedium.copyWith(color: AppColors.outline),
-                          ),
-                        ],
-                      )
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, color: AppColors.onSurfaceVariant, size: 14),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          location,
-                          style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                ),
+                
+                // Favorite Button
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: onFavoriteTap,
+                    child: GlassmorphismContainer(
+                      opacity: 0.2,
+                      blurRadius: 10,
+                      borderRadius: BorderRadius.circular(999),
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? AppColors.primaryFixed : Colors.white,
+                        size: 20,
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            price,
-                            style: AppTypography.titleMedium.copyWith(color: AppColors.primary),
-                          ),
-                          Text(
-                            ' / entry',
-                            style: AppTypography.labelMedium.copyWith(color: AppColors.outline),
-                          ),
-                        ],
-                      ),
-                      if (distance != null)
+                ),
+
+                // Content Overlay at the bottom
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.near_me_outlined, color: AppColors.onSurfaceVariant, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              distance!,
-                              style: AppTypography.labelMedium.copyWith(color: AppColors.onSurfaceVariant),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: AppTypography.titleLarge.copyWith(color: AppColors.onPrimary),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
-                    ],
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: AppColors.primaryContainer, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating.toStringAsFixed(1),
+                              style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.onPrimary),
+                            ),
+                            Text(
+                              ' (${_formatCount(reviewsCount)})',
+                              style: AppTypography.labelMedium.copyWith(color: AppColors.onPrimary.withOpacity(0.7)),
+                            ),
+                            const Spacer(),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  price,
+                                  style: AppTypography.titleMedium.copyWith(color: AppColors.primaryContainer),
+                                ),
+                                Text(
+                                  ' / entry',
+                                  style: AppTypography.labelMedium.copyWith(color: AppColors.onPrimary.withOpacity(0.7)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, color: AppColors.primaryFixed, size: 14),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                location,
+                                style: AppTypography.bodyMedium.copyWith(color: AppColors.onPrimary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (distance != null)
+                              Row(
+                                children: [
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.near_me_outlined, color: AppColors.primaryFixed, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    distance!,
+                                    style: AppTypography.labelMedium.copyWith(color: AppColors.onPrimary),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000) {
+      final k = count / 1000;
+      return '${k.toStringAsFixed(k >= 10 ? 0 : 1)}k';
+    }
+    return '$count';
+  }
+
+  Widget _buildPlaceholder() {    return Container(
+      color: AppColors.surfaceContainer,
+      child: const Center(
+        child: Icon(Icons.image_outlined, color: AppColors.outline, size: 48),
       ),
     );
   }

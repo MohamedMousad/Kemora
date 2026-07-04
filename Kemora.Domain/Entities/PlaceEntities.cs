@@ -45,7 +45,7 @@ namespace Kemora.Domain.Entities
     {
         [Key]
         public int PlaceID { get; set; }
-        public string? FoursquareId { get; set; }
+        public string? GooglePlaceId { get; set; }
         public string Name { get; set; }
         public string? Description { get; set; }
         public string? Address { get; set; }
@@ -74,7 +74,7 @@ namespace Kemora.Domain.Entities
         public PlaceType? PlaceType { get; set; }
 
         public DateTime? LastEnrichedAt { get; set; }
-        public string? Source { get; set; } // "seed", "foursquare", "manual"
+        public string? Source { get; set; } // "seed", "google", "manual"
         
         [StringLength(100)]
         public string? GoogleDataId { get; set; } // SerpApi Maps data_id

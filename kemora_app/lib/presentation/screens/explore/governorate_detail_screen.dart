@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../widgets/kemora_app_bar.dart';
 import '../../widgets/editorial_place_card.dart';
-import 'package:provider/provider.dart';
 import '../../viewmodels/places_view_model.dart';
-import '../../../domain/entities/place.dart' as domain;
-import '../../../data/local/governorate_data.dart';
+import '../../../domain/entities/place.dart';
 import 'place_detail_screen.dart';
 import 'places_screen.dart';
 
 /// Detailed view of a single governorate with categorized place sections,
 /// matching the Home design style with a sticky search bar.
 class GovernorateDetailScreen extends StatefulWidget {
-  final GovernorateInfo governorate;
+  final Governorate governorate;
   const GovernorateDetailScreen({super.key, required this.governorate});
 
   @override
@@ -22,6 +21,45 @@ class GovernorateDetailScreen extends StatefulWidget {
 
 class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  bool _hasRetried = false;
+  bool _isRetrying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final vm = context.read<PlacesViewModel>();
+      if (vm.governorates.isEmpty) {
+        await vm.loadGovernorates();
+      }
+      final govId = vm.governorateIdByName(widget.governorate.name);
+      if (govId != null) {
+        await vm.loadPlacesByGovernorate(govId);
+        // Retry once if empty — backend hydration may be async
+        if (vm.places.isEmpty && vm.state == PlacesState.loaded && !_hasRetried && mounted) {
+          _hasRetried = true;
+          setState(() => _isRetrying = true);
+          await Future.delayed(const Duration(seconds: 3));
+          if (mounted) {
+            await vm.loadPlacesByGovernorate(govId);
+            setState(() => _isRetrying = false);
+          }
+        }
+      }
+    });
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final vm = context.read<PlacesViewModel>();
+      final govId = vm.governorateIdByName(widget.governorate.name);
+      if (govId != null && vm.hasMoreGovernoratePlaces && !vm.isLoadingMoreGovernoratePlaces) {
+        vm.loadPlacesByGovernorate(govId, isLoadMore: true);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -33,49 +71,83 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  List<domain.Place> get _govPlaces {
-    final vm = context.watch<PlacesViewModel>();
-    final places = vm.places;
-    
+  List<Place> _getGovPlaces(List<Place> places) {
     return places.where((p) {
       if (_searchController.text.isEmpty) return true;
       return p.name.toLowerCase().contains(_searchController.text.toLowerCase());
     }).toList();
   }
 
-  // Category groupings for the vertically stacked sections
-  static const _sectionMap = {
-    'Ancient Places': {'title': 'Historical & Ancient', 'icon': Icons.account_balance},
-    'Museums': {'title': 'Museums & Cultural', 'icon': Icons.museum},
-    'Hotels': {'title': 'Stay & Relax', 'icon': Icons.hotel},
-    'Restaurants': {'title': 'Dining & Cuisine', 'icon': Icons.restaurant},
-    'Others': {'title': 'Fun & Adventure', 'icon': Icons.explore},
-  };
+
 
   @override
   Widget build(BuildContext context) {
+    final placesViewModel = context.watch<PlacesViewModel>();
     return Scaffold(
       appBar: const KemoraAppBar(showBack: true),
-      body: CustomScrollView(
-        slivers: [
-          // Hero header
-          SliverToBoxAdapter(child: _buildHeader()),
-          // Sticky search bar
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SearchBarDelegate(
-              controller: _searchController,
-              onChanged: () => setState(() {}),
+      body: Consumer<PlacesViewModel>(
+        builder: (context, placesViewModel, child) {
+          if (placesViewModel.state == PlacesState.loading || _isRetrying) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  if (_isRetrying) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading places...',
+                      style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }
+
+          final places = _getGovPlaces(placesViewModel.places);
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              final govId = placesViewModel.governorateIdByName(widget.governorate.name);
+              if (govId != null) {
+                await placesViewModel.loadPlacesByGovernorate(govId);
+              }
+            },
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Hero header
+                SliverToBoxAdapter(child: _buildHeader()),
+                // Sticky search bar
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SearchBarDelegate(
+                    controller: _searchController,
+                    onChanged: () => setState(() {}),
+                  ),
+                ),
+                // Categorized sections
+                ..._buildSections(places),
+                if (placesViewModel.isLoadingMoreGovernoratePlaces)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
             ),
-          ),
-          // Categorized sections
-          ..._buildSections(),
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
+          );
+        },
       ),
     );
   }
@@ -102,10 +174,10 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
               children: [
                 const Icon(Icons.wb_sunny_rounded, color: AppColors.tertiary, size: 20),
                 const SizedBox(width: 8),
-                Text(widget.governorate.temperature, style: AppTypography.titleMedium),
+                Text(context.read<PlacesViewModel>().getGovernorateTemperature(widget.governorate.id), style: AppTypography.titleMedium),
                 const SizedBox(width: 12),
                 Text(
-                  widget.governorate.weather,
+                  context.read<PlacesViewModel>().getGovernorateWeatherCode(widget.governorate.id),
                   style: AppTypography.labelSmall.copyWith(color: AppColors.onSurfaceVariant),
                 ),
               ],
@@ -113,49 +185,86 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
           ),
           const SizedBox(height: 20),
           // Top Activities
-          Row(
-            children: [
-              ...widget.governorate.topActivities.take(2).map((a) => Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Chip(
-                      avatar: Icon(a.icon, size: 16, color: AppColors.primaryContainer),
-                      label: Text(a.label),
-                      backgroundColor: AppColors.surfaceContainerLowest,
-                      side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-                    ),
-                  )),
-              if (widget.governorate.topActivities.length > 2)
-                ActionChip(
-                  label: Text('Show All (${widget.governorate.topActivities.length})',
-                      style: TextStyle(color: AppColors.primaryContainer)),
-                  backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.1),
-                  side: BorderSide.none,
-                  onPressed: () => _showAllActivities(context),
-                ),
-            ],
-          ),
+          Builder(builder: (context) {
+            final activities = context.read<PlacesViewModel>().getGovernorateActivities(widget.governorate.id);
+            return Row(
+              children: [
+                ...activities.take(2).map((a) => Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Chip(
+                        avatar: Icon(a.icon, size: 16, color: AppColors.primaryContainer),
+                        label: Text(a.label),
+                        backgroundColor: AppColors.surfaceContainerLowest,
+                        side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                      ),
+                    )),
+                if (activities.length > 2)
+                  ActionChip(
+                    label: Text('Show All (${activities.length})',
+                        style: TextStyle(color: AppColors.primaryContainer)),
+                    backgroundColor: AppColors.primaryContainer.withValues(alpha: 0.1),
+                    side: BorderSide.none,
+                    onPressed: () => _showAllActivities(context, activities),
+                  ),
+              ],
+            );
+          }),
         ],
       ),
     );
   }
 
-  List<Widget> _buildSections() {
-    final places = _govPlaces;
+  List<Widget> _buildSections(List<Place> places) {
     final sections = <Widget>[];
 
-    for (final entry in _sectionMap.entries) {
-      final categoryPlaces = places.where((p) {
-        final cat = p.category.toLowerCase();
-        switch (entry.key) {
-          case 'Museums': return cat.contains('museum');
-          case 'Hotels': return cat.contains('hotel') || cat.contains('resort');
-          case 'Restaurants': return cat.contains('restaurant') || cat.contains('cafe') || cat.contains('food');
-          case 'Ancient Places': return cat.contains('temple') || cat.contains('pyramid') || cat.contains('historical') || cat.contains('citadel');
-          case 'Others': return cat.contains('park') || cat.contains('beach') || cat.contains('adventure') || cat.contains('shopping') || cat.contains('market') || cat.contains('mosque') || cat.contains('church') || cat == 'uncategorized';
-          default: return false;
-        }
-      }).toList();
+    if (places.isEmpty) {
+      sections.add(SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'No places found for ${widget.governorate.name}.',
+                  style: AppTypography.bodyLarge.copyWith(color: AppColors.outline),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final vm = context.read<PlacesViewModel>();
+                    final govId = vm.governorateIdByName(widget.governorate.name);
+                    if (govId != null) {
+                      await vm.loadPlacesByGovernorate(govId);
+                    }
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ));
+      return sections;
+    }
+
+    final categories = places.map((p) => p.category ?? 'Places').toSet().toList();
+    categories.sort();
+
+    for (final categoryName in categories) {
+      final categoryPlaces = places.where((p) => (p.category ?? 'Places') == categoryName).toList();
       if (categoryPlaces.isEmpty) continue;
+
+      IconData sectionIcon = Icons.place;
+      String lowerCat = categoryName.toLowerCase();
+      if (lowerCat.contains('museum') || lowerCat.contains('culture')) sectionIcon = Icons.museum;
+      else if (lowerCat.contains('temple') || lowerCat.contains('pyramid') || lowerCat.contains('historic')) sectionIcon = Icons.account_balance;
+      else if (lowerCat.contains('hotel') || lowerCat.contains('resort')) sectionIcon = Icons.hotel;
+      else if (lowerCat.contains('restaurant') || lowerCat.contains('food')) sectionIcon = Icons.restaurant;
+      else if (lowerCat.contains('park') || lowerCat.contains('nature')) sectionIcon = Icons.park;
 
       sections.add(SliverToBoxAdapter(
         child: Padding(
@@ -165,9 +274,9 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
             children: [
               Row(
                 children: [
-                  Icon(entry.value['icon'] as IconData, size: 20, color: AppColors.primaryContainer),
+                  Icon(sectionIcon, size: 20, color: AppColors.primaryContainer),
                   const SizedBox(width: 8),
-                  Text(entry.value['title'] as String, style: AppTypography.titleLarge),
+                  Text(categoryName, style: AppTypography.titleLarge),
                 ],
               ),
               if (categoryPlaces.length > 2)
@@ -198,16 +307,17 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
                   width: 240,
                   child: GestureDetector(
                     onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id.toString()))),
+                        MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id))),
                     child: EditorialPlaceCard(
                       title: place.name,
-                      category: place.category,
-                      location: place.address ?? place.governorateName ?? widget.governorate.name,
-                      rating: place.rating,
+                      category: place.category ?? 'Place',
+                      location: place.address ?? place.governorateName ?? 'Egypt',
+                      rating: place.rating.toDouble(),
                       reviewsCount: place.reviews.length,
-                      price: place.priceLevel != null && place.priceLevel! > 0 ? '\$' * place.priceLevel! : 'Free',
-                      distance: null,
-                      isFavorite: false,
+                      price: place.priceLevel != null ? '\$' * place.priceLevel! : 'Free',
+                      distance: 'N/A', // Distance needs location services
+                      isFavorite: context.watch<PlacesViewModel>().isFavorite(place.id),
+                      onFavoriteTap: () => context.read<PlacesViewModel>().toggleFavorite(place),
                       imageUrl: place.mainImageUrl ?? place.imageUrl,
                       aspectRatio: 1.6,
                     ),
@@ -220,25 +330,10 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
       ));
     }
 
-    if (sections.isEmpty) {
-      sections.add(SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.all(48),
-          child: Center(
-            child: Text(
-              'No places found for ${widget.governorate.name}.',
-              style: AppTypography.bodyLarge.copyWith(color: AppColors.outline),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ));
-    }
-
     return sections;
   }
 
-  void _showAllActivities(BuildContext context) {
+  void _showAllActivities(BuildContext context, List<ActivityInfo> activities) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceContainerLowest,
@@ -256,7 +351,7 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: widget.governorate.topActivities
+              children: activities
                   .map((a) => Chip(
                         avatar: Icon(a.icon, size: 16),
                         label: Text(a.label),

@@ -1,4 +1,5 @@
 import '../../domain/entities/place.dart';
+import '../../core/di/injection_container.dart';
 
 class PlaceModel extends Place {
   const PlaceModel({
@@ -20,24 +21,43 @@ class PlaceModel extends Place {
     super.additionalPhotoUrls,
     super.openingHours,
     super.reviews,
+    super.photos,
+    super.reviewCount,
   });
 
   factory PlaceModel.fromJson(Map<String, dynamic> json) {
-    // Parse reviews if present
+    // Parse reviews if present — handles both camelCase variants from
+    // ReviewResponseDto (reviewID, authorName, rating, text, placeID)
     final rawReviews = json['reviews'] as List<dynamic>? ?? [];
     final reviews = rawReviews
         .map((r) => ReviewSummary(
-              authorName: r['authorName'] as String? ?? r['author_name'] as String? ?? 'Anonymous',
+              authorName: r['authorName'] as String? ??
+                  r['author_name'] as String? ??
+                  'Anonymous',
               text: r['text'] as String? ?? '',
               rating: (r['rating'] as num?)?.toInt() ?? 5,
               source: r['source'] as String?,
             ))
         .toList();
 
-    final mainImageUrl = json['mainImageURL'] as String? ?? json['mainImageUrl'] as String?;
-    
-    final rawPhotos = json['additionalPhotoUrls'] as List<dynamic>? ?? [];
-    final additionalPhotos = rawPhotos.map((e) => e.toString()).toList();
+    final mainImageRaw =
+        json['mainImageURL'] as String? ?? json['mainImageUrl'] as String? ?? json['MainImageURL'] as String?;
+    String? resolvedMainImage;
+    if (mainImageRaw != null && mainImageRaw.isNotEmpty) {
+      resolvedMainImage = mainImageRaw.startsWith('http')
+          ? mainImageRaw
+          : (mainImageRaw.startsWith('/') ? '${resolveApiBaseUrl()}$mainImageRaw' : '${resolveApiBaseUrl()}/$mainImageRaw');
+    }
+    final mainImageUrl = resolvedMainImage;
+
+    // Parse photos array from PlaceDetailPublicDto
+    // Each element: {photoID, imageURL, isMain, placeID}
+    final rawPhotos = json['photos'] as List<dynamic>? ?? [];
+    final photos = rawPhotos
+        .map((p) => (p['imageURL'] as String? ?? p['imageUrl'] as String? ?? p['ImageURL'] as String? ?? ''))
+        .where((url) => url.isNotEmpty)
+        .map((url) => url.startsWith('http') ? url : (url.startsWith('/') ? '${resolveApiBaseUrl()}$url' : '${resolveApiBaseUrl()}/$url'))
+        .toList();
 
     return PlaceModel(
       id: json['placeID']?.toString() ?? json['id']?.toString() ?? '',
@@ -58,6 +78,8 @@ class PlaceModel extends Place {
       additionalPhotoUrls: additionalPhotos,
       openingHours: json['openingHoursJSON'] ?? json['openingHours'],
       reviews: reviews,
+      photos: photos,
+      reviewCount: (json['reviewCount'] as num?)?.toInt() ?? reviews.length,
     );
   }
 
@@ -81,14 +103,25 @@ class GovernorateModel extends Governorate {
     required super.name,
     super.imageUrl,
     super.region,
+    super.latitude,
+    super.longitude,
   });
 
   factory GovernorateModel.fromJson(Map<String, dynamic> json) {
+    final imageUrlRaw = json['imageURL'] as String? ?? json['imageUrl'] as String? ?? json['ImageURL'] as String?;
+    String? resolvedImage;
+    if (imageUrlRaw != null && imageUrlRaw.isNotEmpty) {
+      resolvedImage = imageUrlRaw.startsWith('http')
+          ? imageUrlRaw
+          : (imageUrlRaw.startsWith('/') ? '${resolveApiBaseUrl()}$imageUrlRaw' : '${resolveApiBaseUrl()}/$imageUrlRaw');
+    }
     return GovernorateModel(
       id: json['governorateID']?.toString() ?? '',
       name: json['name'] as String? ?? 'Unknown Governorate',
-      imageUrl: json['imageURL'] as String?,
+      imageUrl: resolvedImage,
       region: json['region'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -98,6 +131,8 @@ class GovernorateModel extends Governorate {
       'name': name,
       'imageUrl': imageUrl,
       'region': region,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 }

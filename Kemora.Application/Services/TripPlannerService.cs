@@ -17,7 +17,6 @@ namespace Kemora.Application.Services
         private readonly IAiService _aiService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICacheService _cache;
-        private readonly ISerpApiService _serpApiService;
         private readonly ILogger<TripPlannerService> _logger;
 
         public TripPlannerService(
@@ -25,14 +24,12 @@ namespace Kemora.Application.Services
             IAiService aiService, 
             IUnitOfWork unitOfWork, 
             ICacheService cache, 
-            ISerpApiService serpApiService,
             ILogger<TripPlannerService> logger)
         {
             _placesDataService = placesDataService;
             _aiService = aiService;
             _unitOfWork = unitOfWork;
             _cache = cache;
-            _serpApiService = serpApiService;
             _logger = logger;
         }
 
@@ -41,9 +38,9 @@ namespace Kemora.Application.Services
             if (request.MinRadiusKm >= request.MaxRadiusKm)
                 throw new ArgumentException("MinRadiusKm must be less than MaxRadiusKm.");
 
-            // 1. Redis / Memory Cache handling
+            // 1. In-memory cache handling (Level 1)
             string prefs = request.Preferences ?? "none";
-            string cacheKey = $"plan_{request.CenterPlaceId}_{request.Latitude}_{request.Longitude}_{request.DurationDays}_{request.Location}_{prefs}_{request.AlternativeIndex}";
+            string cacheKey = $"plan_v2_{request.CenterPlaceId}_{request.Latitude}_{request.Longitude}_{request.DurationDays}_{request.Location}_{prefs}_{request.AlternativeIndex}";
 
             var cachedPlan = _cache.Get<TripPlanResponseDto>(cacheKey);
             if (cachedPlan != null)
@@ -81,23 +78,52 @@ namespace Kemora.Application.Services
             // 3. Smart Fetching Strategy: Local DB first — strict proximity to avoid cross-city results
             // Cap at 30km regardless of requested radius to ensure city-accurate results
             var strictRadiusKm = Math.Min(request.MaxRadiusKm, 30.0);
-            var allDbPlaces = await _unitOfWork.Repository<Place>().GetAllAsync();
+            var allDbPlaces = await _unitOfWork.Repository<Place>()
+                .GetAllAsync(
+                    p => p.PlaceType, 
+                    p => p.PlaceType.Category, 
+                    p => p.Photos, 
+                    p => p.Reviews
+                );
             var localPlaces = allDbPlaces
-                .Select(p => new FetchedPlaceDto
+                .Select(p =>
                 {
-                    ExternalId = p.FoursquareId,
-                    Name = p.Name,
-                    Latitude = (double)p.Latitude,
-                    Longitude = (double)p.Longitude,
-                    Address = p.Address ?? "",
-                    ImageUrl = p.MainImageURL ?? "",
-                    Rating = (double)p.Rating,
-                    PriceLevel = p.PriceLevel.ToString(),
-                    Types = new List<string> { p.Source ?? "db" },
-                    DistanceKm = Math.Round(HaversineKm(request.Latitude, request.Longitude, (double)p.Latitude, (double)p.Longitude), 2)
+                    // Resolve the best available image: prefer MainImageURL, fall back
+                    // to the first non-empty Photo URL. This guarantees every candidate
+                    // the AI sees has a usable picture that can be re-injected later.
+                    var resolvedImage = !string.IsNullOrWhiteSpace(p.MainImageURL)
+                        ? p.MainImageURL
+                        : p.Photos?.Select(ph => ph.ImageURL).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+                    return new FetchedPlaceDto
+                    {
+                        DbPlaceId = p.PlaceID,
+                        ExternalId = p.GoogleDataId,
+                        Name = p.Name,
+                        Latitude = (double)p.Latitude,
+                        Longitude = (double)p.Longitude,
+                        Address = p.Address ?? "",
+                        ImageUrl = resolvedImage ?? "",
+                        PhotoUrls = p.Photos?.Select(ph => ph.ImageURL).ToList() ?? new List<string>(),
+                        Reviews = p.Reviews?.Select(r => new FetchedReviewDto { AuthorName = r.AuthorName, Rating = r.Rating, Text = r.Text }).ToList() ?? new List<FetchedReviewDto>(),
+                        Rating = (double)p.Rating,
+                        PriceLevel = p.PriceLevel.ToString(),
+                        // Populate Types with real GoogleType AND category name so
+                        // downstream categorisation (hotels / restaurants / etc.) works.
+                        Types = new List<string> {
+                            p.PlaceType?.GoogleType ?? "",
+                            p.PlaceType?.DisplayName ?? "",
+                            p.PlaceType?.Category?.Name ?? "",
+                        }.Where(t => !string.IsNullOrEmpty(t)).ToList(),
+                        DistanceKm = Math.Round(HaversineKm(request.Latitude, request.Longitude, (double)p.Latitude, (double)p.Longitude), 2)
+                    };
                 })
-                // Only include places within strict radius AND that have valid coordinates (non-zero)
-                .Where(p => p.DistanceKm <= strictRadiusKm && (p.Latitude != 0 || p.Longitude != 0))
+                // Only include places within strict radius, with valid coordinates (non-zero),
+                // AND that have a usable picture. This ensures the AI can only pick places
+                // whose image (stored in Cloudinary) will actually render in the plan.
+                .Where(p => p.DistanceKm <= strictRadiusKm
+                            && (p.Latitude != 0 || p.Longitude != 0)
+                            && !string.IsNullOrWhiteSpace(p.ImageUrl)
+                            && !p.ImageUrl.Contains("placeholder", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(p => p.DistanceKm)
                 .ToList();
 
@@ -106,39 +132,8 @@ namespace Kemora.Application.Services
 
             List<FetchedPlaceDto> finalPlaces = new List<FetchedPlaceDto>(localPlaces);
 
-            if (finalPlaces.Count < 15)
-            {
-                // Trigger Foursquare API to fill gaps
-                var fsPlaces = await _placesDataService.FetchNearbyPlacesAsync(
-                    request.Latitude, request.Longitude,
-                    request.MinRadiusKm, request.MaxRadiusKm);
-
-                // Merge Foursquare results, avoiding duplicates with DB places
-                foreach (var fsp in fsPlaces)
-                {
-                    if (!finalPlaces.Any(lp => lp.Name.Equals(fsp.Name, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        finalPlaces.Add(fsp);
-
-                        // Async persist to DB with RICH ATTRIBUTES
-                        var newPlace = new Place
-                        {
-                            FoursquareId = fsp.ExternalId,
-                            Name = fsp.Name,
-                            Address = fsp.Address,
-                            Latitude = (decimal)fsp.Latitude,
-                            Longitude = (decimal)fsp.Longitude,
-                            Rating = (decimal)(fsp.Rating ?? 0),
-                            PriceLevel = int.TryParse(fsp.PriceLevel, out int pl) ? pl : 0,
-                            MainImageURL = fsp.ImageUrl,
-                            Source = "foursquare",
-                            LastEnrichedAt = DateTime.UtcNow
-                        };
-                        await _unitOfWork.Repository<Place>().AddAsync(newPlace);
-                    }
-                }
-                await _unitOfWork.CommitAsync();
-            }
+            // Removed Foursquare API fallback to strictly use DB places
+            // if (finalPlaces.Count < 15) { ... }
 
             // Sequential image fetching removed to massively improve API response time.
             // Images are now fetched concurrently only for places the AI actually selected.
@@ -191,41 +186,49 @@ namespace Kemora.Application.Services
                                 restaurants.Any(r => r.Name == p.Name) ? "[RESTAURANT]" :
                                 cafes.Any(c => c.Name == p.Name) ? "[CAFÉ]" : "[ATTRACTION]";
                 var cats = string.Join(", ", (p.Categories ?? p.Types).Take(2));
-                return $"{idx + 1}. {typeLabel} {p.Name} | Rating: {p.Rating:F1} | {cats} | {p.Address}";
+                return $"{idx + 1}. {typeLabel} {p.Name} | ID: {p.DbPlaceId} | Rating: {p.Rating:F1} | {cats} | {p.Address}";
             }));
 
-            var sysPrompt = @"You are Kemora, an expert Egyptian travel planner building premium itineraries.
-You MUST output ONLY valid JSON, exactly matching this structure:
+            var sysPrompt = @"You are Kemora — a master Egyptian travel curator. You design vivid, logistically-sane, day-by-day itineraries that feel handcrafted by a local expert, not a generic list.
+
+OUTPUT CONTRACT — return ONLY valid JSON, no prose, no markdown fences, exactly this shape:
 {
   ""itinerary"": [
     {
       ""day"": 1,
-      ""theme"": ""Theme for the day e.g. Historic Cairo & Culture"",
+      ""theme"": ""Short evocative day theme, e.g. 'Pharaonic Cairo & the Nile at Dusk'"",
       ""activities"": [
-        { ""time"": ""08:00"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""description"": ""2-3 sentence vivid description of what to do there and why it is special."" },
-        { ""time"": ""10:30"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""description"": ""..."" },
-        { ""time"": ""13:00"", ""time_slot"": ""Afternoon"", ""place"": ""Restaurant Name"", ""description"": ""Lunch stop description."" },
-        { ""time"": ""15:00"", ""time_slot"": ""Afternoon"", ""place"": ""Exact Name From List"", ""description"": ""..."" },
-        { ""time"": ""17:30"", ""time_slot"": ""Afternoon"", ""place"": ""Cafe Name"", ""description"": ""Afternoon coffee break."" },
-        { ""time"": ""19:30"", ""time_slot"": ""Evening"", ""place"": ""Restaurant Name"", ""description"": ""Dinner description."" }
+        { ""time"": ""08:30"", ""time_slot"": ""Morning"", ""place"": ""Exact Name From List"", ""place_id"": 123, ""description"": ""2-3 sentence vivid, specific description: what to see/do, why it matters, one insider tip."" }
       ]
     }
   ]
 }
 
-RULES:
-- Use EXACT place names from the provided list only
-- Assign realistic times: Morning (07:00-12:00), Afternoon (12:00-18:00), Evening (18:00-23:00)
-- time_slot MUST be one of: Morning, Afternoon, Evening
-- Each day MUST include: 1 hotel check-in (day 1 only), 1-2 restaurants for meals, 3-5 sightseeing attractions, 1 cafe break
-- Write rich engaging 2-3 sentence descriptions for each activity
-- Spread activities logically across the full day";
+HARD RULES (breaking any = invalid):
+- Select places ONLY from the CURATED LIST. Never invent, rename, or hallucinate a place.
+- Copy the EXACT `Name` into `place` and the EXACT `ID` into `place_id` (integer). These are mandatory.
+- GLOBAL UNIQUENESS: every place_id may appear AT MOST ONCE across the ENTIRE itinerary. Never repeat a place on the same day or on any other day. Each day must explore different places.
+- If the list has fewer unique places than a full schedule needs, build shorter days rather than repeating any place.
+- time_slot is exactly one of: Morning, Afternoon, Evening.
+- Realistic clock times: Morning 07:00-12:00, Afternoon 12:00-18:00, Evening 18:00-23:00, in ascending order within a day.
 
-            var userPrompt = $@"Generate a {request.DurationDays}-day itinerary for {request.Location}, Egypt.
-Budget: {request.Budget}. Interests: {request.TourismTypes}. User preferences: {prefs}.
-Ensure each day has Morning + Afternoon + Evening activities with realistic times.
-Select ONLY from this curated list:
+DAY DESIGN (quality bar):
+- Day 1 only: begin with a [HOTEL] check-in if one exists in the list.
+- Each day: 3-5 [ATTRACTION] sightseeing stops + 1-2 [RESTAURANT] meals (lunch ~13:00, dinner ~19:30) + optionally 1 [CAFÉ] break.
+- Group places that are geographically close on the same day to minimise backtracking; use the Address/area to reason about proximity.
+- Give each day a distinct character — don't cluster all museums on one day if they can be spread for variety.
+- Descriptions must be concrete and sensory (mention a specific artifact, view, dish, or moment), never generic filler.";
 
+            var userPrompt = $@"Plan a {request.DurationDays}-day itinerary for {request.Location}, Egypt.
+Traveller budget: {request.Budget}. Interests: {request.TourismTypes}. Extra preferences: {prefs}.
+
+Requirements:
+- Exactly {request.DurationDays} day object(s), days numbered 1..{request.DurationDays}.
+- Every place used AT MOST ONCE across all days (no repeats anywhere).
+- Each day has Morning + Afternoon + Evening activities with realistic ascending times.
+- Prefer places matching the interests and budget above.
+
+CURATED LIST (choose only from these; the number before each is its ID):
 {placesListText}";
 
 
@@ -254,93 +257,129 @@ Select ONLY from this curated list:
                 }
             }
 
-            // Try to re-inject image URLs into the itinerary and fetch missing ones concurrently
+            // Re-inject image URLs, place_id, category, latitude, longitude into the
+            // itinerary from the local loaded places (in case the AI omitted them).
             try
             {
-                var activitiesToEnrich = new List<(System.Text.Json.Nodes.JsonObject Activity, FetchedPlaceDto Place)>();
-
                 var jObject = System.Text.Json.Nodes.JsonObject.Parse(tripPlanContent);
                 var itinerary = jObject?["itinerary"]?.AsArray();
                 if (itinerary != null)
                 {
+                    // Enforce GLOBAL place uniqueness across the whole itinerary. The
+                    // model is instructed not to repeat places, but we guarantee it
+                    // here: an activity whose resolved place was already used earlier
+                    // (same day or any prior day) is dropped from the plan.
+                    var usedPlaceIds = new HashSet<int>();
+                    var usedPlaceNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
                     foreach (var day in itinerary)
                     {
                         var activities = day?["activities"]?.AsArray();
                         if (activities != null)
                         {
+                            // Collect indices to remove after resolving, so we don't
+                            // mutate the array while iterating it.
+                            var keptActivities = new System.Text.Json.Nodes.JsonArray();
+
                             foreach (var act in activities)
                             {
                                 var placeName = act?["place"]?.ToString();
-                                if (!string.IsNullOrEmpty(placeName))
+                                var placeIdToken = act?["place_id"];
+
+                                int? parsedId = null;
+                                if (placeIdToken != null && int.TryParse(placeIdToken.ToString(), out int id))
                                 {
-                                    var match = finalPlaces.FirstOrDefault(p =>
+                                    parsedId = id;
+                                }
+
+                                FetchedPlaceDto match = null;
+
+                                // 1. Match by exact ID first (most reliable)
+                                if (parsedId.HasValue && parsedId.Value > 0)
+                                {
+                                    match = finalPlaces.FirstOrDefault(p => p.DbPlaceId == parsedId.Value);
+                                }
+
+                                // 2. Fallback to name matching
+                                if (match == null && !string.IsNullOrEmpty(placeName))
+                                {
+                                    match = finalPlaces.FirstOrDefault(p =>
                                         p.Name.Equals(placeName, StringComparison.OrdinalIgnoreCase));
-                                    if (match != null)
+
+                                    // 3. Fuzzy name match if still not found
+                                    if (match == null)
                                     {
-                                        if (string.IsNullOrEmpty(match.ImageUrl) || match.ImageUrl.Contains("placeholder"))
-                                        {
-                                            activitiesToEnrich.Add((act.AsObject(), match));
-                                        }
-                                        else
-                                        {
-                                            act["image_url"] = match.ImageUrl;
-                                        }
+                                        match = finalPlaces.FirstOrDefault(p =>
+                                            p.Name.Contains(placeName, StringComparison.OrdinalIgnoreCase) ||
+                                            placeName.Contains(p.Name, StringComparison.OrdinalIgnoreCase));
                                     }
                                 }
+
+                                if (match != null)
+                                {
+                                    // Uniqueness guard — skip a place already used elsewhere.
+                                    var dupById = match.DbPlaceId.HasValue && usedPlaceIds.Contains(match.DbPlaceId.Value);
+                                    var dupByName = usedPlaceNames.Contains(match.Name);
+                                    if (dupById || dupByName)
+                                    {
+                                        _logger.LogInformation("[TripPlanner] Dropping duplicate place '{PlaceName}' (ID: {PlaceId}) from itinerary.", match.Name, match.DbPlaceId);
+                                        continue; // do not add to keptActivities
+                                    }
+                                    if (match.DbPlaceId.HasValue) usedPlaceIds.Add(match.DbPlaceId.Value);
+                                    usedPlaceNames.Add(match.Name);
+
+                                    // Override place name to ensure exact DB match
+                                    act["place"] = match.Name;
+
+                                    // Image URL: ImageUrl already holds the resolved best
+                                    // picture (MainImageURL with Photo fallback) from the
+                                    // candidate filtering stage, so just write it through.
+                                    if (!string.IsNullOrWhiteSpace(match.ImageUrl))
+                                    {
+                                        act["image_url"] = match.ImageUrl;
+                                    }
+
+                                    // Inject Rating & Price
+                                    if (match.Rating > 0) act["rating"] = match.Rating;
+                                    if (!string.IsNullOrEmpty(match.PriceLevel)) act["price"] = match.PriceLevel;
+
+                                    // Inject Top Review
+                                    if (match.Reviews?.Count > 0)
+                                    {
+                                        var topReview = match.Reviews.OrderByDescending(r => r.Rating).FirstOrDefault();
+                                        if (topReview != null)
+                                            act["itinerary_review"] = $"\"{topReview.Text}\" - {topReview.AuthorName}";
+                                    }
+
+                                    // place_id — always inject from DB (authoritative)
+                                    if (match.DbPlaceId.HasValue)
+                                        act["place_id"] = match.DbPlaceId.Value;
+
+                                    // category — from PlaceType.Category.Name
+                                    if (string.IsNullOrEmpty(act["category"]?.ToString()) && match.Types?.Count > 0)
+                                        act["category"] = match.Types.Last(); // last = category name
+
+                                    // coordinates — always inject from DB
+                                    act["latitude"] = match.Latitude;
+                                    act["longitude"] = match.Longitude;
+
+                                    keptActivities.Add(act.DeepClone());
+                                }
+                                else
+                                {
+                                    // AI completely hallucinated a place not in our list — drop it.
+                                    _logger.LogWarning("[TripPlanner] AI hallucinated place: {PlaceName} (ID: {PlaceId})", placeName, parsedId);
+                                }
                             }
+
+                            // Replace the day's activities with the de-duplicated, resolved set.
+                            day["activities"] = keptActivities;
                         }
                     }
+                    tripPlanContent = jObject.ToJsonString();
                 }
-
-                // Parallel fetch for only the selected places missing images
-                if (activitiesToEnrich.Count > 0)
-                {
-                    var tasks = activitiesToEnrich.Select(async item => 
-                    {
-                        try 
-                        {
-                            var serpMatch = await _serpApiService.SearchPlaceAsync(item.Place.Name, item.Place.Latitude, item.Place.Longitude);
-                            if (serpMatch != null) 
-                            {
-                                var img = serpMatch.Thumbnail;
-                                if (string.IsNullOrEmpty(img) && !string.IsNullOrEmpty(serpMatch.DataId)) 
-                                {
-                                    var photos = await _serpApiService.GetPlacePhotosAsync(serpMatch.DataId, 1);
-                                    if (photos != null && photos.Count > 0) img = photos.First();
-                                }
-                                if (!string.IsNullOrEmpty(img)) 
-                                {
-                                    return new { Item = item, ImageUrl = img, DataId = serpMatch.DataId };
-                                }
-                            }
-                        } catch { }
-                        return new { Item = item, ImageUrl = (string)null, DataId = (string)null };
-                    }).ToList();
-
-                    var results = await Task.WhenAll(tasks);
-                    bool hasDbUpdates = false;
-
-                    foreach (var res in results.Where(r => r.ImageUrl != null))
-                    {
-                        res.Item.Activity["image_url"] = res.ImageUrl;
-                        res.Item.Place.ImageUrl = res.ImageUrl;
-
-                        var placeInDb = await _unitOfWork.Repository<Place>().FirstOrDefaultAsync(dp => dp.Name == res.Item.Place.Name || (dp.FoursquareId != null && dp.FoursquareId == res.Item.Place.ExternalId));
-                        if (placeInDb != null) 
-                        {
-                            placeInDb.MainImageURL = res.ImageUrl;
-                            if (!string.IsNullOrEmpty(res.DataId)) placeInDb.GoogleDataId = res.DataId;
-                            _unitOfWork.Repository<Place>().Update(placeInDb);
-                            hasDbUpdates = true;
-                        }
-                    }
-
-                    if (hasDbUpdates) await _unitOfWork.CommitAsync();
-                }
-
-                tripPlanContent = jObject?.ToJsonString() ?? tripPlanContent;
             }
-            catch { /* Ignore image injection errors — the clean JSON is still valid */ }
+            catch { /* Ignore injection errors — the clean JSON is still valid */ }
 
             var response = new TripPlanResponseDto
             {
@@ -360,7 +399,7 @@ Select ONLY from this curated list:
             await _unitOfWork.Repository<PrecomputedTripPlan>().AddAsync(newDbCache);
             await _unitOfWork.CommitAsync();
 
-            // 6. Save the generated alternative in Redis/Memory Cache (Level 1)
+            // 6. Save the generated alternative in the in-memory cache (Level 1)
             _cache.Set(cacheKey, response, TimeSpan.FromHours(24));
 
             return response;

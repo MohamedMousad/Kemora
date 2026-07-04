@@ -155,9 +155,15 @@ namespace Kemora.Api.Controllers
             Log.Information("SAVE_TRIP: userId={UserId}, title={Title}", userId, dto.Title);
             var t = await _tripService.SaveAIPlanAsync(userId, dto);
             Log.Information("SAVE_TRIP: Saved as TripID={TripID} for userId={UserId}", t.TripID, userId);
-            // Award achievement badges non-blockingly
-            _ = _badgeAwardService.TryAwardAiPioneerAsync(userId);
-            _ = _badgeAwardService.TryAwardCityHopperAsync(userId);
+            
+            // Award achievement badges
+            try {
+                await _badgeAwardService.TryAwardAiPioneerAsync(userId);
+                await _badgeAwardService.TryAwardCityHopperAsync(userId);
+            } catch (Exception ex) {
+                Log.Error(ex, "Failed to award badges after saving plan for user {UserId}", userId);
+            }
+            
             return CreatedAtAction(nameof(Get), new { id = t.TripID }, t);
         }
     }

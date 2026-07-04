@@ -28,10 +28,10 @@ class TokenStorage {
     _persistTokens();
   }
 
-  void clearTokens() {
+  Future<void> clearTokens() async {
     _token = null;
     _refreshToken = null;
-    _clearPersistedTokens();
+    await _clearPersistedTokens();
   }
 
   Future<void> _persistTokens() async {

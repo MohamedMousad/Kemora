@@ -13,6 +13,7 @@ abstract class AuthRemoteDataSource {
   Future<void> changeEmail(String newEmail, String password);
   Future<UserModel> updateProfile(String fullName, String? bio);
   Future<String> uploadProfilePicture(XFile imageFile);
+  Future<void> logout();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -179,6 +180,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw const ServerFailure('Failed to upload profile picture.');
     } on DioException catch (e) {
       throw ServerFailure(_extractError(e, 'Failed to upload profile picture.'));
+    }
+  }
+
+  @override
+  Future<void> logout() async {
+    try {
+      await dio.post('/api/v1/auth/logout');
+    } on DioException catch (e) {
+      throw ServerFailure(_extractError(e, 'Failed to logout.'));
+    } catch (e) {
+      throw ServerFailure('An unexpected error occurred: ${e.toString()}');
     }
   }
 }

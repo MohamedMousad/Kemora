@@ -21,6 +21,7 @@ import '../../domain/repositories/i_badge_repository.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/google_login_usecase.dart';
+import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/update_preferences_usecase.dart';
 import '../../domain/usecases/change_password_usecase.dart';
 import '../../domain/usecases/change_email_usecase.dart';
@@ -34,6 +35,10 @@ import '../../domain/usecases/swap_place_usecase.dart';
 import '../../domain/usecases/save_ai_plan_usecase.dart';
 import '../../domain/usecases/update_place_visited_status_usecase.dart';
 import '../../domain/usecases/get_places_by_category_usecase.dart';
+import '../../domain/usecases/get_favorites_usecase.dart';
+import '../../domain/usecases/get_place_details_usecase.dart';
+import '../../domain/usecases/add_favorite_usecase.dart';
+import '../../domain/usecases/remove_favorite_usecase.dart';
 import '../../domain/usecases/post_usecases.dart';
 import '../../domain/usecases/badge_usecases.dart';
 import '../../presentation/viewmodels/auth_view_model.dart';
@@ -53,15 +58,15 @@ final sl = GetIt.instance;
 
 String resolveApiBaseUrl() {
   if (kIsWeb) {
-    return 'http://localhost:5299';
+    return 'https://site77654.siteasp.net';
   }
 
   // Android emulator cannot reach host loopback via localhost.
   if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:5299';
+    return 'https://site77654.siteasp.net';
   }
 
-  return 'http://localhost:5299';
+  return 'https://site77654.siteasp.net';
 }
 
 Future<void> init() async {
@@ -71,6 +76,7 @@ Future<void> init() async {
         loginUseCase: sl(),
         registerUseCase: sl(),
         googleLoginUseCase: sl(),
+        logoutUseCase: sl(),
         updatePreferencesUseCase: sl(),
         changePasswordUseCase: sl(),
         changeEmailUseCase: sl(),
@@ -82,6 +88,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUseCase(sl()));
   sl.registerLazySingleton(() => GoogleLoginUseCase(repository: sl()));
+  sl.registerLazySingleton(() => LogoutUseCase(sl()));
   sl.registerLazySingleton(() => UpdatePreferencesUseCase(repository: sl()));
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
   sl.registerLazySingleton(() => ChangeEmailUseCase(sl()));
@@ -106,7 +113,10 @@ Future<void> init() async {
         getTopPlacesUseCase: sl(),
         getGovernoratesUseCase: sl(),
         getPlacesByGovernorateUseCase: sl(),
-        getPlaceDetailUseCase: sl(),
+        getFavoritesUseCase: sl(),
+        addFavoriteUseCase: sl(),
+        removeFavoriteUseCase: sl(),
+        getPlaceDetailsUseCase: sl(),
       ));
 
   // Use Cases
@@ -115,7 +125,10 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetTopPlacesUseCase(sl()));
   sl.registerLazySingleton(() => GetGovernoratesUseCase(sl()));
   sl.registerLazySingleton(() => GetPlacesByGovernorateUseCase(sl()));
-  sl.registerLazySingleton(() => GetPlaceDetailUseCase(sl()));
+  sl.registerLazySingleton(() => GetFavoritesUseCase(sl()));
+  sl.registerLazySingleton(() => AddFavoriteUseCase(sl()));
+  sl.registerLazySingleton(() => RemoveFavoriteUseCase(sl()));
+  sl.registerLazySingleton(() => GetPlaceDetailsUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<IPlaceRepository>(

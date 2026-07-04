@@ -22,9 +22,13 @@ namespace Kemora.Infrastructure.Services
         {
             _httpClient = httpClientFactory.CreateClient("GooglePlaces");
             _logger = logger;
-            // Support both potential key names
-            _apiKey = configuration["MapsPlatformDemo:ApiKey"] ?? configuration["Google:ApiKey"] ?? configuration["GoogleMaps:ApiKey"];
+            // Support both potential key names and ignore placeholders
+            var googleKey = configuration["Google:ApiKey"];
+            var googleMapsKey = configuration["GoogleMaps:ApiKey"];
             
+            _apiKey = (!string.IsNullOrEmpty(googleKey) && !googleKey.Contains("YOUR_")) ? googleKey : 
+                     (!string.IsNullOrEmpty(googleMapsKey) && !googleMapsKey.Contains("YOUR_") ? googleMapsKey : null);
+
             if (string.IsNullOrEmpty(_apiKey))
                 _logger.LogError("[GooglePlaces] API key is NOT configured! Check user secrets for 'GoogleMaps:ApiKey'.");
             else
@@ -89,7 +93,7 @@ namespace Kemora.Infrastructure.Services
             
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("X-Goog-Api-Key", _apiKey);
-            request.Headers.Add("X-Goog-FieldMask", "id,displayName,formattedAddress,location,rating,priceLevel,nationalPhoneNumber,websiteUri,photos,editorialSummary,googleMapsUri,currentOpeningHours,reviews");
+            request.Headers.Add("X-Goog-FieldMask", "id,displayName,formattedAddress,location,rating,priceLevel,nationalPhoneNumber,websiteUri,photos,editorialSummary,reviews,types");
 
             try
             {
@@ -111,6 +115,13 @@ namespace Kemora.Infrastructure.Services
         public async Task<List<FetchedPlaceDto>> FetchNearbyPlacesAsync(double latitude, double longitude, double minRadiusKm = 0, double maxRadiusKm = 20)
         {
             return await SearchPlacesAsync("places", latitude, longitude, (int)(maxRadiusKm * 1000));
+        }
+
+        public string? BuildPhotoFetchUrl(string photoResourceName, int maxWidthPx = 1600)
+        {
+            if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(photoResourceName)) return null;
+            // _apiKey already excludes "YOUR_" placeholders (resolved in the constructor).
+            return $"https://places.googleapis.com/v1/{photoResourceName}/media?key={_apiKey}&maxWidthPx={maxWidthPx}";
         }
 
         private async Task<List<FetchedPlaceDto>> ExecuteSearchAsync(string textQuery, int limit)
@@ -164,7 +175,7 @@ namespace Kemora.Infrastructure.Services
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("X-Goog-Api-Key", _apiKey);
             // Request the fields we need
-            request.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.nationalPhoneNumber,places.websiteUri,places.photos,places.editorialSummary,nextPageToken");
+            request.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.nationalPhoneNumber,places.websiteUri,places.photos,places.editorialSummary,places.reviews,places.types,nextPageToken");
             
             request.Content = JsonContent.Create(payload);
 
@@ -254,56 +265,58 @@ namespace Kemora.Infrastructure.Services
             if (placeElement.TryGetProperty("editorialSummary", out var editorialElement) && editorialElement.TryGetProperty("text", out var editorialText))
                 dto.Description = editorialText.GetString();
 
-            if (placeElement.TryGetProperty("googleMapsUri", out var mapsUriElement))
-                dto.GoogleMapsUrl = mapsUriElement.GetString();
-
-            if (placeElement.TryGetProperty("currentOpeningHours", out var hoursElement) && hoursElement.TryGetProperty("weekdayDescriptions", out var weekdayElement))
+            if (placeElement.TryGetProperty("types", out var typesArray))
             {
-                var hoursList = new List<string>();
-                foreach (var day in weekdayElement.EnumerateArray())
+                foreach (var typeElement in typesArray.EnumerateArray())
                 {
-                    hoursList.Add(day.GetString() ?? "");
+                    var val = typeElement.GetString();
+                    if (!string.IsNullOrEmpty(val)) dto.Types.Add(val);
                 }
-                dto.OpeningHours = hoursList;
-            }
-
-            if (placeElement.TryGetProperty("reviews", out var reviewsArray))
-            {
-                var reviewsList = new List<FetchedReviewDto>();
-                foreach (var review in reviewsArray.EnumerateArray())
-                {
-                    var fetchedReview = new FetchedReviewDto();
-                    if (review.TryGetProperty("authorAttribution", out var authorElement) && authorElement.TryGetProperty("displayName", out var authorNameElement))
-                        fetchedReview.AuthorName = authorNameElement.GetString() ?? "Google User";
-                    else
-                        fetchedReview.AuthorName = "Google User";
-                    
-                    if (review.TryGetProperty("rating", out var revRatingElement))
-                        fetchedReview.Rating = revRatingElement.GetInt32();
-                    
-                    if (review.TryGetProperty("text", out var textElement) && textElement.TryGetProperty("text", out var revTextContent))
-                        fetchedReview.Text = revTextContent.GetString() ?? "";
-
-                    reviewsList.Add(fetchedReview);
-                }
-                dto.ApiReviews = reviewsList;
             }
 
             if (placeElement.TryGetProperty("photos", out var photosArray) && photosArray.GetArrayLength() > 0)
             {
-                var namesList = new List<string>();
-                foreach (var photo in photosArray.EnumerateArray())
+                foreach (var photoElement in photosArray.EnumerateArray())
                 {
-                    if (photo.TryGetProperty("name", out var photoName))
+                    if (photoElement.TryGetProperty("name", out var photoName))
                     {
-                        namesList.Add(photoName.GetString() ?? "");
+                        var nameStr = photoName.GetString();
+                        if (string.IsNullOrEmpty(nameStr)) continue;
+                        // Keep the raw resource name so hydration can build an
+                        // authenticated media URL for Cloudinary uploads.
+                        dto.PhotoResourceNames.Add(nameStr);
+                        // Return the proxy URL instead of exposing the API key directly
+                        var photoUrl = $"/api/v1/photos/proxy?name={nameStr}";
+                        dto.PhotoUrls.Add(photoUrl);
                     }
                 }
-                dto.AllPhotoNames = namesList;
-
-                if (namesList.Count > 0)
+                if (dto.PhotoUrls.Count > 0)
                 {
-                    dto.ImageUrl = $"https://places.googleapis.com/v1/{namesList[0]}/media?key={_apiKey}&maxWidthPx=800";
+                    dto.ImageUrl = dto.PhotoUrls[0];
+                }
+            }
+
+            // Parse reviews from Google Places API response
+            if (placeElement.TryGetProperty("reviews", out var reviewsArray))
+            {
+                foreach (var reviewElement in reviewsArray.EnumerateArray())
+                {
+                    var review = new Kemora.Domain.Models.FetchedReviewDto();
+                    if (reviewElement.TryGetProperty("authorAttribution", out var authorAttr) &&
+                        authorAttr.TryGetProperty("displayName", out var displayName))
+                    {
+                        review.AuthorName = displayName.GetString();
+                    }
+                    if (reviewElement.TryGetProperty("rating", out var reviewRating))
+                    {
+                        review.Rating = reviewRating.GetInt32();
+                    }
+                    if (reviewElement.TryGetProperty("text", out var reviewTextObj) &&
+                        reviewTextObj.TryGetProperty("text", out var reviewText))
+                    {
+                        review.Text = reviewText.GetString();
+                    }
+                    dto.Reviews.Add(review);
                 }
             }
 

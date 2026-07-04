@@ -12,20 +12,20 @@ import 'trip_detail_screen.dart';
 // ─── Tourism interest option: display label ↔ backend enum value ───────────
 class _InterestOption {
   final String label;
-  final String icon;
+  final IconData icon;
   final String backendValue; // Must match backend TourismType enum exactly
   const _InterestOption(this.label, this.icon, this.backendValue);
 }
 
 const _interests = [
-  _InterestOption('Cultural Heritage', '🏛️', 'CulturalHeritage'),
-  _InterestOption('Leisure & Beaches', '🏖️', 'Leisure'),
-  _InterestOption('Adventure', '🧗', 'Adventure'),
-  _InterestOption('Eco Tourism', '🌿', 'EcoTourism'),
-  _InterestOption('Religious', '🕌', 'ReligiousPilgrimage'),
-  _InterestOption('Culinary', '🍽️', 'Culinary'),
-  _InterestOption('Sports', '⚽', 'Sports'),
-  _InterestOption('Medical & Wellness', '💆', 'MedicalWellness'),
+  _InterestOption('Cultural Heritage', Icons.museum, 'CulturalHeritage'),
+  _InterestOption('Leisure & Beaches', Icons.beach_access, 'Leisure'),
+  _InterestOption('Adventure', Icons.explore, 'Adventure'),
+  _InterestOption('Eco Tourism', Icons.eco, 'EcoTourism'),
+  _InterestOption('Religious', Icons.mosque, 'ReligiousPilgrimage'),
+  _InterestOption('Culinary', Icons.restaurant, 'Culinary'),
+  _InterestOption('Sports', Icons.sports_soccer, 'Sports'),
+  _InterestOption('Medical & Wellness', Icons.spa, 'MedicalWellness'),
 ];
 
 const _budgets = ['Budget', 'Mid-Range', 'Luxury'];
@@ -370,7 +370,7 @@ class _AiStepQuestionsScreenState extends State<AiStepQuestionsScreen> {
 
   // ── Step 3: Budget ────────────────────────────────────────────────────────
   Widget _buildBudgetStep() {
-    const icons = ['💰', '🌟', '💎'];
+    const icons = [Icons.account_balance_wallet, Icons.star, Icons.diamond];
     const descriptions = [
       'Affordable options, local transport, budget stays',
       'Comfortable hotels, mix of local and tourist spots',
@@ -408,7 +408,7 @@ class _AiStepQuestionsScreenState extends State<AiStepQuestionsScreen> {
                 ),
                 child: Row(
                   children: [
-                    Text(icons[i], style: const TextStyle(fontSize: 28)),
+                    Icon(icons[i], size: 28, color: sel ? AppColors.primaryContainer : AppColors.onSurfaceVariant),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -486,8 +486,9 @@ class _AiStepQuestionsScreenState extends State<AiStepQuestionsScreen> {
                     ),
                     child: Row(
                       children: [
-                        Text(opt.icon,
-                            style: const TextStyle(fontSize: 20)),
+                        Icon(opt.icon,
+                            size: 20,
+                            color: sel ? AppColors.onPrimary : AppColors.onSurfaceVariant),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(opt.label,
@@ -511,7 +512,7 @@ class _AiStepQuestionsScreenState extends State<AiStepQuestionsScreen> {
 
   // ── Step 5: Companions ────────────────────────────────────────────────────
   Widget _buildCompanionsStep() {
-    const icons = ['🧳', '💑', '👨‍👩‍👧‍👦', '👯', '🚌'];
+    const icons = [Icons.person, Icons.favorite, Icons.family_restroom, Icons.group, Icons.directions_bus];
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -528,7 +529,8 @@ class _AiStepQuestionsScreenState extends State<AiStepQuestionsScreen> {
             child: ListView.builder(
               itemCount: _companions.length,
               itemBuilder: (_, i) => _optionTile(
-                label: '${icons[i]}  ${_companions[i]}',
+                label: _companions[i],
+                icon: icons[i],
                 isSelected: _selectedCompanion == _companions[i],
                 onTap: () =>
                     setState(() => _selectedCompanion = _companions[i]),
@@ -543,6 +545,7 @@ class _AiStepQuestionsScreenState extends State<AiStepQuestionsScreen> {
   // ── Shared tile widget ────────────────────────────────────────────────────
   Widget _optionTile({
     required String label,
+    IconData? icon,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
@@ -565,12 +568,20 @@ class _AiStepQuestionsScreenState extends State<AiStepQuestionsScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: AppTypography.titleMedium.copyWith(
-                  color: isSelected
-                      ? AppColors.primaryContainer
-                      : AppColors.onSurface),
+            Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: isSelected ? AppColors.primaryContainer : AppColors.onSurfaceVariant),
+                  const SizedBox(width: 12),
+                ],
+                Text(
+                  label,
+                  style: AppTypography.titleMedium.copyWith(
+                      color: isSelected
+                          ? AppColors.primaryContainer
+                          : AppColors.onSurface),
+                ),
+              ],
             ),
             if (isSelected)
               const Icon(Icons.check_circle,

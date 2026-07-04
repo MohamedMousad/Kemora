@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -46,19 +47,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: GestureDetector(
               onTap: _finishOnboarding,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
                 ),
-                child: Text('SKIP', style: AppTypography.labelSmall),
+                child: Text(
+                  'SKIP',
+                  style: AppTypography.labelSmall.copyWith(
+                    color: Colors.white,
+                    letterSpacing: 1.5,
+                  ),
+                ),
               ),
             ),
           ),
 
           // Dots
           Positioned(
-            bottom: 48,
+            bottom: 120,
             left: 0,
             right: 0,
             child: Row(
@@ -68,10 +76,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: isActive ? 24 : 8,
-                  height: 8,
+                  width: isActive ? 32 : 6,
+                  height: 6,
                   decoration: BoxDecoration(
-                    color: isActive ? AppColors.primaryContainer : AppColors.surfaceContainerHigh,
+                    color: isActive
+                        ? AppColors.primaryContainer
+                        : (_currentPage == 0 ? Colors.white.withValues(alpha: 0.5) : AppColors.surfaceContainerHigh),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 );
@@ -86,18 +96,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildPage1() {
     return Stack(
       children: [
-        Container(
+        Image.asset(
+          'assets/images/background.png',
           width: double.infinity,
           height: double.infinity,
-          color: AppColors.surfaceContainerHigh,
-          child: const Center(child: Icon(Icons.image, size: 100, color: AppColors.outlineVariant)),
+          fit: BoxFit.cover,
         ),
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+              colors: [
+                Colors.black.withValues(alpha: 0.1),
+                Colors.black.withValues(alpha: 0.8),
+              ],
             ),
           ),
         ),
@@ -107,28 +120,74 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('DISCOVER THE NILE', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryFixedDim)),
-              const SizedBox(height: 8),
-              RichText(
-                text: TextSpan(
-                  style: AppTypography.displayMedium.copyWith(color: Colors.white),
-                  children: const [
-                    TextSpan(text: 'Your Odyssey\n'),
-                    TextSpan(text: 'Begins Here.', style: TextStyle(color: AppColors.primaryContainer)),
-                  ],
+              Text(
+                'DISCOVER THE NILE',
+                style: AppTypography.labelMedium.copyWith(
+                  color: AppColors.primaryContainer,
+                  letterSpacing: 2.0,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
+              RichText(
+                text: TextSpan(
+                  style: GoogleFonts.playfairDisplay(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
+                  children: [
+                    const TextSpan(text: 'Your Odyssey\n'),
+                    const TextSpan(
+                      text: 'Begins Here.',
+                      style: TextStyle(
+                        color: AppColors.primaryContainer,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Step into an editorial journey through the sands of time. Curated experiences for the modern archivist.',
-                style: AppTypography.bodyLarge.copyWith(color: Colors.white70),
+                style: AppTypography.bodyLarge.copyWith(color: Colors.white, height: 1.5),
               ),
-              const SizedBox(height: 40),
-              ElevatedButton(
-                onPressed: () => _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
-                child: const Text('Start Exploration'),
+              const SizedBox(height: 64),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: () => _pageController.nextPage(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryContainer,
+                    foregroundColor: AppColors.onPrimaryContainer,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'START EXPLORATION',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                          fontSize: 16,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward, size: 20),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 60), // padding for dots
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -139,20 +198,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildPage2() {
     return Padding(
       padding: const EdgeInsets.all(32).copyWith(top: 100),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('CURATED ARCHIVES', style: AppTypography.headlineSmall.copyWith(color: AppColors.primaryContainer)),
-          const SizedBox(height: 8),
-          Text('Three pillars of the Kemora experience.', style: AppTypography.bodyMedium),
-          const SizedBox(height: 48),
-          
-          _buildFeatureCard(Icons.account_balance, 'Hidden Temples', 'Access exclusive guides to lesser-known archaeological sites across the Valley of the Kings.', AppColors.secondaryFixed),
-          const SizedBox(height: 24),
-          _buildFeatureCard(Icons.article, 'Editorial Stories', 'Deep-dive long-form articles written by leading Egyptologists and local curators.', AppColors.secondaryFixedDim),
-          const SizedBox(height: 24),
-          _buildFeatureCard(Icons.auto_awesome, 'AI-Scribe', 'Translate hieroglyphs in real-time and discover the lore behind every inscription.', AppColors.primaryFixed),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('CURATED ARCHIVES', style: AppTypography.headlineSmall.copyWith(color: AppColors.primaryContainer)),
+            const SizedBox(height: 8),
+            Text('Three pillars of the Kemora experience.', style: AppTypography.bodyMedium),
+            const SizedBox(height: 48),
+            
+            _buildFeatureCard(Icons.account_balance, 'Hidden Temples', 'Access exclusive guides to lesser-known archaeological sites across the Valley of the Kings.', AppColors.secondaryFixed),
+            const SizedBox(height: 24),
+            _buildFeatureCard(Icons.article, 'Editorial Stories', 'Deep-dive long-form articles written by leading Egyptologists and local curators.', AppColors.secondaryFixedDim),
+            const SizedBox(height: 24),
+            _buildFeatureCard(Icons.auto_awesome, 'AI-Scribe', 'Translate hieroglyphs in real-time and discover the lore behind every inscription.', AppColors.primaryFixed),
+          ],
+        ),
       ),
     );
   }

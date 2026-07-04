@@ -18,7 +18,7 @@ class GetGovernoratesUseCase {
 class GetPlacesByGovernorateUseCase {
   final IPlaceRepository repository;
   GetPlacesByGovernorateUseCase(this.repository);
-  Future<Either<Failure, List<Place>>> call(String governorateId) async => await repository.getPlacesByGovernorate(governorateId);
+  Future<Either<Failure, List<Place>>> call(String governorateId, {int page = 1, int pageSize = 10}) async => await repository.getPlacesByGovernorate(governorateId, page: page, pageSize: pageSize);
 }
 
 class GetPlaceDetailUseCase {

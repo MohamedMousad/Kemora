@@ -10,9 +10,9 @@ class PlaceRepositoryImpl implements IPlaceRepository {
   PlaceRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Future<Either<Failure, List<Place>>> getPlaces() async {
+  Future<Either<Failure, List<Place>>> getPlaces({String? search, String? governorateId, String? categoryName}) async {
     try {
-      final places = await remoteDataSource.getPlaces();
+      final places = await remoteDataSource.getPlaces(search: search, governorateId: governorateId, categoryName: categoryName);
       return Right(places);
     } on Failure catch (e) {
       return Left(e);
@@ -58,9 +58,9 @@ class PlaceRepositoryImpl implements IPlaceRepository {
   }
 
   @override
-  Future<Either<Failure, List<Place>>> getPlacesByGovernorate(String governorateId) async {
+  Future<Either<Failure, List<Place>>> getPlacesByGovernorate(String governorateId, {int page = 1, int pageSize = 10}) async {
     try {
-      final places = await remoteDataSource.getPlacesByGovernorate(governorateId);
+      final places = await remoteDataSource.getPlacesByGovernorate(governorateId, page: page, pageSize: pageSize);
       return Right(places);
     } on Failure catch (e) {
       return Left(e);
@@ -74,6 +74,42 @@ class PlaceRepositoryImpl implements IPlaceRepository {
     try {
       final place = await remoteDataSource.getPlaceDetails(id);
       return Right(place);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Place>>> getFavorites() async {
+    try {
+      final places = await remoteDataSource.getFavorites();
+      return Right(places);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> addFavorite(String placeId) async {
+    try {
+      await remoteDataSource.addFavorite(placeId);
+      return const Right(null);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> removeFavorite(String placeId) async {
+    try {
+      await remoteDataSource.removeFavorite(placeId);
+      return const Right(null);
     } on Failure catch (e) {
       return Left(e);
     } catch (e) {

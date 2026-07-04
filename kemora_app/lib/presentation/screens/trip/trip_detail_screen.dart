@@ -9,6 +9,7 @@ import '../../../domain/entities/ai_itinerary.dart' as ai;
 import '../../../domain/entities/trip_plan_request.dart';
 import '../../viewmodels/trip_view_model.dart';
 import '../../viewmodels/auth_view_model.dart';
+import 'ai_step_questions_screen.dart';
 
 enum _SaveState { idle, loading, saved, error }
 
@@ -151,10 +152,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
     final currentItinerary = isAi ? _getCurrentAiItinerary(context) : null;
     final title = isAi ? currentItinerary!.title : activeTrip!.title;
-    final durationDays = !isAi ? activeTrip!.endDate.difference(activeTrip!.startDate).inDays + 1 : 0;
-    final duration = isAi ? '${currentItinerary!.days.length} Days' : '${durationDays > 0 ? durationDays : 1} Days • ${activeTrip!.location}';
+    
+    // Fallback description based on the title/location
+    final description = isAi 
+        ? 'A beautiful journey curated especially for you, filled with unforgettable moments and hidden gems.' 
+        : 'Your planned expedition and itinerary details.';
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFBF9F6), // Cream background from design
       appBar: KemoraAppBar(
         showBack: true,
         trailing: isAi && _saveState != _SaveState.saved
@@ -166,24 +171,80 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               )
             : null,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('YOUR EXPEDITION', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryContainer)),
-            const SizedBox(height: 8),
-            Text(title, style: AppTypography.displaySmall),
-            const SizedBox(height: 4),
-            Text(duration, style: AppTypography.bodyMedium.copyWith(color: AppColors.onSurfaceVariant)),
-            const SizedBox(height: 32),
-            if (isAi)
-              ..._getCurrentAiItinerary(context).days.asMap().entries.map((entry) => _buildAiDaySection(context, entry.key, entry.value))
-            else
-              _buildTripPlacesSection(context, activeTrip!.plannedPlaces),
-            const SizedBox(height: 80),
-          ],
-        ),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isAi) ...[
+                  Text(
+                    'CURATED BY AI',
+                    style: AppTypography.labelSmall.copyWith(
+                      color: const Color(0xFF8C713B),
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 36,
+                    height: 1.1,
+                    fontFamily: 'PlayfairDisplay', // Or whatever serif font is configured
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                    color: Color(0xFF4A4A4A),
+                  ),
+                ),
+                const SizedBox(height: 40),
+                if (isAi)
+                  ..._getCurrentAiItinerary(context).days.asMap().entries.map((entry) => _buildAiDaySection(context, entry.key, entry.value))
+                else
+                  _buildTripPlacesSection(context, activeTrip!.plannedPlaces),
+              ],
+            ),
+          ),
+          
+          // Fixed Bottom Button — "Done": returns the user to the AI trip
+          // planner wizard so they can start a new plan with a clean stack.
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 32,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AiStepQuestionsScreen()),
+                  (route) => route.isFirst,
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7B611C), // Deep olive/gold
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                elevation: 4,
+                shadowColor: const Color(0xFF7B611C).withValues(alpha: 0.4),
+              ),
+              child: const Text(
+                'Done',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -200,41 +261,59 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           final isLast = index == places.length - 1;
           return _buildTimelineStop(context, place, isLast);
         }),
-        const SizedBox(height: 24),
       ],
     );
   }
 
   Widget _buildAiDaySection(BuildContext context, int dayIndex, ai.TripDay day) {
+    // Generate a mock date for the UI display based on today + dayIndex
+    final date = DateTime.now().add(Duration(days: dayIndex));
+    final dateString = _formatDate(date);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.primaryContainer.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text('${day.dayNumber}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFF7B611C), // Deep olive/gold
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Text(
+                  '${day.dayNumber}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Text('Day ${day.dayNumber} — ${day.dailySummary ?? "Day ${day.dayNumber}"}', style: AppTypography.titleLarge, maxLines: 2, overflow: TextOverflow.ellipsis)),
-            ],
-          ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    day.dailySummary ?? 'Day ${day.dayNumber} Exploration',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontFamily: 'PlayfairDisplay',
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateString,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF7A7A7A)),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 24),
         ReorderableListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -250,171 +329,245 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             );
           },
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
       ],
     );
   }
 
   Widget _buildTimelineStop(BuildContext context, dynamic place, bool isLast) {
-    final categoryIcon = _categoryIcon('Others');
-
     return _buildStopBase(
       context: context,
       isLast: isLast,
-      isCompleted: false,
       name: place.name,
       time: '',
-      icon: categoryIcon,
-      imageUrl: place.imageUrl ?? place.mainImageUrl,
+      description: place.description ?? '',
+      imageUrl: place.mainImageUrl,
       isNetworkImage: true,
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id.toString())));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => PlaceDetailScreen(placeId: place.id, placeName: place.name)));
       },
     );
   }
 
   Widget _buildAiTimelineStop(BuildContext context, int dayIndex, int activityIndex, ai.ItineraryItem stop, bool isLast) {
-    final categoryIcon = _categoryIcon(stop.category ?? 'Others');
+    final timeLabel = (stop.time != null && stop.time!.isNotEmpty)
+        ? stop.time!
+        : stop.timeOfDay;
+
     return _buildStopBase(
       context: context,
       isLast: isLast,
-      isCompleted: stop.isVisited,
-      onCircleTap: () => context.read<TripViewModel>().toggleVisitedStatus(widget.trip?.id ?? '', dayIndex, activityIndex),
       name: stop.name,
-      time: stop.timeOfDay,
-      icon: categoryIcon,
+      time: timeLabel,
+      description: stop.description,
       imageUrl: stop.imageUrl,
       isNetworkImage: true,
-      onTap: null,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.drag_handle, color: AppColors.outlineVariant),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: AppColors.outlineVariant),
-            onSelected: (val) {
-              if (val == 'swap') _onSwapPlace(stop.name);
-              if (val == 'remove') context.read<TripViewModel>().removePlace(dayIndex, activityIndex);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'swap', child: Text('Swap Place')),
-              const PopupMenuItem(value: 'remove', child: Text('Remove', style: TextStyle(color: Colors.red))),
-            ],
-          ),
-        ],
-      ),
+      category: stop.category,
+      rating: stop.rating,
+      itineraryReview: stop.itineraryReview,
+      onRefreshTap: () => _onSwapPlace(stop.name),
+      onTap: stop.dbPlaceId != null
+          ? () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PlaceDetailScreen(placeId: stop.dbPlaceId.toString(), placeName: stop.name),
+                ),
+              )
+          : null,
     );
   }
 
   Widget _buildStopBase({
     required BuildContext context,
     required bool isLast,
-    required bool isCompleted,
     required String name,
     required String time,
-    required IconData icon,
+    required String description,
     String? imageUrl,
     bool isNetworkImage = false,
+    String? category,
+    double? rating,
+    String? itineraryReview,
     VoidCallback? onTap,
-    VoidCallback? onLongPress,
-    VoidCallback? onCircleTap,
-    Widget? trailing,
+    VoidCallback? onRefreshTap,
   }) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Timeline Column
           SizedBox(
-            width: 40,
+            width: 24,
             child: Column(
               children: [
-                GestureDetector(
-                  onTap: onCircleTap,
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isCompleted ? AppColors.primaryContainer : AppColors.surfaceContainerHigh,
-                      border: Border.all(
-                        color: isCompleted ? AppColors.primaryContainer : AppColors.outlineVariant,
-                        width: 2,
-                      ),
-                    ),
-                    child: isCompleted ? const Icon(Icons.check, size: 12, color: Colors.white) : null,
+                const SizedBox(height: 48), // Push circle down to align with card center (approx)
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                    border: Border.all(color: const Color(0xFF7B611C), width: 3),
                   ),
                 ),
                 if (!isLast)
                   Expanded(
                     child: Container(
-                      width: 2,
-                      color: isCompleted ? AppColors.primaryContainer : AppColors.outlineVariant.withValues(alpha: 0.4),
+                      width: 1.5,
+                      color: const Color(0xFFD4C8B8),
                     ),
                   ),
               ],
             ),
           ),
+          const SizedBox(width: 16),
+          // Main Card Content
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(bottom: 32),
               child: GestureDetector(
                 onTap: onTap,
-                onLongPress: onLongPress,
                 child: Container(
-                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: imageUrl != null && imageUrl.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: isNetworkImage
-                                    ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(icon, color: AppColors.outlineVariant))
-                                    : Image.asset(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(icon, color: AppColors.outlineVariant)),
-                              )
-                            : Icon(icon, color: AppColors.outlineVariant),
+                      // Image Section with Time Pill
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24), bottom: Radius.circular(24)),
+                            child: _buildImage(imageUrl, isNetworkImage),
+                          ),
+                          Positioned(
+                            top: 16,
+                            left: 16,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                time,
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
+                      // Text Section
+                      Padding(
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(name, style: AppTypography.titleMedium),
-                            const SizedBox(height: 2),
-                            Text(time, style: AppTypography.labelSmall.copyWith(color: AppColors.onSurfaceVariant)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontFamily: 'PlayfairDisplay',
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1A1A1A),
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                                if (onRefreshTap != null)
+                                  GestureDetector(
+                                    onTap: onRefreshTap,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFAF6EE),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.refresh, size: 18, color: Color(0xFFB59351)),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (description.isNotEmpty)
+                              Text(
+                                description,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF6B6B6B),
+                                  height: 1.5,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            if (itineraryReview != null && itineraryReview.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFAF6EE),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.format_quote, size: 16, color: Color(0xFFB59351)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        itineraryReview,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                          color: Color(0xFF8C713B),
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            // Category & Rating Row
+                            Row(
+                              children: [
+                                if (category != null && category.isNotEmpty) ...[
+                                  Icon(_categoryIcon(category), size: 16, color: const Color(0xFF8C713B)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    category,
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF8C713B), fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(width: 16),
+                                ],
+                                if (rating != null && rating > 0) ...[
+                                  const Icon(Icons.star_border, size: 16, color: Color(0xFF8C713B)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$rating Rating',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF8C713B), fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ],
                         ),
                       ),
-                      if (trailing != null)
-                        trailing
-                      else if (isCompleted)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryContainer.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text('Done', style: AppTypography.labelSmall.copyWith(color: AppColors.primaryContainer)),
-                        )
-                      else
-                        const Icon(Icons.chevron_right, color: AppColors.outline, size: 20),
                     ],
                   ),
                 ),
@@ -426,15 +579,97 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-
-
-  IconData _categoryIcon(String category) {
-    switch (category) {
-      case 'Ancient Places': return Icons.account_balance;
-      case 'Museums': return Icons.museum;
-      case 'Hotels': return Icons.hotel;
-      case 'Restaurants': return Icons.restaurant;
-      default: return Icons.place;
+  Widget _buildImage(String? imageUrl, bool isNetwork) {
+    const double height = 180;
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return Container(
+        height: height,
+        width: double.infinity,
+        color: const Color(0xFFE8E4DB),
+        child: const Icon(Icons.landscape, size: 64, color: Color(0xFFC4BBAF)),
+      );
     }
+    
+    // Some Cloudinary URLs might be missing https:// prefix in DB, though unlikely.
+    String url = imageUrl;
+    if (url.startsWith('//')) {
+      url = 'https:$url';
+    }
+
+    if (isNetwork) {
+      return Image.network(
+        url,
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            height: height,
+            width: double.infinity,
+            color: const Color(0xFFE8E4DB),
+            child: const Icon(Icons.broken_image, size: 64, color: Color(0xFFC4BBAF)),
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: height,
+            width: double.infinity,
+            color: const Color(0xFFE8E4DB),
+            child: const Center(
+              child: CircularProgressIndicator(color: Color(0xFFB59351)),
+            ),
+          );
+        },
+      );
+    } else {
+      return Image.asset(
+        url,
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          height: height,
+          width: double.infinity,
+          color: const Color(0xFFE8E4DB),
+          child: const Icon(Icons.broken_image, size: 64, color: Color(0xFFC4BBAF)),
+        ),
+      );
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    String daySuffix(int day) {
+      if (day >= 11 && day <= 13) return 'th';
+      switch (day % 10) {
+        case 1: return 'st';
+        case 2: return 'nd';
+        case 3: return 'rd';
+        default: return 'th';
+      }
+    }
+    
+    return '${months[date.month - 1]} ${date.day}${daySuffix(date.day)}, ${date.year}';
+  }
+
+  IconData _categoryIcon(String? category) {
+    if (category == null) return Icons.place;
+    final c = category.toLowerCase();
+    if (c.contains('histor') || c.contains('ancient') || c.contains('ruin') ||
+        c.contains('temple') || c.contains('pyramid') || c.contains('monument')) {
+      return Icons.account_balance;
+    }
+    if (c.contains('museum') || c.contains('cultur')) return Icons.museum;
+    if (c.contains('hotel') || c.contains('resort') || c.contains('accommodation')) return Icons.hotel;
+    if (c.contains('restaurant') || c.contains('food') || c.contains('dining') ||
+        c.contains('cuisine') || c.contains('cafe') || c.contains('culinary')) return Icons.restaurant;
+    if (c.contains('beach') || c.contains('sea')) return Icons.beach_access;
+    if (c.contains('adventure') || c.contains('safari') || c.contains('desert')) return Icons.terrain;
+    if (c.contains('religi') || c.contains('mosque') || c.contains('church')) return Icons.church;
+    if (c.contains('nature') || c.contains('park')) return Icons.park;
+    if (c.contains('shop') || c.contains('market') || c.contains('bazaar')) return Icons.shopping_bag;
+    return Icons.place;
   }
 }

@@ -40,6 +40,9 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
             'imageUrl': act.imageUrl,
             'visitDate': visitDate.toIso8601String(),
             'notes': act.itineraryReview,
+            // Persist the DB PlaceID so a saved trip can still deep-link to
+            // /places/{id} after a reload.
+            'placeId': act.dbPlaceId,
           });
         }
       }
@@ -96,12 +99,22 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
       );
       
       if (response.statusCode == 200) {
-        // Backend returns the new place as JSON string or object
-        // Assuming it's a JSON string representing the activity
+        // Normalise the response into a Map. The controller usually unwraps the
+        // AI's { "newActivity": { ... } } envelope and returns the inner object,
+        // but be defensive in case it comes back wrapped or as a JSON string.
+        Map<String, dynamic> parsed;
         if (response.data is String) {
-          return ItineraryItemModel.fromJson(json.decode(response.data));
+          parsed = json.decode(response.data) as Map<String, dynamic>;
+        } else if (response.data is Map) {
+          parsed = response.data as Map<String, dynamic>;
+        } else {
+          throw const ServerFailure('Unexpected swap response format');
         }
-        return ItineraryItemModel.fromJson(response.data);
+        // Unwrap if the controller returned the full envelope.
+        if (parsed.containsKey('newActivity') && parsed['newActivity'] is Map) {
+          parsed = (parsed['newActivity'] as Map).cast<String, dynamic>();
+        }
+        return ItineraryItemModel.fromJson(parsed);
       } else {
         throw const ServerFailure('Failed to swap place');
       }
@@ -122,9 +135,52 @@ class TripRemoteDataSourceImpl implements TripRemoteDataSource {
       
       if (response.statusCode == 200) {
         final String? tripPlanJson = response.data['tripPlan'] ?? response.data['TripPlan'];
+        final List<dynamic>? placesJson = response.data['places'] ?? response.data['Places'];
+
         if (tripPlanJson != null && tripPlanJson.isNotEmpty) {
           try {
-            return AIItineraryModel.fromString(tripPlanJson);
+            var itinerary = AIItineraryModel.fromString(tripPlanJson);
+
+            // Hydrate with places data from the same response
+            if (placesJson != null) {
+              final Map<String, dynamic> placesMap = {
+                for (var p in placesJson)
+                  p['name']?.toString() ?? p['Name']?.toString() ?? '': p
+              };
+
+              final hydratedDays = itinerary.days.map((day) {
+                final hydratedActivities = day.activities.map((act) {
+                  final placeData = placesMap[act.name] ?? placesMap[act.name.replaceAll('the ', 'The ')];
+                  if (placeData != null) {
+                    final imgUrl = placeData['imageUrl']?.toString() ?? placeData['ImageUrl']?.toString() ?? placeData['mainImageURL']?.toString() ?? placeData['MainImageURL']?.toString();
+                    return act.copyWith(
+                      imageUrl: (act.imageUrl == null || act.imageUrl!.isEmpty) ? imgUrl : act.imageUrl,
+                      category: act.category ?? placeData['category']?.toString() ?? placeData['Category']?.toString(),
+                      dbPlaceId: act.dbPlaceId ?? (placeData['dbPlaceId'] as num?)?.toInt() ?? (placeData['DbPlaceId'] as num?)?.toInt(),
+                      latitude: act.latitude ?? (placeData['latitude'] as num?)?.toDouble() ?? (placeData['Latitude'] as num?)?.toDouble(),
+                      longitude: act.longitude ?? (placeData['longitude'] as num?)?.toDouble() ?? (placeData['Longitude'] as num?)?.toDouble(),
+                      rating: act.rating ?? (placeData['rating'] as num?)?.toDouble() ?? (placeData['Rating'] as num?)?.toDouble(),
+                    );
+                  }
+                  return act;
+                }).toList();
+                
+                return TripDay(
+                  dayNumber: day.dayNumber,
+                  activities: List<ItineraryItem>.from(hydratedActivities),
+                  dailySummary: day.dailySummary,
+                  transportTips: day.transportTips,
+                );
+              }).toList();
+
+              itinerary = AIItineraryModel(
+                title: itinerary.title,
+                duration: itinerary.duration,
+                days: List<TripDay>.from(hydratedDays),
+              );
+            }
+
+            return itinerary;
           } catch (e) {
             throw const ServerFailure('AI generated an incomplete plan. Please try again.');
           }

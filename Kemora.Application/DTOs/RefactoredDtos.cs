@@ -58,7 +58,8 @@ namespace Kemora.Application.DTOs
         public int PriceLevel { get; set; }
         public string PlaceTypeName { get; set; } = string.Empty;
         public string? MainImageURL { get; set; }
-        public string? GoogleMapsUrl { get; set; }
+        public string? GovernorateName { get; set; }
+        public int ReviewCount { get; set; }
     }
 
     public class PlaceDetailPublicDto

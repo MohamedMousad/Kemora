@@ -172,9 +172,55 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: Text('Forgot Password?',
-                        style: AppTypography.labelMedium
-                            .copyWith(color: AppColors.primaryContainer)),
+                    child: GestureDetector(
+                      onTap: () {
+                        // Mock forgot password flow
+                        showDialog(
+                          context: context,
+                          builder: (ctx) {
+                            final emailCtrl = TextEditingController(text: _emailController.text);
+                            return AlertDialog(
+                              title: Text('Reset Password', style: AppTypography.titleLarge),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('Enter your email to receive a password reset link.', style: AppTypography.bodyMedium),
+                                  const SizedBox(height: 16),
+                                  TextField(
+                                    controller: emailCtrl,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Email Address',
+                                      prefixIcon: Icon(Icons.email_outlined),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Password reset link sent to ${emailCtrl.text}'),
+                                        backgroundColor: AppColors.primaryContainer,
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Send Link'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      child: Text('Forgot Password?',
+                          style: AppTypography.labelMedium
+                              .copyWith(color: AppColors.primaryContainer)),
+                    ),
                   ),
 
                   const SizedBox(height: 32),
@@ -233,6 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 40),
                   Center(
                     child: GestureDetector(
+                      key: const Key('create_account_link'),
                       onTap: () {
                         Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const RegisterScreen()));

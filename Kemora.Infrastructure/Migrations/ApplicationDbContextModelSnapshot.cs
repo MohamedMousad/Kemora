@@ -379,7 +379,7 @@ namespace Kemora.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("FoursquareId")
+                    b.Property<string>("GooglePlaceId")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("GoogleDataId")
