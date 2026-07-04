@@ -327,6 +327,9 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     try 
     {
+        Log.Information("DATABASE STARTUP: Applying pending migrations...");
+        await context.Database.MigrateAsync();
+
         Log.Information("DATABASE STARTUP: Ensuring base data is seeded...");
         await DataSeeder.SeedAsync(scope.ServiceProvider);
 
