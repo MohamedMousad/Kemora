@@ -444,14 +444,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       icon: Icons.logout,
                       title: 'Log Out',
                       subtitle: null,
-                      onTap: () async {
-                        await context.read<AuthViewModel>().logout();
-                        if (context.mounted) {
-                          Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
-                            (route) => false,
-                          );
-                        }
+                      onTap: () {
+                        // Run logout cleanup in the background
+                        context.read<AuthViewModel>().logout().catchError((_) {});
+                        // Immediately navigate to LoginScreen
+                        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          (route) => false,
+                        );
                       },
                       isDestructive: true,
                     ),

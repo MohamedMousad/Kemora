@@ -282,7 +282,7 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    TokenStorage.instance.clearTokens();
+    await TokenStorage.instance.clearTokens();
     await _clearPersistedUser();
     
     try {
