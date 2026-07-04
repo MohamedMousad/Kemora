@@ -329,20 +329,17 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Saved Places',
-                            style: AppTypography.titleLarge),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              SlidePageRoute(
-                                  child: const SavedPlacesScreen()),
-                            );
-                          },
-                          child: Text('View All',
-                              style: AppTypography.labelLarge.copyWith(
-                                  color: AppColors.primaryContainer)),
-                        ),
+                        Text('Saved Places', style: AppTypography.titleLarge),
+                        if (savedPlacesCount > 1)
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                SlidePageRoute(child: const SavedPlacesScreen()),
+                              );
+                            },
+                            child: Text('View All', style: AppTypography.labelLarge.copyWith(color: AppColors.primaryContainer)),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -445,13 +442,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       title: 'Log Out',
                       subtitle: null,
                       onTap: () {
-                        // Run logout cleanup in the background
-                        context.read<AuthViewModel>().logout().catchError((_) {});
-                        // Immediately navigate to LoginScreen
-                        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          (route) => false,
-                        );
+                        // Immediately clear state and trigger background network logout.
+                        // HomeScreen will detect the state change and handle navigation.
+                        context.read<AuthViewModel>().logout();
                       },
                       isDestructive: true,
                     ),

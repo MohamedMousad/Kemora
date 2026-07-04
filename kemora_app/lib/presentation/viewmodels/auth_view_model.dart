@@ -285,6 +285,11 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Immediately clear state to prevent LoginScreen bounce-back
+    _user = null;
+    _state = AuthState.unauthenticated;
+    notifyListeners();
+
     // Call the backend API to invalidate the refresh token
     try {
       await logoutUseCase();
@@ -307,10 +312,6 @@ class AuthViewModel extends ChangeNotifier {
     } catch (_) {
       // Ignore disconnect failures
     }
-    
-    _user = null;
-    _state = AuthState.unauthenticated;
-    notifyListeners();
   }
 
   Future<void> updateProfile(String fullName, String? bio) async {

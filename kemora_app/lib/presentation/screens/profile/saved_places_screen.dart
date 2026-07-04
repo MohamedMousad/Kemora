@@ -15,14 +15,6 @@ class SavedPlacesScreen extends StatefulWidget {
 
 class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PlacesViewModel>().loadFavorites();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: KemoraAppBar(
@@ -31,13 +23,6 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
       ),
       body: Consumer<PlacesViewModel>(
         builder: (context, placesViewModel, child) {
-          if (placesViewModel.state == PlacesState.loading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (placesViewModel.state == PlacesState.error) {
-            return Center(child: Text('Error: ${placesViewModel.errorMessage}', style: AppTypography.bodyLarge.copyWith(color: AppColors.error)));
-          }
 
           final savedPlaces = placesViewModel.favorites;
 

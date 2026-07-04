@@ -24,8 +24,7 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-  int _selectedFilter = 0;
-  final List<String> _filters = ['All', 'English', 'Arabic', 'Current Place'];
+
 
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
@@ -96,19 +95,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-          // Filters
-          SliverToBoxAdapter(
-            child: FadeSlideIn(
-              delayMs: 100,
-              child: FilterChipRow(
-                chips: _filters,
-                selectedIndex: _selectedFilter,
-                onSelected: (i) => setState(() => _selectedFilter = i),
-              ),
-            ),
-          ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
           // [KEMORA-MIGRATION] Feed posts — from PostViewModel (real API)
           if (postVm.state == PostState.loading)
