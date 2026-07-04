@@ -61,8 +61,14 @@ class AuthRepositoryImpl implements IAuthRepository {
 
   @override
   Future<Either<Failure, void>> logout() async {
-    // Implement token clearing logic here
-    return const Right(null);
+    try {
+      await remoteDataSource.logout();
+      return const Right(null);
+    } on Failure catch (e) {
+      return Left(e);
+    } catch (e) {
+      return Left(ServerFailure('Connection Error: ${e.toString()}'));
+    }
   }
 
   @override

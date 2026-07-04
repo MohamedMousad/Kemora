@@ -247,5 +247,22 @@ namespace Kemora.Api.Controllers
             
             return Ok(new { message = "Email changed successfully." });
         }
+
+        /// <summary>
+        /// Logout the authenticated user and invalidate their refresh token.
+        /// </summary>
+        [HttpPost("logout")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> Logout()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var (succeeded, error) = await _authService.LogoutAsync(userId);
+            if (!succeeded) return BadRequest(error);
+
+            return Ok(new { message = "Logged out successfully." });
+        }
     }
 }

@@ -1,3 +1,4 @@
+import '../../core/di/injection_container.dart';
 import '../../domain/entities/trip.dart';
 import '../../domain/entities/ai_itinerary.dart' as ai;
 
@@ -43,6 +44,11 @@ class TripModel extends Trip {
       final visitDate = p['visitDate'] != null ? DateTime.parse(p['visitDate'].toString()) : startDate;
       final dayNumber = visitDate.difference(startDate).inDays + 1;
 
+      String? rawImgUrl = p['imageUrl'] as String?;
+      if (rawImgUrl != null && rawImgUrl.isNotEmpty && !rawImgUrl.startsWith('http') && !rawImgUrl.startsWith('//')) {
+        rawImgUrl = rawImgUrl.startsWith('/') ? '${resolveApiBaseUrl()}$rawImgUrl' : '${resolveApiBaseUrl()}/$rawImgUrl';
+      }
+
       final item = ai.ItineraryItem(
         name: p['placeName']?.toString() ?? 'Unknown Place',
         description: (p['notes']?.toString().isNotEmpty ?? false)
@@ -54,7 +60,7 @@ class TripModel extends Trip {
         // Carry the underlying PlaceID so a reloaded trip can still deep-link to
         // /places/{id}, plus image/category/rating for consistent rendering.
         dbPlaceId: (p['placeId'] ?? p['placeID']) as int?,
-        imageUrl: p['imageUrl'] as String?,
+        imageUrl: rawImgUrl,
         category: p['category'] as String?,
         rating: p['rating'] != null ? (p['rating'] as num).toDouble() : null,
       );

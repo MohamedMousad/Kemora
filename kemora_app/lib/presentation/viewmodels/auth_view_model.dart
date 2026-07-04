@@ -10,6 +10,7 @@ import '../../data/models/user_model.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/google_login_usecase.dart';
+import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/update_preferences_usecase.dart';
 import '../../domain/usecases/change_password_usecase.dart';
 import '../../domain/usecases/change_email_usecase.dart';
@@ -27,6 +28,7 @@ class AuthViewModel extends ChangeNotifier {
   final LoginUseCase loginUseCase;
   final RegisterUseCase registerUseCase;
   final GoogleLoginUseCase googleLoginUseCase;
+  final LogoutUseCase logoutUseCase;
   final UpdatePreferencesUseCase updatePreferencesUseCase;
   final ChangePasswordUseCase changePasswordUseCase;
   final ChangeEmailUseCase changeEmailUseCase;
@@ -37,6 +39,7 @@ class AuthViewModel extends ChangeNotifier {
     required this.loginUseCase,
     required this.registerUseCase,
     required this.googleLoginUseCase,
+    required this.logoutUseCase,
     required this.updatePreferencesUseCase,
     required this.changePasswordUseCase,
     required this.changeEmailUseCase,
@@ -282,7 +285,14 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await TokenStorage.instance.clearTokens();
+    // Call the backend API to invalidate the refresh token
+    try {
+      await logoutUseCase();
+    } catch (_) {
+      // Ignore errors (e.g. if offline or token already invalid)
+    }
+
+    TokenStorage.instance.clearTokens();
     await _clearPersistedUser();
     
     try {

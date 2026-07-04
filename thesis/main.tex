@@ -25,13 +25,11 @@
 \usepackage{pdflscape} % For landscape orientation of large tables if necessary
     
 % Reduce heading sizes to match technical report standards
-\titleformat{\chapter}[display]
-  {\normalfont\LARGE\bfseries}{\chaptertitlename\ \thechapter}{10pt}{\LARGE}
+\titleformat{\chapter}[display]{\normalfont\fontsize{16}{19}\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
 \titlespacing*{\chapter}{0pt}{-20pt}{20pt}
-\titleformat{\section}
-  {\normalfont\Large\bfseries}{\thesection}{1em}{}
-\titleformat{\subsection}
-  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\section}{\normalfont\fontsize{16}{19}\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\fontsize{14}{17}\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalfont\fontsize{12}{15}\bfseries}{\thesubsubsection}{1em}{}
 
 \begin{document}
 
@@ -39,19 +37,20 @@
     \begin{center}
         
         % Header with Logos
-        \begin{minipage}{0.2\textwidth}
-            \includegraphics[width=\linewidth, height=3cm, keepaspectratio]{figures/eng.png}
-        \end{minipage}
+        \begin{minipage}[c]{0.25\textwidth}
+            \includegraphics[height=3.5cm, keepaspectratio]{figures/eng.png}
+        \end{minipage}%
         \hfill
-        \begin{minipage}{0.55\textwidth}
+        \begin{minipage}[c]{0.45\textwidth}
             \centering
             \textbf{Port Said University}\\
             \textbf{Faculty of Engineering}\\
             \textbf{Department of Computer and Control Engineering}
-        \end{minipage}
+        \end{minipage}%
         \hfill
-        \begin{minipage}{0.2\textwidth}
-            \includegraphics[width=\linewidth, height=3cm, keepaspectratio]{figures/psu.png}
+        \begin{minipage}[c]{0.25\textwidth}
+            \raggedleft
+            \includegraphics[height=3.5cm, keepaspectratio]{figures/psu.png}
         \end{minipage}
 
         \vspace{2cm}
@@ -63,7 +62,7 @@
         \vspace{1cm}
         
         % Project Logo Placeholder
-        \includegraphics[width=5cm, height=5cm, keepaspectratio]{figures/project_logo.png}
+        \includegraphics[width=6.5cm, height=6.5cm, keepaspectratio]{figures/project_logo.png}
         
         \vfill
 

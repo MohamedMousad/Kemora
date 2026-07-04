@@ -290,6 +290,18 @@ namespace Kemora.Infrastructure.Services
             return (true, null!);
         }
 
+        public async Task<(bool Succeeded, string Error)> LogoutAsync(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return (false, "User not found.");
+
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+
+            return (true, null!);
+        }
+
         private string GetHtmlPasswordResetEmail(string name, string link)
         {
             return $@"

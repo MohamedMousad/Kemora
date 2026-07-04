@@ -577,6 +577,8 @@ class _StickySearchDelegate extends SliverPersistentHeaderDelegate {
                     hintText: 'Where to next?',
                     hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.outline),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),

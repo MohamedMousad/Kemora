@@ -168,6 +168,7 @@ class _FeedScreenState extends State<FeedScreen> {
                       child: FeedPostCard(
                         postId: post.id,
                         authorName: post.authorName,
+                        authorProfilePicture: post.authorProfilePicture,
                         location: post.locationName ?? '',
                         timeAgo: _timeAgo(post.createdAt),
                         content: post.content,

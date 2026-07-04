@@ -21,6 +21,7 @@ import '../../domain/repositories/i_badge_repository.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/google_login_usecase.dart';
+import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/update_preferences_usecase.dart';
 import '../../domain/usecases/change_password_usecase.dart';
 import '../../domain/usecases/change_email_usecase.dart';
@@ -57,15 +58,15 @@ final sl = GetIt.instance;
 
 String resolveApiBaseUrl() {
   if (kIsWeb) {
-    return 'http://localhost:5299';
+    return 'http://site77654.siteasp.net';
   }
 
   // Android emulator cannot reach host loopback via localhost.
   if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:5299';
+    return 'http://site77654.siteasp.net';
   }
 
-  return 'http://localhost:5299';
+  return 'http://site77654.siteasp.net';
 }
 
 Future<void> init() async {
@@ -75,6 +76,7 @@ Future<void> init() async {
         loginUseCase: sl(),
         registerUseCase: sl(),
         googleLoginUseCase: sl(),
+        logoutUseCase: sl(),
         updatePreferencesUseCase: sl(),
         changePasswordUseCase: sl(),
         changeEmailUseCase: sl(),
@@ -86,6 +88,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUseCase(sl()));
   sl.registerLazySingleton(() => GoogleLoginUseCase(repository: sl()));
+  sl.registerLazySingleton(() => LogoutUseCase(sl()));
   sl.registerLazySingleton(() => UpdatePreferencesUseCase(repository: sl()));
   sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
   sl.registerLazySingleton(() => ChangeEmailUseCase(sl()));

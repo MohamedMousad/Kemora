@@ -28,7 +28,7 @@ namespace Kemora.Application.Services
         public async Task<bool> AddFavoriteAsync(string userId, int placeId)
         {
             if (!await _placeRepo.ExistsAsync(placeId)) return false;
-            if (await _favoriteRepo.IsFavoritedAsync(userId, placeId)) return false;
+            if (await _favoriteRepo.IsFavoritedAsync(userId, placeId)) return true;
 
             await _favoriteRepo.AddAsync(new UserFavorite { UserID = userId, PlaceID = placeId });
             await _unitOfWork.CommitAsync();
@@ -38,7 +38,7 @@ namespace Kemora.Application.Services
         public async Task<bool> RemoveFavoriteAsync(string userId, int placeId)
         {
             var fav = await _favoriteRepo.GetAsync(userId, placeId);
-            if (fav == null) return false;
+            if (fav == null) return true;
 
             _favoriteRepo.Remove(fav);
             await _unitOfWork.CommitAsync();
