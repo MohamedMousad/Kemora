@@ -1,0 +1,587 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Kemora.Api</name>
+    </assembly>
+    <members>
+        <member name="T:Kemora.Api.Controllers.AuthController">
+            <summary>
+            Handles user authentication: registration, login, token refresh, email confirmation, and password reset.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.Register(Kemora.Application.DTOs.RegisterDto)">
+            <summary>
+            Register a new user account.
+            </summary>
+            <param name="model">Registration details including full name, email, and password.</param>
+            <returns>Authentication tokens and user info.</returns>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.Login(Kemora.Application.DTOs.LoginDto)">
+            <summary>
+            Login with email and password.
+            </summary>
+            <param name="model">Login credentials.</param>
+            <returns>JWT access token and refresh token.</returns>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.GoogleLogin(Kemora.Application.DTOs.GoogleLoginDto)">
+            <summary>
+            Login using Google OAuth token.
+            </summary>
+            <param name="model">External login details including the provider and ID token.</param>
+            <returns>JWT access token and refresh token.</returns>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.Refresh(Kemora.Application.DTOs.RefreshTokenRequestDto)">
+            <summary>
+            Refresh an expired JWT token using a valid refresh token.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ConfirmEmail(Kemora.Application.DTOs.ConfirmEmailDto)">
+            <summary>
+            Confirm a user's email address using the confirmation token sent during registration.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ConfirmEmailLink(System.String,System.String)">
+            <summary>
+            Confirm email via a direct link (GET request).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ForgotPassword(Kemora.Application.DTOs.ForgotPasswordDto)">
+            <summary>
+            Request a password reset token. An email will be sent if the account exists.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ResetPasswordRedirect(System.String,System.String)">
+            <summary>
+            Redirects the user to the Flutter app's password reset screen.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ResetPassword(Kemora.Application.DTOs.ResetPasswordDto)">
+            <summary>
+            Reset a user's password using the token received via email.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ResendConfirmation(System.String)">
+            <summary>
+            Manually trigger an email confirmation for a user (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ChangePassword(Kemora.Application.DTOs.ChangePasswordDto)">
+            <summary>
+            Change the authenticated user's password.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.ChangeEmail(Kemora.Application.DTOs.ChangeEmailDto)">
+            <summary>
+            Change the authenticated user's email address.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.AuthController.Logout">
+            <summary>
+            Logout the authenticated user and invalidate their refresh token.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.BadgesController">
+            <summary>
+            Gamification endpoints: badges, points, and leaderboard.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.BadgesController.CreateBadge(Kemora.Application.DTOs.CreateBadgeDto)">
+            <summary>
+            Create a new badge (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.BadgesController.GetAllBadges">
+            <summary>
+            Get all available badges.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.BadgesController.GetMyBadges">
+            <summary>
+            Get the authenticated user's earned badges.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.BadgesController.GetMyPoints">
+            <summary>
+            Get the authenticated user's point summary.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.BadgesController.GetLeaderboard(System.Int32)">
+            <summary>
+            Get the top users by points leaderboard.
+            </summary>
+            <param name="top">Number of top users to return (default: 10).</param>
+        </member>
+        <member name="T:Kemora.Api.Controllers.CommentsController">
+            <summary>
+            Manage comments on posts: create, list, update, and delete.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.CommentsController.CreateComment(System.Int32,Kemora.Application.DTOs.CreateCommentDto)">
+            <summary>
+            Add a comment to a post.
+            </summary>
+            <param name="postId">The post to comment on.</param>
+            <param name="dto">Comment content and optional media.</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.CommentsController.GetComments(System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Get paginated comments for a post.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.CommentsController.UpdateComment(System.Int32,Kemora.Application.DTOs.UpdateCommentDto)">
+            <summary>
+            Update your own comment.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.CommentsController.DeleteComment(System.Int32)">
+            <summary>
+            Delete your own comment.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.EventsController">
+            <summary>
+            Manage events for places: create, list upcoming, update, and delete.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.EventsController.CreateEvent(System.Int32,Kemora.Application.DTOs.CreateEventDto)">
+            <summary>
+            Create an event for a specific place (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.EventsController.GetUpcomingEvents">
+            <summary>
+            Get upcoming events across all places.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.EventsController.GetEventsByPlace(System.Int32)">
+            <summary>
+            Get events for a specific place.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.EventsController.UpdateEvent(System.Int32,Kemora.Application.DTOs.UpdateEventDto)">
+            <summary>
+            Update an existing event (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.EventsController.DeleteEvent(System.Int32)">
+            <summary>
+            Delete an event (Admin only).
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.FavoritesController">
+            <summary>
+            Manage user favorite places: add, remove, list, and check.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.FavoritesController.AddFavorite(System.Int32)">
+            <summary>
+            Add a place to favorites.
+            </summary>
+            <param name="placeId">The place to favorite.</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.FavoritesController.RemoveFavorite(System.Int32)">
+            <summary>
+            Remove a place from favorites.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.FavoritesController.GetMyFavorites">
+            <summary>
+            Get all favorite places for the authenticated user.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.FavoritesController.CheckFavorite(System.Int32)">
+            <summary>
+            Check if a specific place is in the user's favorites.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.ImagesController">
+            <summary>
+            Upload images to Cloudinary cloud storage.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ImagesController.UploadImage(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Upload an image file (Admin only). Returns the public URL of the uploaded image.
+            </summary>
+            <param name="file">The image file to upload (JPEG, PNG, etc.).</param>
+            <returns>The public URL of the uploaded image.</returns>
+        </member>
+        <member name="T:Kemora.Api.Controllers.NotificationsController">
+            <summary>
+            Manage user notifications: list, unread count, and mark as read.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.NotificationsController.GetMyNotifications(System.Int32,System.Int32)">
+            <summary>
+            Get paginated notifications for the authenticated user.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.NotificationsController.GetUnreadCount">
+            <summary>
+            Get the count of unread notifications.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.NotificationsController.MarkAsRead(System.Int32)">
+            <summary>
+            Mark a specific notification as read.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.NotificationsController.MarkAllAsRead">
+            <summary>
+            Mark all notifications as read.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.PhotosController">
+            <summary>
+            Manage photos for places: add, list, set main, and delete.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PhotosController.AddPhoto(System.Int32,Kemora.Application.DTOs.CreatePhotoDto)">
+            <summary>
+            Add a photo to a place (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PhotosController.GetPhotos(System.Int32)">
+            <summary>
+            Get all photos for a place.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PhotosController.SetMainPhoto(System.Int32,System.Int32)">
+            <summary>
+            Set a photo as the main photo for a place (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PhotosController.DeletePhoto(System.Int32,System.Int32)">
+            <summary>
+            Delete a photo from a place (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PhotosController.ProxyPhoto(System.String,Microsoft.Extensions.Configuration.IConfiguration,System.Net.Http.IHttpClientFactory)">
+            <summary>
+            Proxies a photo from Google Places API to avoid exposing the API key.
+            Served at <c>/api/v{version}/photos/proxy</c> to match the URLs stored on
+            places during hydration (see GooglePlacesService.BuildPhotoFetchUrl).
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.PlacesController">
+            <summary>
+            Public-facing place browsing and AI-powered trip planning.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesController.GetPlaces(System.Nullable{System.Int32},System.Nullable{System.Int32},System.String,System.String,System.Int32,System.Int32)">
+            <summary>
+            Browse places with optional filters. Supports search, category, and governorate filtering.
+            </summary>
+            <param name="governorateId">Optional governorate filter.</param>
+            <param name="categoryId">Optional category filter.</param>
+            <param name="search">Optional text search.</param>
+            <param name="page">Page number (default: 1).</param>
+            <param name="pageSize">Items per page (default: 20).</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesController.GetPlace(System.Int32)">
+            <summary>
+            Get detailed information about a specific place including photos, reviews, and events.
+            </summary>
+            <param name="id">The place ID.</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesController.GenerateTripPlan(Kemora.Application.DTOs.TripPlanRequestDto)">
+            <summary>
+            Generate an AI-powered trip plan based on location, budget, and preferences.
+            </summary>
+            <param name="request">Trip plan parameters including coordinates, duration, and preferences.</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesController.GetGovernorates">
+            <summary>
+            Get all governorates in Egypt.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesController.GetTopPlaces">
+            <summary>
+            Get the top 20 featured places across Egypt.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesController.SwapPlace(System.String,System.String)">
+            <summary>
+            Request an alternative for a specific place in a trip plan.
+            </summary>
+            <param name="currentPlaceName">The name of the place to swap.</param>
+            <param name="preferences">User's preferences.</param>
+        </member>
+        <member name="T:Kemora.Api.Controllers.PlacesManagementController">
+            <summary>
+            Admin endpoints for managing governorates, categories, place types, and places.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.CreateGovernorate(Kemora.Application.DTOs.CreateGovernorateDto)">
+            <summary>
+            Create a new governorate.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.GetGovernorates">
+            <summary>
+            Get all governorates.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.UpdateGovernorate(System.Int32,Kemora.Application.DTOs.CreateGovernorateDto)">
+            <summary>
+            Update a governorate.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.DeleteGovernorate(System.Int32)">
+            <summary>
+            Delete a governorate.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.CreateCategory(Kemora.Application.DTOs.CreateCategoryDto)">
+            <summary>
+            Create a new category.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.GetCategories">
+            <summary>
+            Get all categories.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.UpdateCategory(System.Int32,Kemora.Application.DTOs.CreateCategoryDto)">
+            <summary>
+            Update a category.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.DeleteCategory(System.Int32)">
+            <summary>
+            Delete a category.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.CreatePlaceType(Kemora.Application.DTOs.CreatePlaceTypeDto)">
+            <summary>
+            Create a new place type.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.GetPlaceTypes">
+            <summary>
+            Get all place types.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.UpdatePlaceType(System.Int32,Kemora.Application.DTOs.CreatePlaceTypeDto)">
+            <summary>
+            Update a place type.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.DeletePlaceType(System.Int32)">
+            <summary>
+            Delete a place type.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.CreatePlace(Kemora.Application.DTOs.CreatePlaceDto)">
+            <summary>
+            Create a new place.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.UpdatePlace(System.Int32,Kemora.Application.DTOs.UpdatePlaceDto)">
+            <summary>
+            Update a place.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.DeletePlace(System.Int32)">
+            <summary>
+            Delete a place.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PlacesManagementController.UploadPlacePicture(System.Int32,Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Upload a picture for a place.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.PostsController">
+            <summary>
+            Community posts: create, browse, update, and delete social posts with media.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.CreatePost(System.String,System.Nullable{System.Int32},Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Create a new community post.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.UploadImage(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Upload an image for a post and get its URL.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.GetPosts(System.Int32,System.Int32)">
+            <summary>
+            Browse all posts with pagination.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.GetPost(System.Int32)">
+            <summary>
+            Get a single post with full details.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.GetMyPosts(System.Int32,System.Int32)">
+            <summary>
+            Get the authenticated user's posts.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.ToggleLike(System.Int32)">
+            <summary>
+            Toggle a like/reaction on a post.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.AddComment(System.Int32,Kemora.Application.DTOs.CreateCommentDto)">
+            <summary>
+            Add a comment to a post.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.UpdatePost(System.Int32,Kemora.Application.DTOs.UpdatePostDto)">
+            <summary>
+            Update your own post.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.PostsController.DeletePost(System.Int32)">
+            <summary>
+            Delete your own post.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.ProfileController">
+            <summary>
+            User profile management: view/edit own profile, view public profiles.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ProfileController.GetMyProfile">
+            <summary>
+            Get the authenticated user's profile.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ProfileController.UpdateProfile(Kemora.Application.DTOs.UpdateProfileDto)">
+            <summary>
+            Update the authenticated user's profile.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ProfileController.GetPublicProfile(System.String)">
+            <summary>
+            Get a user's public profile by user ID.
+            </summary>
+            <param name="id">The user's ID.</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ProfileController.UploadProfilePicture(Microsoft.AspNetCore.Http.IFormFile)">
+            <summary>
+            Upload a new profile picture.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.ReactionsController">
+            <summary>
+            React to posts and comments with emoji reactions (like, love, etc.).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ReactionsController.ReactToPost(System.Int32,Kemora.Application.DTOs.ReactToPostDto)">
+            <summary>
+            Add or remove a reaction on a post.
+            </summary>
+            <param name="postId">The post to react to.</param>
+            <param name="dto">Reaction details (action: "add"/"remove", reactionType).</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ReactionsController.ReactToComment(System.Int32,Kemora.Application.DTOs.ReactToCommentDto)">
+            <summary>
+            Add or remove a reaction on a comment.
+            </summary>
+            <param name="commentId">The comment to react to.</param>
+            <param name="dto">Reaction details (action: "add"/"remove", reactionType).</param>
+        </member>
+        <member name="T:Kemora.Api.Controllers.ReviewsController">
+            <summary>
+            User reviews for places: submit, browse, and delete reviews with ratings.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ReviewsController.AddReview(System.Int32,Kemora.Application.DTOs.CreateReviewDto)">
+            <summary>
+            Submit a review for a place.
+            </summary>
+            <param name="placeId">The place to review.</param>
+            <param name="dto">Review content and rating.</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ReviewsController.GetReviews(System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Get paginated reviews for a place.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.ReviewsController.DeleteReview(System.Int32)">
+            <summary>
+            Delete your own review.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.TripsController">
+            <summary>
+            Trip planning: create trips, manage itinerary places, update, and delete.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.Create(Kemora.Application.DTOs.CreateTripDto)">
+            <summary>
+            Create a new trip.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.List(System.Int32,System.Int32)">
+            <summary>
+            List the authenticated user's trips with pagination.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.Get(System.Int32)">
+            <summary>
+            Get a specific trip with its places.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.Update(System.Int32,Kemora.Application.DTOs.UpdateTripDto)">
+            <summary>
+            Update a trip's details.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.Delete(System.Int32)">
+            <summary>
+            Delete a trip.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.AddPlace(System.Int32,Kemora.Application.DTOs.AddTripPlaceDto)">
+            <summary>
+            Add a place to a trip's itinerary.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.UpdatePlace(System.Int32,System.Int32,Kemora.Application.DTOs.UpdateTripPlaceDto)">
+            <summary>
+            Update a place's order or notes in the trip itinerary.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.RemovePlace(System.Int32,System.Int32)">
+            <summary>
+            Remove a place from the trip itinerary.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.TripsController.SavePlan(Kemora.Application.DTOs.SaveAIPlanDto)">
+            <summary>
+            Save a complete AI-generated trip plan. Requires authentication.
+            </summary>
+        </member>
+        <member name="T:Kemora.Api.Controllers.UserManagementController">
+            <summary>
+            Admin user management: list users, assign and remove roles.
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.UserManagementController.GetAllUsers">
+            <summary>
+            Get all registered users (Admin only).
+            </summary>
+        </member>
+        <member name="M:Kemora.Api.Controllers.UserManagementController.AssignRole(System.String,System.String)">
+            <summary>
+            Assign a role to a user (e.g., "Admin", "User").
+            </summary>
+            <param name="userId">Target user ID.</param>
+            <param name="role">Role name to assign.</param>
+        </member>
+        <member name="M:Kemora.Api.Controllers.UserManagementController.RemoveRole(System.String,System.String)">
+            <summary>
+            Remove a role from a user.
+            </summary>
+            <param name="userId">Target user ID.</param>
+            <param name="role">Role name to remove.</param>
+        </member>
+    </members>
+</doc>

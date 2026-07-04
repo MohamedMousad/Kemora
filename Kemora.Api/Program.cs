@@ -317,8 +317,6 @@ app.UseRateLimiter();
 
 using (var scope = app.Services.CreateScope())
 {
-    await RoleSeeder.SeedRolesAsync(scope.ServiceProvider);
-
     if (app.Environment.IsDevelopment())
     {
     }
@@ -327,7 +325,7 @@ using (var scope = app.Services.CreateScope())
     try 
     {
         Log.Information("DATABASE STARTUP: Ensuring base data is seeded...");
-        await DataSeeder.SeedAsync(scope.ServiceProvider);
+
 
         // Execute SQL script if it exists (for migrating local data to remote)
         string scriptPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "db_script.sql");
@@ -348,6 +346,9 @@ using (var scope = app.Services.CreateScope())
             System.IO.File.Delete(scriptPath);
             Log.Information("db_script.sql executed and deleted.");
         }
+        
+        await RoleSeeder.SeedRolesAsync(scope.ServiceProvider);
+        await DataSeeder.SeedAsync(scope.ServiceProvider);
         
         var placeCount = await context.Places.CountAsync();
         Log.Information("DATABASE STARTUP: Ready. Current Place count: {Count}", placeCount);
