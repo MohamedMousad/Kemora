@@ -58,15 +58,15 @@ final sl = GetIt.instance;
 
 String resolveApiBaseUrl() {
   if (kIsWeb) {
-    return 'http://site77654.siteasp.net';
+    return 'https://site77654.siteasp.net';
   }
 
   // Android emulator cannot reach host loopback via localhost.
   if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://site77654.siteasp.net';
+    return 'https://site77654.siteasp.net';
   }
 
-  return 'http://site77654.siteasp.net';
+  return 'https://site77654.siteasp.net';
 }
 
 Future<void> init() async {
