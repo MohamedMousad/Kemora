@@ -36,7 +36,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final vm = context.read<PlacesViewModel>();
-      final loaded = await vm.getPlaceById(widget.placeId);
+      final loaded = await vm.getPlaceById(widget.placeId!);
       if (mounted) setState(() => _apiPlace = loaded);
     });
   }
@@ -426,7 +426,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
               children: [
                 Text(_rating.toStringAsFixed(1), style: AppTypography.displayLarge),
                 Text(
-                    'Based on ${reviews.isNotEmpty ? reviews.length : 0} reviews',
+                    'Based on ${allReviews.isNotEmpty ? allReviews.length : 0} reviews',
                     style: AppTypography.labelMedium
                         .copyWith(color: AppColors.onSurfaceVariant)),
               ],

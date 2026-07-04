@@ -75,7 +75,7 @@ class PlaceModel extends Place {
       priceLevel: (json['priceLevel'] as num?)?.toInt(),
       website: json['website'] as String?,
       googleMapsUrl: json['googleMapsUrl'] as String?,
-      additionalPhotoUrls: additionalPhotos,
+      additionalPhotoUrls: photos,
       openingHours: json['openingHoursJSON'] ?? json['openingHours'],
       reviews: reviews,
       photos: photos,

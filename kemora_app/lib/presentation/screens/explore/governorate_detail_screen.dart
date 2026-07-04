@@ -61,13 +61,6 @@ class _GovernorateDetailScreenState extends State<GovernorateDetailScreen> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PlacesViewModel>().loadPlacesByGovernorate(widget.governorate.dbId.toString());
-    });
-  }
 
   @override
   void dispose() {
