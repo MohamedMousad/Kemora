@@ -77,7 +77,7 @@ namespace Kemora.Application.Services
                     }
                     
                     // Re-fetch after hydration to include new results
-                    places = await _placeRepo.GetFilteredAsync(searchQuery, governorateId, categoryId, categoryName, page, pageSize);
+                    places = await _placeRepo.GetFilteredAsync(searchQuery, governorateId, categoryId, categoryName, sortBy, page, pageSize);
                     count = await _placeRepo.GetFilteredCountAsync(searchQuery, governorateId, categoryId, categoryName);
                 }
                 else
@@ -192,6 +192,16 @@ namespace Kemora.Application.Services
             return dtos;
         }
 
+        public async Task HydrateGovernoratePlacesAsync(int governorateId, string? categoryName, int page)
+        {
+            try 
+            {
+                var governorate = await _unitOfWork.Repository<Governorate>().GetByIdAsync(governorateId);
+                if (governorate == null || governorate.Latitude == 0) 
+                {
+                    _logger.LogWarning("[Hydration] Governorate {Id} not found or has no coordinates.", governorateId);
+                    return;
+                }
 
                 _logger.LogInformation("[Hydration] Fetching places for {GovName} (Category: {Cat}, Page: {Page})", governorate.Name, categoryName ?? "Any", page);
 
@@ -203,7 +213,7 @@ namespace Kemora.Application.Services
 
                 _logger.LogInformation("[Hydration] Places API returned {Count} results.", results.Count);
 
-                var existingPlaces = await _placeRepo.GetFilteredAsync(null, governorateId, null, null, 1, 1000);
+                var existingPlaces = await _placeRepo.GetFilteredAsync(null, governorateId, null, null, null, 1, 1000);
                 var existingIds = existingPlaces.Select(p => p.GoogleDataId).Where(id => id != null).ToHashSet();
 
                 var allPlaceTypes = await _unitOfWork.Repository<PlaceType>().GetAllAsync();

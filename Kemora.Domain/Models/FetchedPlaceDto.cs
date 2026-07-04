@@ -37,15 +37,10 @@ namespace Kemora.Domain.Models
         public List<string> PhotoResourceNames { get; set; } = [];
         public int? Popularity { get; set; }
         public List<FetchedReviewDto> Reviews { get; set; } = [];
-    }
-
-    /// <summary>
-    /// Represents a review fetched from the Google Places API.
-    /// </summary>
-    public class FetchedReviewDto
-    {
-        public string? AuthorName { get; set; }
-        public int Rating { get; set; }
-        public string? Text { get; set; }
+        
+        // Added for GooglePlacesSyncService compatibility
+        public List<string> AllPhotoNames { get; set; } = [];
+        public string? GoogleMapsUrl { get; set; }
+        public List<FetchedReviewDto> ApiReviews { get; set; } = [];
     }
 }
