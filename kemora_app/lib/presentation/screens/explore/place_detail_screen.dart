@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/di/injection_container.dart';
@@ -33,6 +34,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _requestLocationPermission();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final vm = context.read<PlacesViewModel>();
@@ -102,6 +104,17 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
+  bool _locationGranted = false;
+
+  Future<void> _requestLocationPermission() async {
+    final status = await Permission.locationWhenInUse.request();
+    if (mounted && status.isGranted) {
+      setState(() {
+        _locationGranted = true;
+      });
+    }
+  }
+
   /// Interactive embedded Google Map centred on the place with a single marker.
   Widget _buildMapPreview() {
     final lat = _apiPlace?.latitude ?? 0.0;
@@ -119,7 +132,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen>
               infoWindow: InfoWindow(title: _apiPlace?.name),
             ),
           },
-          myLocationButtonEnabled: false,
+          myLocationEnabled: _locationGranted,
+          myLocationButtonEnabled: _locationGranted,
           zoomControlsEnabled: false,
           compassEnabled: false,
         ),
